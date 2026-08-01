@@ -25,3 +25,13 @@ Use reusable widgets.
 Never leave TODO placeholders.
 
 Never break existing working features.
+## Interrupted Session Recovery
+
+If the previous Codex session was interrupted or stopped because of usage limits:
+
+1. Do NOT continue implementing new features.
+2. First repair the project until:
+   - dart format passes
+   - flutter analyze passes
+   - flutter run succeeds
+3. Only after the build is green may new features be implemented.
