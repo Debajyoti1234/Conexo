@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import '../../features/splash/splash_screen.dart';
 
 class AppRouter {
-  static final router = GoRouter(
-    initialLocation: "/",
-    routes: [
-      GoRoute(
-        path: "/",
-        builder: (context, state) => const SplashScreen(),
-      ),
-    ],
-  );
+  const AppRouter._();
+
+  static Route<T> slideRoute<T>(Widget page) => PageRouteBuilder<T>(
+        pageBuilder: (_, animation, __) => FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(begin: const Offset(0.08, 0), end: Offset.zero).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+            child: page,
+          ),
+        ),
+        transitionDuration: const Duration(milliseconds: 340),
+      );
 }

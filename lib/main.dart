@@ -16,7 +16,7 @@ class ConexoApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Conexo',
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.darkTheme,
       home: const SplashScreen(),
     );
   }

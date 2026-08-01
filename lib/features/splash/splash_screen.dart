@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/router/app_router.dart';
+import '../onboarding_screen.dart';
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -14,8 +17,11 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
 
-    Timer(const Duration(seconds: 3), () {
-      // TODO: Navigate to OnboardingScreen
+    Timer(const Duration(milliseconds: 2200), () {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        AppRouter.slideRoute(const OnboardingScreen()),
+      );
     });
   }
 
@@ -39,7 +45,7 @@ class _SplashScreenState extends State<SplashScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Image.asset(
-                "assets/logo/conexo_logo.png",
+                'assets/logo/conexo_logo.png.png',
                 height: 120,
               ),
               const SizedBox(height: 24),
