@@ -1,0 +1,16 @@
+name: Conexo
+version: 1.0.0
+schema: v1
+
+models:
+  - name: Claude 4.8
+    provider: openai
+    apiBase: https://api.agentrouter.org/v1
+    apiKey: sk-hyuwlMu0FKr9zqpRTe7EZP6yTq8MFjBGmQASouFyHVdTjWhD
+    model: claude-opus-4-8
+
+    roles:
+      - chat
+      - edit
+      - apply
+      - autocomplete

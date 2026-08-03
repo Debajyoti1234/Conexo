@@ -27,6 +27,10 @@ dependencies:
   # State Management
   flutter_riverpod: ^2.6.1
 
+  # Local preferences (Connections dashboard expansion state)
+  shared_preferences: ^2.3.2
+
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -38,6 +42,9 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/portraits/
     - assets/icons/
     - assets/logo/
     - assets/animations/
+
+

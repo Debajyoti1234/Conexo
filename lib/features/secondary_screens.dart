@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../app/theme/app_widgets.dart';
+import 'home_connection_dashboard.dart';
 import 'social_components.dart';
+
 
 class DiscoverScreen extends StatelessWidget {
   const DiscoverScreen({super.key});
@@ -55,7 +57,23 @@ class DiscoverScreen extends StatelessWidget {
   }
 }
 
+class ConnectionsScreen extends StatelessWidget {
+  const ConnectionsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ScreenFrame(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 18),
+        child: ConnectionsDashboard(),
+      ),
+    );
+  }
+}
+
+
 class PlansScreen extends StatelessWidget {
+
   const PlansScreen({super.key});
 
   @override

@@ -11,12 +11,13 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  int _selectedIndex = 0;
+  // People (index 1) is the default landing tab.
+  int _selectedIndex = 1;
 
   static const _screens = [
-    HomeScreen(),
-    DiscoverScreen(),
     PlansScreen(),
+    HomeScreen(),
+    ConnectionsScreen(),
     ChatsScreen(),
     ProfileScreen(),
   ];
@@ -33,24 +34,24 @@ class _MainShellState extends State<MainShell> {
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore_rounded),
-            label: 'Discover',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month_rounded),
             label: 'Plans',
           ),
           NavigationDestination(
+            icon: Icon(Icons.people_outline_rounded),
+            selectedIcon: Icon(Icons.people_rounded),
+            label: 'People',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.favorite_outline_rounded),
+            selectedIcon: Icon(Icons.favorite_rounded),
+            label: 'Connections',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.chat_bubble_outline_rounded),
             selectedIcon: Icon(Icons.chat_bubble_rounded),
-            label: 'Chats',
+            label: 'Rooms',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline_rounded),
@@ -62,3 +63,4 @@ class _MainShellState extends State<MainShell> {
     );
   }
 }
+
