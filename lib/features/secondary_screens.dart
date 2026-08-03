@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../app/theme/app_widgets.dart';
 import 'home_connection_dashboard.dart';
+import 'plans/plans_screen.dart';
 import 'social_components.dart';
+
 
 
 class DiscoverScreen extends StatelessWidget {
@@ -73,60 +75,14 @@ class ConnectionsScreen extends StatelessWidget {
 
 
 class PlansScreen extends StatelessWidget {
-
   const PlansScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return _ScreenFrame(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const HostPlanScreen()),
-            );
-          },
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Host a Plan'),
-        ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 104),
-          children: [
-            Text(
-              'Your plans',
-              style: Theme.of(
-                context,
-              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 20),
-            const SectionHeader('Plans Around You'),
-            const SizedBox(height: 14),
-            for (final plan in nearbyPlans.take(2)) ...[
-              HostCard(plan: plan, onJoin: () {}),
-              const SizedBox(height: 14),
-            ],
-            const SizedBox(height: 16),
-            const SectionHeader('Hosted by you'),
-            const SizedBox(height: 14),
-            const GlassCard(
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: UserAvatar(name: 'Avery', color: Color(0xFF8B5CF6)),
-                title: Text(
-                  'Sunday sketch & coffee',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                subtitle: Text('Tomorrow - 4 people joined'),
-                trailing: Icon(Icons.chevron_right_rounded),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const _ScreenFrame(child: PlansDiscoveryScreen());
   }
 }
+
 
 class ChatsScreen extends StatelessWidget {
   const ChatsScreen({super.key});
