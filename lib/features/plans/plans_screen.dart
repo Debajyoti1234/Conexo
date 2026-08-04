@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'create_plan_screen.dart';
+import 'my_plans_screen.dart';
 import 'plan_details_screen.dart';
 import 'plans_data.dart';
+
 import 'plans_filter.dart';
 import 'plans_sections.dart';
 import 'plans_widgets.dart';
@@ -89,13 +91,28 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 0, 20, 18),
-                child: Text(
-                  'Discover experiences worth showing up for.',
-                  style: TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Discover experiences worth showing up for.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFFB9C3DC),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _MyPlansPill(
+                      onTap: () =>
+                          Navigator.of(context).push<void>(myPlansRoute()),
+                    ),
+                  ],
                 ),
               ),
+
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
                 child: PlansSearchBar(
@@ -249,3 +266,61 @@ class _EmptyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const PlansEmptyState();
 }
+
+/// A compact glass "My Plans" pill in the header. Navigation lives in the
+/// Plans screen layer, so this only exposes the tap intent.
+class _MyPlansPill extends StatefulWidget {
+  const _MyPlansPill({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  State<_MyPlansPill> createState() => _MyPlansPillState();
+}
+
+class _MyPlansPillState extends State<_MyPlansPill> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.95 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .07),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: Colors.white.withValues(alpha: .14)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.event_note_rounded,
+                size: 16,
+                color: Color(0xFFB7A5FF),
+              ),
+              SizedBox(width: 7),
+              Text(
+                'My Plans',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+

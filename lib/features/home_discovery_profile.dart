@@ -88,7 +88,11 @@ class _HeroSection extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             _Portrait(person: person),
+            // Layered premium depth: a soft accent glow, the darkening scrim
+            // for legible overlay text, then a gentle vignette to focus.
+            _HeroGlow(accent: person.color),
             const _HeroScrim(),
+            const _HeroVignette(),
             Positioned(
               top: 18,
               left: 18,
@@ -150,7 +154,9 @@ class _Portrait extends StatelessWidget {
   }
 }
 
-/// A soft multi-stop gradient used when no portrait asset is available.
+/// A soft, multi-stop gradient avatar used when no portrait asset is
+/// available. A radial highlight adds subtle lighting so the placeholder
+/// still feels premium rather than flat.
 class _FallbackPortrait extends StatelessWidget {
   const _FallbackPortrait({required this.person});
 
@@ -159,24 +165,74 @@ class _FallbackPortrait extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = person.color;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.lerp(base, Colors.white, 0.35) ?? base,
-            base,
-            Color.lerp(base, const Color(0xFF0A0F1F), 0.5) ?? base,
-          ],
-          stops: const [0.0, 0.5, 1.0],
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.lerp(base, Colors.white, 0.38) ?? base,
+                base,
+                Color.lerp(base, const Color(0xFF0A0F1F), 0.55) ?? base,
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+          ),
         ),
-      ),
-      child: Center(
-        child: Icon(
-          Icons.person_rounded,
-          size: 120,
-          color: Colors.white.withValues(alpha: .5),
+        // Soft top-left lighting for a gentle sense of volume.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(-0.4, -0.55),
+              radius: 1.1,
+              colors: [
+                Colors.white.withValues(alpha: .28),
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.7],
+            ),
+          ),
+        ),
+        Center(
+          child: Text(
+            person.name.isEmpty ? '?' : person.name.characters.first,
+            style: TextStyle(
+              fontSize: 128,
+              fontWeight: FontWeight.w800,
+              color: Colors.white.withValues(alpha: .34),
+              letterSpacing: -2,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A soft radial accent glow behind the scrim, tinted by the person's color.
+/// Adds depth and a premium sense of lighting without heavy effects.
+class _HeroGlow extends StatelessWidget {
+  const _HeroGlow({required this.accent});
+
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(0, -0.45),
+            radius: 1.15,
+            colors: [
+              accent.withValues(alpha: .26),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.75],
+          ),
         ),
       ),
     );
@@ -207,6 +263,30 @@ class _HeroScrim extends StatelessWidget {
   }
 }
 
+/// A faint edge vignette that darkens the corners to draw the eye inward.
+class _HeroVignette extends StatelessWidget {
+  const _HeroVignette();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(0, -0.15),
+            radius: 1.2,
+            colors: [
+              Colors.transparent,
+              Colors.black.withValues(alpha: .32),
+            ],
+            stops: const [0.62, 1.0],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The minimal identity block shown before scrolling: name, age, distance,
 /// and the live connect-status line.
 class _IdentityBlock extends StatelessWidget {
@@ -223,13 +303,13 @@ class _IdentityBlock extends StatelessWidget {
         Text(
           '${person.name}, ${person.age}',
           style: const TextStyle(
-            fontSize: 38,
+            fontSize: 40,
             fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
-            height: 1.02,
+            letterSpacing: -0.8,
+            height: 1.0,
             color: Colors.white,
             shadows: [
-              Shadow(color: Color(0x99000000), blurRadius: 16),
+              Shadow(color: Color(0x99000000), blurRadius: 18),
             ],
           ),
         ),
@@ -239,15 +319,16 @@ class _IdentityBlock extends StatelessWidget {
             const Icon(
               Icons.near_me_rounded,
               size: 17,
-              color: Colors.white,
+              color: Color(0xFFEAEEF9),
             ),
             const SizedBox(width: 6),
             Text(
               person.distance,
               style: const TextStyle(
-                color: Colors.white,
+                color: Color(0xFFEAEEF9),
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
+                letterSpacing: .1,
                 shadows: [Shadow(color: Color(0x99000000), blurRadius: 12)],
               ),
             ),
@@ -536,13 +617,14 @@ class _DetailsSection extends StatelessWidget {
           ),
         ),
       ),
-      const SizedBox(height: 20),
+      const SizedBox(height: 22),
       Text(
         person.introduction,
         style: const TextStyle(
-          fontSize: 17,
+          fontSize: 18,
           height: 1.4,
           fontWeight: FontWeight.w600,
+          letterSpacing: .1,
           color: Color(0xFFEAEEF9),
         ),
       ),
@@ -608,15 +690,15 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: const Color(0xFFB7A5FF)),
+        Icon(icon, size: 19, color: const Color(0xFFB7A5FF)),
         const SizedBox(width: 9),
         Text(
           title,
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 17,
             fontWeight: FontWeight.w800,
             letterSpacing: .2,
-            color: Color(0xFFDDE3F4),
+            color: Color(0xFFEAEEF9),
           ),
         ),
       ],

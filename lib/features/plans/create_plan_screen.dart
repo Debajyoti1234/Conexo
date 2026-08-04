@@ -7,6 +7,7 @@ import 'create_plan_data.dart';
 import 'create_plan_preview.dart';
 import 'create_plan_sections.dart';
 import 'create_plan_widgets.dart';
+import 'plan_repository.dart';
 
 /// The premium Create Plan flow.
 ///
@@ -25,7 +26,7 @@ class CreatePlanScreen extends StatefulWidget {
 }
 
 class _CreatePlanScreenState extends State<CreatePlanScreen> {
-  final _store = PlanDraftStore();
+  final _repo = const LocalPlanRepository();
 
   final _titleController = TextEditingController();
   final _customMoodController = TextEditingController();
@@ -60,7 +61,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   }
 
   Future<void> _checkForDraft() async {
-    final saved = await _store.loadDraft();
+    final saved = await _repo.loadDraft();
     if (!mounted) return;
     if (saved != null && (saved.hasCover || saved.hasTitle)) {
       setState(() {
@@ -87,7 +88,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   }
 
   Future<void> _discardDraft() async {
-    await _store.clearDraft();
+    await _repo.clearDraft();
     if (!mounted) return;
     setState(() {
       _restorableDraft = null;
@@ -99,7 +100,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     setState(() => _draft = draft);
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 600), () {
-      _store.saveDraft(_draft);
+      _repo.saveDraft(_draft);
     });
   }
 
@@ -109,8 +110,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
 
     await Future<void>.delayed(const Duration(milliseconds: 900));
     final plan = PublishedPlan.fromDraft(_draft);
-    await _store.addPublished(plan);
-    await _store.clearDraft();
+    await _repo.savePublished(plan);
+    await _repo.clearDraft();
     if (!mounted) return;
 
     setState(() => _published = true);

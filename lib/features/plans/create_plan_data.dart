@@ -1,7 +1,4 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'plans_data.dart';
 
@@ -261,44 +258,6 @@ class PlanDraft {
   }
 }
 
-// ── Local persistence (SharedPreferences) ───────────────────────────────
-
-/// Saves / restores the in-progress draft and appends published plans.
-/// Local-only; no Firebase / backend.
-class PlanDraftStore {
-  static const _draftKey = 'conexo_plan_draft_v1';
-  static const _publishedKey = 'conexo_published_plans_v1';
-
-  Future<void> saveDraft(PlanDraft draft) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_draftKey, jsonEncode(draft.toJson()));
-  }
-
-  Future<PlanDraft?> loadDraft() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_draftKey);
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final map = jsonDecode(raw) as Map<String, dynamic>;
-      return PlanDraft.fromJson(map);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> clearDraft() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_draftKey);
-  }
-
-  Future<void> addPublished(PublishedPlan plan) async {
-    final prefs = await SharedPreferences.getInstance();
-    final list = prefs.getStringList(_publishedKey) ?? <String>[];
-    list.add(jsonEncode(plan.toJson()));
-    await prefs.setStringList(_publishedKey, list);
-  }
-}
-
 // ── The published plan (future-ready model) ─────────────────────────────
 
 class PublishedPlan {
@@ -356,6 +315,36 @@ class PublishedPlan {
         'description': description,
         'status': status,
       };
+
+  factory PublishedPlan.fromJson(Map<String, dynamic> json) {
+    DateTime parseRequired(Object? raw) =>
+        (raw is String ? DateTime.tryParse(raw) : null) ?? DateTime.now();
+    DateTime? parseNullable(Object? raw) =>
+        raw is String ? DateTime.tryParse(raw) : null;
+
+    PlanVisibility visibility = PlanVisibility.public;
+    final v = json['visibility'] as String?;
+    if (v == PlanVisibility.private.name) visibility = PlanVisibility.private;
+
+    return PublishedPlan(
+      id: (json['id'] as String?) ?? 'plan_unknown',
+      hostId: (json['hostId'] as String?) ?? 'local_user',
+      createdAt: parseRequired(json['createdAt']),
+      updatedAt: parseRequired(json['updatedAt']),
+      coverAsset: (json['coverAsset'] as String?) ?? '',
+      title: (json['title'] as String?) ?? '',
+      mood: (json['mood'] as String?) ?? '',
+      location: (json['location'] as String?) ?? '',
+      visibility: visibility,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      date: parseNullable(json['date']),
+      timeLabel: (json['timeLabel'] as String?) ?? '',
+      participants: json['participants'] as int?,
+      description: (json['description'] as String?) ?? '',
+      status: (json['status'] as String?) ?? 'active',
+    );
+  }
 
   factory PublishedPlan.fromDraft(PlanDraft draft) {
     final now = DateTime.now();
