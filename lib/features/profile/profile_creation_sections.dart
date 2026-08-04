@@ -1,0 +1,381 @@
+import 'package:flutter/material.dart';
+
+import 'profile_creation_widgets.dart';
+import 'profile_data.dart';
+import 'profile_validation.dart';
+
+/// Section widgets for the Profile Creation flow.
+///
+/// Every section is a thin, presentational widget that receives the current
+/// [UserProfileDraft] plus an `onChanged` callback and contains NO business
+/// logic — all persistence, validation, and stage progression live in the
+/// screen / data / validation layers. Sections only build UI and emit an
+/// updated draft.
+
+// ── Static option pools (local, no backend) ─────────────────────────────────
+
+const kInterestOptions = <String>[
+  'Music',
+  'Travel',
+  'Food',
+  'Fitness',
+  'Photography',
+  'Gaming',
+  'Reading',
+  'Movies',
+  'Art',
+  'Coding',
+  'Coffee',
+  'Hiking',
+  'Dancing',
+  'Fashion',
+  'Startups',
+  'Pets',
+];
+
+const kLanguageOptions = <String>[
+  'English',
+  'Hindi',
+  'Bengali',
+  'Spanish',
+  'French',
+  'German',
+  'Japanese',
+  'Tamil',
+  'Telugu',
+  'Marathi',
+];
+
+const kGenderOptions = <String>[
+  'Woman',
+  'Man',
+  'Non-binary',
+  'Prefer not to say',
+];
+
+const kSocialPlatforms = <String>[
+  'Instagram',
+  'Twitter',
+  'LinkedIn',
+  'Website',
+];
+
+// ── PhotosSection ────────────────────────────────────────────────────────────
+
+class PhotosSection extends StatelessWidget {
+  const PhotosSection({
+    required this.draft,
+    required this.onChanged,
+    super.key,
+  });
+
+  final UserProfileDraft draft;
+  final ValueChanged<UserProfileDraft> onChanged;
+
+  void _toggle(String asset) {
+    final current = [...draft.photos];
+    final existingIndex = current.indexWhere((p) => p.assetPath == asset);
+    if (existingIndex >= 0) {
+      current.removeAt(existingIndex);
+    } else {
+      if (current.length >= kMaxProfilePhotos) return;
+      current.add(ProfilePhoto(id: asset, assetPath: asset));
+    }
+    onChanged(draft.copyWith(photos: _normalizePrimary(current)));
+  }
+
+  void _reorder(int oldIndex, int newIndex) {
+    final current = [...draft.photos];
+    final item = current.removeAt(oldIndex);
+    current.insert(newIndex, item);
+    onChanged(draft.copyWith(photos: _normalizePrimary(current)));
+  }
+
+  /// Ensures exactly the first photo carries `isPrimary`.
+  List<ProfilePhoto> _normalizePrimary(List<ProfilePhoto> photos) {
+    return [
+      for (var i = 0; i < photos.length; i++)
+        photos[i].copyWith(isPrimary: i == 0),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionShell(
+      title: 'Your photos',
+      subtitle: 'Pick $kMinProfilePhotos–$kMaxProfilePhotos favorites. '
+          'Your first photo is your primary.',
+      completed: validatePhotos(draft.photos),
+      child: PhotoGrid(
+        gallery: profilePhotoGallery,
+        selected: draft.photos,
+        onToggle: _toggle,
+        onReorder: _reorder,
+      ),
+    );
+  }
+}
+
+// ── BioSection ───────────────────────────────────────────────────────────────
+
+class BioSection extends StatelessWidget {
+  const BioSection({
+    required this.controller,
+    required this.draft,
+    required this.onChanged,
+    super.key,
+  });
+
+  final TextEditingController controller;
+  final UserProfileDraft draft;
+  final ValueChanged<UserProfileDraft> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionShell(
+      title: 'Your bio',
+      subtitle: 'A short line that captures your vibe.',
+      completed: validateBio(draft.bio),
+      child: GlassTextField(
+        controller: controller,
+        hint: 'e.g. Coffee-fueled designer who loves weekend hikes.',
+        icon: Icons.edit_outlined,
+        maxLines: 3,
+        maxLength: 160,
+        onChanged: (v) => onChanged(draft.copyWith(bio: v)),
+      ),
+    );
+  }
+}
+
+// ── InterestsSection ─────────────────────────────────────────────────────────
+
+class InterestsSection extends StatelessWidget {
+  const InterestsSection({
+    required this.draft,
+    required this.onChanged,
+    super.key,
+  });
+
+  final UserProfileDraft draft;
+  final ValueChanged<UserProfileDraft> onChanged;
+
+  void _toggle(String interest) {
+    final current = [...draft.interests];
+    if (current.contains(interest)) {
+      current.remove(interest);
+    } else {
+      current.add(interest);
+    }
+    onChanged(draft.copyWith(interests: current));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionShell(
+      title: 'Interests',
+      subtitle: 'Choose at least $kMinInterests.',
+      completed: validateInterests(draft.interests),
+      child: MultiChipField(
+        options: kInterestOptions,
+        selected: draft.interests,
+        onToggle: _toggle,
+      ),
+    );
+  }
+}
+
+// ── LanguagesSection ─────────────────────────────────────────────────────────
+
+class LanguagesSection extends StatelessWidget {
+  const LanguagesSection({
+    required this.draft,
+    required this.onChanged,
+    super.key,
+  });
+
+  final UserProfileDraft draft;
+  final ValueChanged<UserProfileDraft> onChanged;
+
+  void _toggle(String language) {
+    final current = [...draft.languages];
+    if (current.contains(language)) {
+      current.remove(language);
+    } else {
+      current.add(language);
+    }
+    onChanged(draft.copyWith(languages: current));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionShell(
+      title: 'Languages',
+      subtitle: 'Choose at least $kMinLanguages.',
+      completed: validateLanguages(draft.languages),
+      child: MultiChipField(
+        options: kLanguageOptions,
+        selected: draft.languages,
+        onToggle: _toggle,
+      ),
+    );
+  }
+}
+
+// ── GenderSection ────────────────────────────────────────────────────────────
+
+class GenderSection extends StatelessWidget {
+  const GenderSection({
+    required this.draft,
+    required this.onChanged,
+    super.key,
+  });
+
+  final UserProfileDraft draft;
+  final ValueChanged<UserProfileDraft> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionShell(
+      title: 'Gender',
+      subtitle: 'How you identify.',
+      completed: draft.gender.trim().isNotEmpty,
+      child: GenderSelector(
+        options: kGenderOptions,
+        value: draft.gender,
+        onSelected: (v) => onChanged(draft.copyWith(gender: v)),
+      ),
+    );
+  }
+}
+
+// ── LocationSection ──────────────────────────────────────────────────────────
+
+class LocationSection extends StatelessWidget {
+  const LocationSection({
+    required this.controller,
+    required this.draft,
+    required this.onChanged,
+    super.key,
+  });
+
+  final TextEditingController controller;
+  final UserProfileDraft draft;
+  final ValueChanged<UserProfileDraft> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionShell(
+      title: 'Location',
+      subtitle: 'Where you are based.',
+      completed: draft.location.trim().isNotEmpty,
+      child: GlassTextField(
+        controller: controller,
+        hint: 'e.g. Bengaluru, India',
+        icon: Icons.location_on_outlined,
+        onChanged: (v) => onChanged(draft.copyWith(location: v)),
+      ),
+    );
+  }
+}
+
+// ── SocialLinksSection ───────────────────────────────────────────────────────
+
+class SocialLinksSection extends StatelessWidget {
+  const SocialLinksSection({
+    required this.controller,
+    required this.draft,
+    required this.onChanged,
+    super.key,
+  });
+
+  final TextEditingController controller;
+  final UserProfileDraft draft;
+  final ValueChanged<UserProfileDraft> onChanged;
+
+  SocialLink get _link => draft.socialLinks.isNotEmpty
+      ? draft.socialLinks.first
+      : const SocialLink(
+          platform: 'Instagram',
+          displayText: '',
+          url: '',
+        );
+
+  void _setPlatform(String platform) {
+    final link = _link.copyWith(platform: platform);
+    onChanged(draft.copyWith(socialLinks: [link]));
+  }
+
+  void _setUrl(String url) {
+    final link = _link.copyWith(url: url, displayText: url);
+    onChanged(draft.copyWith(socialLinks: [link]));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionShell(
+      title: 'Social link',
+      subtitle: 'Add at least one so people can connect.',
+      completed: validateSocialLinks(draft.socialLinks),
+      child: SocialLinkField(
+        platforms: kSocialPlatforms,
+        platform: _link.platform,
+        controller: controller,
+        onPlatformChanged: _setPlatform,
+        onUrlChanged: _setUrl,
+      ),
+    );
+  }
+}
+
+// ── OptionalDetailsSection ───────────────────────────────────────────────────
+
+/// Optional details never block completion; they simply enrich the preview.
+class OptionalDetailsSection extends StatelessWidget {
+  const OptionalDetailsSection({
+    required this.occupationController,
+    required this.collegeController,
+    required this.hometownController,
+    required this.draft,
+    required this.onChanged,
+    super.key,
+  });
+
+  final TextEditingController occupationController;
+  final TextEditingController collegeController;
+  final TextEditingController hometownController;
+  final UserProfileDraft draft;
+  final ValueChanged<UserProfileDraft> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionShell(
+      title: 'A little more (optional)',
+      subtitle: 'These are optional and never block completion.',
+      child: Column(
+        children: [
+          GlassTextField(
+            controller: occupationController,
+            hint: 'Occupation',
+            icon: Icons.work_outline_rounded,
+            onChanged: (v) => onChanged(draft.copyWith(occupation: v)),
+          ),
+          const SizedBox(height: 12),
+          GlassTextField(
+            controller: collegeController,
+            hint: 'College',
+            icon: Icons.school_outlined,
+            onChanged: (v) => onChanged(draft.copyWith(college: v)),
+          ),
+          const SizedBox(height: 12),
+          GlassTextField(
+            controller: hometownController,
+            hint: 'Hometown',
+            icon: Icons.home_outlined,
+            onChanged: (v) => onChanged(draft.copyWith(hometown: v)),
+          ),
+        ],
+      ),
+    );
+  }
+}
