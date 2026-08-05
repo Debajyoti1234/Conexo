@@ -5,6 +5,12 @@ library;
 /// UI preview data only — no messaging, no business logic, no persistence.
 /// Everything here is const-constructible so tiles rebuild cheaply.
 
+/// Whether a conversation is a one-to-one private chat or a plan group chat.
+enum ConversationType {
+  private,
+  group,
+}
+
 /// Presence of a connection, purely for the inbox status affordance.
 enum ConversationStatus {
   /// The person is currently active.
@@ -37,6 +43,7 @@ class ConversationPreview {
     required this.avatarAsset,
     required this.lastMessage,
     required this.timestamp,
+    this.type = ConversationType.private,
     this.status = ConversationStatus.offline,
     this.lastMessageType = LastMessageType.text,
     this.unreadCount = 0,
@@ -51,6 +58,9 @@ class ConversationPreview {
 
   /// Display name of the connection.
   final String name;
+
+  /// Whether this is a private one-to-one chat or a plan group chat.
+  final ConversationType type;
 
   /// Local portrait asset path (reuses the existing demo portraits).
   final String avatarAsset;
@@ -84,4 +94,7 @@ class ConversationPreview {
 
   /// Convenience: whether there are any unread messages.
   bool get hasUnread => unreadCount > 0;
+
+  /// Convenience: whether this conversation is a plan group chat.
+  bool get isGroup => type == ConversationType.group;
 }
