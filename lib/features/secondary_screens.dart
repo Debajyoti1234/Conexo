@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../app/theme/app_widgets.dart';
+import 'chat/connections_screen.dart';
 import 'home_connection_dashboard.dart';
 import 'plans/plans_screen.dart';
+import 'profile/my_profile_screen.dart';
+import 'profile/profile_creation_screen.dart';
+import 'profile/profile_repository.dart';
 import 'social_components.dart';
+
 
 
 
@@ -89,129 +94,144 @@ class ChatsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return const _ScreenFrame(child: ConnectionsInboxScreen());
+  }
+}
+
+/// The Profile tab entry point.
+///
+/// A UI/navigation surface only: it asks the injected [ProfileRepository]
+/// whether a finalized profile exists and routes accordingly.
+///
+///  • No profile → a premium welcome screen with a single **Create Profile**
+///    CTA into the existing `premiumProfileCreationRoute()`. After a successful
+///    creation, it always opens **My Profile**.
+///  • Profile exists → **My Profile** is shown directly (the Tinder/Bumble-style
+///    [MyProfileScreen]).
+///
+/// It never rebuilds profile features; it only connects already-built screens.
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({
+    super.key,
+    this.repository = const LocalProfileRepository(),
+  });
+
+  /// Injected repository (defaults to the local implementation). A future
+  /// backend repository can be supplied without changing this screen.
+  final ProfileRepository repository;
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _loading = true;
+  bool _hasProfile = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final hasProfile = await widget.repository.hasProfile();
+    if (!mounted) return;
+    setState(() {
+      _hasProfile = hasProfile;
+      _loading = false;
+    });
+  }
+
+  /// Opens Profile Creation. On successful creation, always opens My Profile.
+  Future<void> _openCreation() async {
+    await Navigator.of(context).push(premiumProfileCreationRoute(
+      repository: widget.repository,
+    ));
+    if (!mounted) return;
+    final created = await widget.repository.hasProfile();
+    if (!mounted) return;
+    if (created) {
+      setState(() => _hasProfile = true);
+      return;
+    }
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const _ScreenFrame(
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+        ),
+      );
+    }
+
+    // Profile exists → My Profile directly (its own full-bleed hero layout, so
+    // it is not wrapped in the constrained _ScreenFrame).
+    if (_hasProfile) {
+      return MyProfileScreen(repository: widget.repository);
+    }
+
+    // No profile → premium welcome with a single Create Profile CTA.
     return _ScreenFrame(
       child: ListView(
         padding: const EdgeInsets.all(20),
+        children: [_ProfileWelcomeCard(onCreate: _openCreation)],
+      ),
+    );
+  }
+}
+
+/// Shown to first-time users with no saved profile — a single Create Profile
+/// CTA into the existing Profile Creation flow.
+class _ProfileWelcomeCard extends StatelessWidget {
+  const _ProfileWelcomeCard({required this.onCreate});
+
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
+      child: Column(
         children: [
+          Container(
+            height: 64,
+            width: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFF8B5CF6).withValues(alpha: .16),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.person_add_alt_1_rounded,
+              size: 30,
+              color: Color(0xFFB7A5FF),
+            ),
+          ),
+          const SizedBox(height: 20),
           Text(
-            'Chats',
+            'Create your profile',
+            textAlign: TextAlign.center,
             style: Theme.of(
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           const Text(
-            'Small plans are where better conversations begin.',
+            'Set up a premium presence so people can find and connect with you.',
+            textAlign: TextAlign.center,
             style: TextStyle(color: Color(0xFFB9C3DC)),
           ),
-          const SizedBox(height: 24),
-          const _ChatRow(
-            name: 'Coffee & Camera Walk',
-            message: 'Maya is typing...',
-            time: 'Now',
-            color: Color(0xFFE36D9D),
-            online: true,
-          ),
-          const _ChatRow(
-            name: 'Arjun Mehta',
-            message: 'I found the perfect place for this.',
-            time: '14m',
-            color: Color(0xFF22BFE0),
-            online: true,
-            unread: 2,
-          ),
-          const _ChatRow(
-            name: 'Friday Vinyl Club',
-            message: 'Nora: I can bring some records.',
-            time: '1h',
-            color: Color(0xFF8B5CF6),
-            unread: 4,
-          ),
+          const SizedBox(height: 22),
+          ConexoButton(label: 'Create Profile', onPressed: onCreate),
         ],
       ),
     );
   }
 }
 
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return _ScreenFrame(
-      child: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const Center(
-            child: UserAvatar(
-              name: 'Avery',
-              size: 104,
-              online: true,
-              color: Color(0xFF8B5CF6),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Avery Sharma',
-            textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 6),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.verified_rounded, size: 17, color: Color(0xFF69D9F0)),
-              SizedBox(width: 5),
-              Text(
-                'Verified member',
-                style: TextStyle(color: Color(0xFFB9C3DC)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 26),
-          Row(
-            children: const [
-              Expanded(
-                child: ProfileStatCard(value: '8', label: 'Plans Hosted'),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: ProfileStatCard(value: '16', label: 'Plans Joined'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: const [
-              Expanded(
-                child: ProfileStatCard(value: '27', label: 'Friends Made'),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: ProfileStatCard(value: '4.9', label: 'Host Rating'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 28),
-          const SectionHeader('Interests'),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              InterestChip(label: 'Coffee', icon: Icons.coffee_rounded),
-              InterestChip(label: 'Live music', icon: Icons.music_note_rounded),
-              InterestChip(label: 'Travel', icon: Icons.flight_takeoff_rounded),
-              InterestChip(label: 'Design', icon: Icons.palette_outlined),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class HostPlanScreen extends StatelessWidget {
   const HostPlanScreen({super.key});
@@ -284,37 +304,3 @@ class _ScreenFrame extends StatelessWidget {
   );
 }
 
-class _ChatRow extends StatelessWidget {
-  const _ChatRow({
-    required this.name,
-    required this.message,
-    required this.time,
-    required this.color,
-    this.unread = 0,
-    this.online = false,
-  });
-  final String name;
-  final String message;
-  final String time;
-  final Color color;
-  final int unread;
-  final bool online;
-  @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: const EdgeInsets.symmetric(vertical: 7),
-    leading: UserAvatar(name: name, size: 50, color: color, online: online),
-    title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
-    subtitle: Text(message, maxLines: 1, overflow: TextOverflow.ellipsis),
-    trailing: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          time,
-          style: const TextStyle(fontSize: 11, color: Color(0xFFB9C3DC)),
-        ),
-        if (unread > 0) const SizedBox(height: 6),
-        if (unread > 0) CircleAvatar(radius: 10, child: Text('$unread')),
-      ],
-    ),
-  );
-}
