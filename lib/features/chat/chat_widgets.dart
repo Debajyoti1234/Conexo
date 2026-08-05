@@ -309,11 +309,25 @@ class PremiumSearchBar extends StatelessWidget {
 }
 
 /// The premium empty state shown when there are no matching conversations.
+///
+/// Tab-aware: [emptyIcon], [emptyTitle], and [emptyBody] let each tab supply
+/// its own copy (Connections vs Plans). Search always wins over tab copy.
 class EmptyInbox extends StatelessWidget {
-  const EmptyInbox({super.key, this.isSearch = false});
+  const EmptyInbox({
+    super.key,
+    this.isSearch = false,
+    this.emptyIcon = Icons.forum_outlined,
+    this.emptyTitle = 'No conversations yet',
+    this.emptyBody = 'When you connect with people, your chats appear here.',
+  });
 
   /// When true, the copy reflects an empty *search* rather than a fresh inbox.
   final bool isSearch;
+
+  /// Tab-specific icon / title / body shown when not searching.
+  final IconData emptyIcon;
+  final String emptyTitle;
+  final String emptyBody;
 
   @override
   Widget build(BuildContext context) {
@@ -331,24 +345,164 @@ class EmptyInbox extends StatelessWidget {
                 border: Border.all(color: Colors.white.withValues(alpha: .10)),
               ),
               child: Icon(
-                isSearch ? Icons.search_off_rounded : Icons.forum_outlined,
+                isSearch ? Icons.search_off_rounded : emptyIcon,
                 size: 34,
                 color: _kSubtle,
               ),
             ),
             const SizedBox(height: 20),
             Text(
-              isSearch ? 'No matches' : 'No conversations yet',
+              isSearch ? 'No matches' : emptyTitle,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
             Text(
-              isSearch
-                  ? 'Try a different name.'
-                  : 'When you connect with people, your chats appear here.',
+              isSearch ? 'Try a different name.' : emptyBody,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13.5, color: _kMuted),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A premium segmented control for the Chat home: **Connections | Plans**.
+///
+/// Dark-glass pill with a sliding highlight, optional per-segment count
+/// badges, and haptic-free instant switching. UI only.
+class ChatSegmentedTabs extends StatelessWidget {
+  const ChatSegmentedTabs({
+    required this.selectedIndex,
+    required this.onChanged,
+    super.key,
+    this.connectionsCount,
+    this.plansCount,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+  final int? connectionsCount;
+  final int? plansCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final segmentWidth = (constraints.maxWidth - 8) / 2;
+        return Container(
+          height: 48,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          ),
+          child: Stack(
+            children: [
+              AnimatedAlign(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                alignment: selectedIndex == 0
+                    ? Alignment.centerLeft
+                    : Alignment.centerRight,
+                child: Container(
+                  width: segmentWidth,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _kAccent.withValues(alpha: .35),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  _Segment(
+                    label: 'Connections',
+                    count: connectionsCount,
+                    selected: selectedIndex == 0,
+                    onTap: () => onChanged(0),
+                  ),
+                  _Segment(
+                    label: 'Plans',
+                    count: plansCount,
+                    selected: selectedIndex == 1,
+                    onTap: () => onChanged(1),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Segment extends StatelessWidget {
+  const _Segment({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.count,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final int? count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.1,
+                color: selected ? Colors.white : _kSubtle,
+              ),
+            ),
+            if (count != null && count! > 0) ...[
+              const SizedBox(width: 7),
+              Container(
+                constraints: const BoxConstraints(minWidth: 18),
+                height: 18,
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Colors.white.withValues(alpha: .22)
+                      : Colors.white.withValues(alpha: .08),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: selected ? Colors.white : _kSubtle,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -433,7 +587,7 @@ class ConversationTile extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(child: _NameAndPreview(c: c, emphasize: emphasizeName)),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               _Trailing(c: c),
             ],
           ),
@@ -552,6 +706,7 @@ class _Trailing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -563,13 +718,13 @@ class _Trailing extends StatelessWidget {
             color: c.hasUnread ? const Color(0xFFB7A5FF) : _kSubtle,
           ),
         ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 22,
-          child: c.hasUnread
-              ? UnreadBadge(count: c.unreadCount)
-              : (c.isPinned ? const PinnedIndicator() : const SizedBox()),
-        ),
+        if (c.hasUnread) ...[
+          const SizedBox(height: 6),
+          UnreadBadge(count: c.unreadCount),
+        ] else if (c.isPinned) ...[
+          const SizedBox(height: 6),
+          const PinnedIndicator(),
+        ],
       ],
     );
   }

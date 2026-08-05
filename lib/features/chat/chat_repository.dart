@@ -10,12 +10,28 @@ import 'message_models.dart';
 class LocalChatRepository {
   const LocalChatRepository();
 
-  /// Loads the demo conversations. Kept async so a real source can slot in
-  /// later without changing call sites.
+  /// Loads every demo conversation (both tabs). Kept async so a real source
+  /// can slot in later without changing call sites.
   Future<List<ConversationPreview>> loadConversations() async {
     // A tiny delay lets the inbox show its premium loading skeleton briefly.
     await Future<void>.delayed(const Duration(milliseconds: 450));
     return demoConversations;
+  }
+
+  /// Loads only private one-to-one chats for the **Connections** tab.
+  Future<List<ConversationPreview>> loadConnectionConversations() async {
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    return demoConversations
+        .where((c) => c.type == ConversationType.private)
+        .toList();
+  }
+
+  /// Loads only plan group chats for the **Plans** tab.
+  Future<List<ConversationPreview>> loadPlanConversations() async {
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    return demoConversations
+        .where((c) => c.type == ConversationType.group)
+        .toList();
   }
 
   /// Loads the message thread for a conversation (chronological order).

@@ -10,30 +10,40 @@ import 'chat_widgets.dart';
 /// them out. Each conversation exposes an [onOpen] intent; the inbox screen
 /// owns navigation.
 
-/// The large, premium "Connections" header.
+/// The large, premium chat home header.
+///
+/// Reused across both tabs — the [title] and [subtitle] change while the
+/// premium type + spacing stay identical. Defaults to the Connections copy.
 class ConnectionsHeader extends StatelessWidget {
-  const ConnectionsHeader({super.key});
+  const ConnectionsHeader({
+    super.key,
+    this.title = 'Connections',
+    this.subtitle = 'Your private conversations, in one calm place.',
+  });
+
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(4, 4, 4, 0),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Connections',
-            style: TextStyle(
+            title,
+            style: const TextStyle(
               fontSize: 30,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.6,
               color: Colors.white,
             ),
           ),
-          SizedBox(height: 6),
+          const SizedBox(height: 6),
           Text(
-            'Your private conversations, in one calm place.',
-            style: TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+            subtitle,
+            style: const TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
           ),
         ],
       ),
@@ -84,25 +94,27 @@ class PinnedConversationsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionLabel('Pinned'),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .045),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Colors.white.withValues(alpha: .08)),
-            ),
-            child: Column(
-              children: [
-                for (final c in conversations)
-                  RepaintBoundary(
-                    key: ValueKey('pinned-${c.id}'),
-                    child: ConversationTile(
-                      conversation: c,
-                      onTap: () => onOpen(c),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .045),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Colors.white.withValues(alpha: .08)),
+              ),
+              child: Column(
+                children: [
+                  for (final c in conversations)
+                    RepaintBoundary(
+                      key: ValueKey('pinned-${c.id}'),
+                      child: ConversationTile(
+                        conversation: c,
+                        onTap: () => onOpen(c),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
