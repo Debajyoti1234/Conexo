@@ -176,8 +176,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 26,
-      height: 10,
+      height: 11,
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
@@ -185,17 +184,21 @@ class _TypingIndicatorState extends State<TypingIndicator>
             mainAxisSize: MainAxisSize.min,
             children: List.generate(3, (i) {
               final phase = (_controller.value + i * 0.22) % 1.0;
-              final t = (phase < 0.5 ? phase : 1 - phase) * 2; // 0→1→0
+              final wave = (phase < 0.5 ? phase : 1 - phase) * 2; // 0→1→0
+              final t = Curves.easeOutCubic.transform(wave);
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 1.6),
-                child: Opacity(
-                  opacity: 0.35 + t * 0.65,
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: widget.color,
-                      shape: BoxShape.circle,
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Transform.translate(
+                  offset: Offset(0, -t * 2),
+                  child: Opacity(
+                    opacity: 0.35 + t * 0.65,
+                    child: Container(
+                      width: 6.5,
+                      height: 6.5,
+                      decoration: BoxDecoration(
+                        color: widget.color,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
                 ),
@@ -207,6 +210,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
     );
   }
 }
+
 
 /// A small pinned glyph shown in the trailing column.
 class PinnedIndicator extends StatelessWidget {
@@ -579,6 +583,7 @@ class ConversationTile extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ConversationAvatar(
                 asset: c.avatarAsset,
@@ -587,9 +592,10 @@ class ConversationTile extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(child: _NameAndPreview(c: c, emphasize: emphasizeName)),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               _Trailing(c: c),
             ],
+
           ),
         ),
       ),
@@ -612,10 +618,11 @@ class _NameAndPreview extends StatelessWidget {
       children: [
         Row(
           children: [
-            Flexible(
+            Expanded(
               child: Text(
                 c.name,
                 maxLines: 1,
+                softWrap: false,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 15.5,
@@ -707,24 +714,31 @@ class _Trailing extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
           c.timestamp,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.clip,
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
             color: c.hasUnread ? const Color(0xFFB7A5FF) : _kSubtle,
           ),
         ),
-        if (c.hasUnread) ...[
-          const SizedBox(height: 6),
-          UnreadBadge(count: c.unreadCount),
-        ] else if (c.isPinned) ...[
-          const SizedBox(height: 6),
-          const PinnedIndicator(),
-        ],
+        const SizedBox(height: 6),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (c.isPinned) ...[
+              const PinnedIndicator(),
+              if (c.hasUnread) const SizedBox(width: 6),
+            ],
+            if (c.hasUnread) UnreadBadge(count: c.unreadCount),
+          ],
+        ),
       ],
     );
   }

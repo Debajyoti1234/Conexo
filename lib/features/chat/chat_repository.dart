@@ -46,4 +46,25 @@ class LocalChatRepository {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     return demoGroupMetadata[conversationId];
   }
+
+  /// Finds a conversation for a connection by matching the connection ID to
+  /// an explicit internal map. Returns null when no conversation exists yet.
+  ConversationPreview? findConversationForConnection(String connectionId) {
+    const idMap = <String, String>{
+      'network_002': 'c2', // Arjun Mehta
+    };
+    final conversationId = idMap[connectionId];
+    if (conversationId == null) return null;
+    try {
+      return demoConversations.firstWhere((c) => c.id == conversationId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Finds a group chat for a plan. No demo plan currently links to a group
+  /// chat, so this always returns null for now.
+  ConversationPreview? findConversationForPlan(String planId) {
+    return null;
+  }
 }

@@ -55,9 +55,10 @@ class ConversationAppBar extends StatelessWidget
                 asset: c.avatarAsset,
                 name: c.name,
                 status: c.status,
-                size: 42,
+                size: 44,
               ),
               const SizedBox(width: 12),
+
               Expanded(child: _TitleBlock(conversation: c, group: group)),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
@@ -208,8 +209,21 @@ class MessageComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .04),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .22),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -223,11 +237,6 @@ class MessageComposer extends StatelessWidget {
                 constraints: const BoxConstraints(minHeight: 48),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 alignment: Alignment.centerLeft,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .06),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withValues(alpha: .10)),
-                ),
                 child: const Text(
                   'Message',
                   style: TextStyle(
@@ -238,7 +247,7 @@ class MessageComposer extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             _CircleButton(
               icon: Icons.arrow_upward_rounded,
               filled: true,
@@ -248,6 +257,7 @@ class MessageComposer extends StatelessWidget {
         ),
       ),
     );
+
   }
 }
 
@@ -304,24 +314,33 @@ class ConversationIntro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(28, 24, 28, 12),
+      padding: const EdgeInsets.fromLTRB(28, 28, 28, 14),
       child: Column(
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 68,
+            height: 68,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _kAccent.withValues(alpha: .12),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _kAccent.withValues(alpha: .22),
+                  _kAccent.withValues(alpha: .08),
+                ],
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: .08)),
             ),
             alignment: Alignment.center,
             child: const Icon(
               Icons.lock_outline_rounded,
-              size: 26,
+              size: 27,
               color: Color(0xFFB7A5FF),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+
           Text(
             'You\'re connected with $name',
             textAlign: TextAlign.center,

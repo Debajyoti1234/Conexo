@@ -1,32 +1,31 @@
 import 'package:flutter/material.dart';
 
 import 'profile_data.dart';
-import 'profile_strength_data.dart';
 import 'public_profile_data.dart';
 import 'public_profile_widgets.dart';
 
 /// Composed, presentational sections for Phase 4.5 — Public Profile Viewer.
 ///
 /// Each section is a thin, stateless widget that renders part of the immutable
-/// [PublicProfileViewData] / [ProfileStrengthResult]. There is NO business
-/// logic, persistence, or networking here — sections simply arrange the
-/// reusable widgets from `public_profile_widgets.dart`. Sections with no data
-/// render nothing (`SizedBox.shrink`) so the screen never shows empty cards.
+/// [PublicProfileViewData]. There is NO business logic, persistence, or
+/// networking here — sections simply arrange the reusable widgets from
+/// `public_profile_widgets.dart`. Sections with no data render nothing
+/// (`SizedBox.shrink`) so the screen never shows empty cards.
 
 // ── HeroSection ───────────────────────────────────────────────────────────────
 
 /// The large immersive hero (photo + identity + badges).
 class HeroSection extends StatelessWidget {
-  const HeroSection({required this.data, required this.strength, super.key});
+  const HeroSection({required this.data, super.key});
 
   final PublicProfileViewData data;
-  final ProfileStrengthResult strength;
 
   @override
   Widget build(BuildContext context) {
-    return ProfileHero(data: data, strength: strength);
+    return ProfileHero(data: data);
   }
 }
+
 
 // ── AboutProfileSection ───────────────────────────────────────────────────────
 

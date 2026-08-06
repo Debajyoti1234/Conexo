@@ -79,10 +79,18 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           group: _group,
                         ),
                 ),
-                const MessageComposer(),
+                AnimatedPadding(
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: const MessageComposer(),
+                ),
               ],
             ),
     );
+
   }
 
   List<ChatMenuAction> _buildMenuActions(ConversationPreview c) {
@@ -149,7 +157,8 @@ class _MessageList extends StatelessWidget {
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 6),
+
       itemCount: reversed.length,
       itemBuilder: (context, index) {
         final msg = reversed[index];

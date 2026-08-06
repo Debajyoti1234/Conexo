@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'home_discovery_animations.dart';
 import 'home_discovery_connect.dart';
 import 'home_discovery_data.dart';
 import 'home_discovery_profile.dart';
 import 'home_discovery_skeleton.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,6 +26,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _pendingTimer;
   Timer? _connectedTimer;
 
+  /// The people currently visible for the selected filter. Filtering is a pure,
+
+  /// local operation over the existing demo data — no backend, no persistence.
+  List<DiscoveryPerson> get _visiblePeople =>
+      filterDiscoveryPeople(peopleAroundYou, _selectedFilter);
+
   @override
   void dispose() {
     _loadTimer?.cancel();
@@ -33,14 +41,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _move(int direction) {
+    final people = _visiblePeople;
+    if (people.isEmpty) return;
     _loadTimer?.cancel();
     _pendingTimer?.cancel();
     _connectedTimer?.cancel();
     setState(() {
       _direction = direction;
-      _index =
-          (_index + direction + peopleAroundYou.length) %
-          peopleAroundYou.length;
+      _index = (_index + direction + people.length) % people.length;
       _connectPhase = ConnectPhase.none;
       _loading = true;
     });
@@ -48,6 +56,28 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _loading = false);
     });
   }
+
+  /// Applies a filter selection, safely resetting the visible index and
+  /// replaying the brief loading transition so the switch feels premium.
+  void _selectFilter(String filter) {
+    if (filter == _selectedFilter) return;
+    _loadTimer?.cancel();
+    _pendingTimer?.cancel();
+    _connectedTimer?.cancel();
+    setState(() {
+      _selectedFilter = filter;
+      _direction = 1;
+      _index = 0;
+      _connectPhase = ConnectPhase.none;
+      _loading = filterDiscoveryPeople(peopleAroundYou, filter).isNotEmpty;
+    });
+    if (_loading) {
+      _loadTimer = Timer(const Duration(milliseconds: 420), () {
+        if (mounted) setState(() => _loading = false);
+      });
+    }
+  }
+
 
   /// One-tap connect: heart burst → Request Sent (pending) → automatic demo
   /// approval → Connected. No confirmation dialog.
@@ -66,8 +96,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final person = peopleAroundYou[_index];
-    final counterLabel = 'Nearby • ${_index + 1} / ${peopleAroundYou.length}';
+    final people = _visiblePeople;
+    final hasPeople = people.isNotEmpty;
+    final safeIndex = hasPeople ? _index.clamp(0, people.length - 1) : 0;
+    final person = hasPeople ? people[safeIndex] : null;
+    final counterLabel = 'Nearby • ${safeIndex + 1} / ${people.length}';
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
@@ -87,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             SizedBox(
               height: 34,
               child: GestureDetector(
@@ -99,15 +132,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   itemBuilder: (context, index) {
                     final filter = _discoveryFilters[index];
                     return _DiscoveryFilterChip(
+                      key: ValueKey<String>('filter_$filter'),
                       label: filter,
                       selected: _selectedFilter == filter,
-                      onTap: () => setState(() => _selectedFilter = filter),
+                      onTap: () => _selectFilter(filter),
                     );
                   },
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Expanded(
               child: Stack(
                 fit: StackFit.expand,
@@ -141,8 +175,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         ? const ProfileSkeleton(
                             key: ValueKey<String>('skeleton'),
                           )
+                        : person == null
+                        ? _DiscoveryEmptyState(
+                            key: const ValueKey<String>('empty'),
+                            filter: _selectedFilter,
+                            onReset: () => _selectFilter('All'),
+                          )
                         : ImmersiveProfileView(
-                            key: ValueKey<String>(person.name),
+                            key: ValueKey<String>('${person.name}_$safeIndex'),
                             person: person,
                             counterLabel: counterLabel,
                             connectPhase: _connectPhase,
@@ -170,6 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
 
   String _greeting() {
     final hour = DateTime.now().hour;
@@ -274,12 +315,231 @@ const _discoveryFilters = <String>[
   'Shared Interests',
 ];
 
+/// Keyword sets used to map a category chip to the existing [DiscoveryPerson]
+/// interest/lifestyle vocabulary in the demo data. Matching is case-insensitive
+/// and substring-based so related terms (e.g. "Cafes" → "Coffee") still hit.
+const _kFilterKeywords = <String, List<String>>{
+  'Coffee': ['coffee', 'cafe', 'espresso', 'chai', 'tea'],
+  'Walk': ['walk', 'walking', 'hiking', 'trek', 'running', 'run'],
+  'Music': ['music', 'singing', 'jazz', 'vinyl', 'songwriter', 'podcast'],
+  'Study': ['book', 'reading', 'writing', 'poetry', 'chess', 'journaling'],
+};
+
+/// Pure, local filter over the demo [people] for a given [filter] chip.
+///
+/// This never touches a backend, repository, or persistence — it simply narrows
+/// the visible list using fields already present on [DiscoveryPerson].
+List<DiscoveryPerson> filterDiscoveryPeople(
+  List<DiscoveryPerson> people,
+  String filter,
+) {
+  switch (filter) {
+    case 'All':
+      return people;
+    case 'Nearby':
+      return [
+        for (final p in people)
+          if (_distanceMeters(p.distance) <= 1500) p,
+      ];
+    case 'Verified':
+      return [
+        for (final p in people)
+          if (p.verified) p,
+      ];
+    case 'Available Now':
+      return [
+        for (final p in people)
+          if (p.availability.toLowerCase().contains('available now')) p,
+      ];
+    case 'New':
+      return [
+        for (final p in people)
+          if (p.introduction.toLowerCase().contains('new here') ||
+              p.introduction.toLowerCase().contains('new to'))
+            p,
+      ];
+    case 'Shared Interests':
+      return [
+        for (final p in people)
+          if (p.mutualInterests.isNotEmpty) p,
+      ];
+    default:
+      final keywords = _kFilterKeywords[filter];
+      if (keywords == null) return people;
+      return [
+        for (final p in people)
+          if (_matchesKeywords(p, keywords)) p,
+      ];
+  }
+}
+
+/// Whether any of the person's textual interest fields contain one of the
+/// [keywords] (case-insensitive substring match).
+bool _matchesKeywords(DiscoveryPerson person, List<String> keywords) {
+  final haystack = <String>[
+    ...person.tags,
+    ...person.mutualInterests,
+    ...person.lifestyle,
+    person.introduction,
+    person.lookingFor,
+  ].join(' ').toLowerCase();
+  for (final k in keywords) {
+    if (haystack.contains(k)) return true;
+  }
+  return false;
+}
+
+/// Parses a demo distance label (e.g. "800m away", "1.4 km away") into meters.
+/// Returns a large value when it cannot be parsed so it is excluded from
+/// "Nearby".
+double _distanceMeters(String distance) {
+  final lower = distance.toLowerCase();
+  final match = RegExp(r'([\d.]+)').firstMatch(lower);
+  if (match == null) return double.infinity;
+  final value = double.tryParse(match.group(1) ?? '');
+  if (value == null) return double.infinity;
+  return lower.contains('km') ? value * 1000 : value;
+}
+
+/// A premium empty state shown when the active filter matches nobody. Reuses
+/// the existing dark-glass language and the [EntranceFade] entrance motion.
+class _DiscoveryEmptyState extends StatelessWidget {
+  const _DiscoveryEmptyState({
+    required this.filter,
+    required this.onReset,
+    super.key,
+  });
+
+  final String filter;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: EntranceFade(
+        offset: const Offset(0, 0.06),
+        scaleFrom: 0.98,
+        duration: const Duration(milliseconds: 460),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 92,
+                  width: 92,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Colors.white.withValues(alpha: .12),
+                        Colors.white.withValues(alpha: .04),
+                      ],
+                    ),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: .16),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.travel_explore_rounded,
+                    size: 42,
+                    color: Color(0xFFB7A5FF),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  'No one matches "$filter" nearby',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                    color: Color(0xFFEAEEF9),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Try a different filter to see more people around you.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: Color(0xFFAEB9D6),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                _EmptyStateResetButton(onTap: onReset),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyStateResetButton extends StatelessWidget {
+  const _EmptyStateResetButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF7C3AED).withValues(alpha: .4),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.refresh_rounded, size: 18, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                'Show everyone',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
 class _DiscoveryFilterChip extends StatelessWidget {
   const _DiscoveryFilterChip({
     required this.label,
     required this.selected,
     required this.onTap,
+    super.key,
   });
+
   final String label;
   final bool selected;
   final VoidCallback onTap;

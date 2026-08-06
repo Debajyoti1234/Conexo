@@ -406,20 +406,32 @@ class _ManageNavTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: .07)),
+            border: Border.all(color: Colors.white.withValues(alpha: .08)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .18),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Row(
             children: [
               Container(
                 height: 44,
                 width: 44,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: const Color(0xFF8B5CF6).withValues(alpha: .16),
                   borderRadius: BorderRadius.circular(13),
+                  border: Border.all(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: .22),
+                  ),
                 ),
                 child: Icon(icon, size: 21, color: const Color(0xFFB7A5FF)),
               ),
               const SizedBox(width: 14),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

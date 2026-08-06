@@ -97,7 +97,7 @@ class PinnedConversationsSection extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(22),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: .045),
                 borderRadius: BorderRadius.circular(22),

@@ -42,6 +42,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/auth/
     - assets/images/portraits/
     - assets/images/plans/
     - assets/icons/

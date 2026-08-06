@@ -9,8 +9,10 @@ import 'message_models.dart';
 
 // ── Palette (kept local + minimal) ──────────────────────────────────────
 const _kAccent = Color(0xFF8B5CF6);
-const _kMeStart = Color(0xFF8B5CF6);
+const _kMeStart = Color(0xFF9B6BFF);
+const _kMeMid = Color(0xFF8B5CF6);
 const _kMeEnd = Color(0xFF587BE2);
+
 const _kThem = Color(0x14FFFFFF);
 const _kSubtle = Color(0xFF9DB2E8);
 const _kMuted = Color(0xFFB9C3DC);
@@ -31,19 +33,20 @@ class MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isMe = message.author == MessageAuthor.me;
     final radius = BorderRadius.only(
-      topLeft: const Radius.circular(20),
-      topRight: const Radius.circular(20),
-      bottomLeft: Radius.circular(isMe ? 20 : 6),
-      bottomRight: Radius.circular(isMe ? 6 : 20),
+      topLeft: const Radius.circular(22),
+      topRight: const Radius.circular(22),
+      bottomLeft: Radius.circular(isMe ? 22 : 7),
+      bottomRight: Radius.circular(isMe ? 7 : 22),
     );
 
     return Padding(
       padding: EdgeInsets.only(
-        top: 3,
-        bottom: 3,
+        top: 2.5,
+        bottom: 2.5,
         left: isMe ? 48 : 4,
         right: isMe ? 4 : 48,
       ),
+
       child: Column(
         crossAxisAlignment:
             isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -61,17 +64,31 @@ class MessageBubble extends StatelessWidget {
               ),
             ),
           Container(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+            padding: const EdgeInsets.fromLTRB(16, 11, 16, 11),
             decoration: BoxDecoration(
               gradient: isMe
-                  ? const LinearGradient(colors: [_kMeStart, _kMeEnd])
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [_kMeStart, _kMeMid, _kMeEnd],
+                    )
                   : null,
               color: isMe ? null : _kThem,
               borderRadius: radius,
               border: isMe
                   ? null
                   : Border.all(color: Colors.white.withValues(alpha: .08)),
+              boxShadow: isMe
+                  ? [
+                      BoxShadow(
+                        color: _kAccent.withValues(alpha: .22),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
+                      ),
+                    ]
+                  : null,
             ),
+
             child: Text(
               message.text,
               style: TextStyle(
@@ -110,9 +127,11 @@ class _MetaLine extends StatelessWidget {
           style: const TextStyle(
             fontSize: 10.5,
             fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
             color: _kMuted,
           ),
         ),
+
         if (isMe) ...[
           const SizedBox(width: 4),
           Icon(
@@ -181,29 +200,44 @@ class SharedContentCard extends StatelessWidget {
           splashColor: _kAccent.withValues(alpha: .10),
           highlightColor: Colors.white.withValues(alpha: .03),
           child: Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: .05),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(color: Colors.white.withValues(alpha: .10)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .18),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 46,
+                  height: 46,
                   decoration: BoxDecoration(
-                    color: _kAccent.withValues(alpha: .16),
-                    borderRadius: BorderRadius.circular(10),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        _kAccent.withValues(alpha: .28),
+                        _kAccent.withValues(alpha: .12),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(color: Colors.white.withValues(alpha: .08)),
                   ),
                   alignment: Alignment.center,
                   child: Icon(
                     _contentGlyph(content.type),
-                    size: 20,
+                    size: 21,
                     color: const Color(0xFFB7A5FF),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 13),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,12 +247,13 @@ class SharedContentCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.w700,
+                          letterSpacing: -0.1,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         content.subtitle,
                         maxLines: 1,
@@ -241,6 +276,7 @@ class SharedContentCard extends StatelessWidget {
               ],
             ),
           ),
+
         ),
       ),
     );

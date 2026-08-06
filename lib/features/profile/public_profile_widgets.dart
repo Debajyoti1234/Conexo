@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_widgets.dart';
 import 'profile_data.dart';
-import 'profile_strength_data.dart';
-import 'profile_strength_widgets.dart';
 import 'public_profile_data.dart';
+
 
 /// Reusable, const, presentational widgets for Phase 4.5 — Public Profile
 /// Viewer. Everything reuses the Conexo dark-glass language (GlassCard,
@@ -105,27 +104,66 @@ class VerifiedBadge extends StatelessWidget {
 
 // ── ProfileHero ─────────────────────────────────────────────────────────────
 
-/// A large, immersive hero: primary photo, layered gradient scrim, name,
-/// optional username + age, location, occupation, verification, strength tier,
-/// and a completion pill.
-class ProfileHero extends StatelessWidget {
+/// A large, immersive hero with swipeable photo gallery: all photos from the
+/// profile, layered gradient scrim, name, optional username + age, location,
+/// occupation, and verification. Supports horizontal swipe, tap left/right
+/// navigation, and animated segmented progress bars (Tinder/Bumble style).
+///
+/// The strength tier and completion percentage are intentionally NOT shown
+/// here — those belong only to the owner's own profile, never a viewed public
+/// profile.
+class ProfileHero extends StatefulWidget {
   const ProfileHero({
     required this.data,
-    required this.strength,
     super.key,
   });
 
   final PublicProfileViewData data;
-  final ProfileStrengthResult strength;
+
+  @override
+  State<ProfileHero> createState() => _ProfileHeroState();
+}
+
+
+class _ProfileHeroState extends State<ProfileHero> {
+  late final PageController _controller;
+  int _index = 0;
+
+  List<ProfilePhoto> get _photos => widget.data.profile.photos;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _goTo(int target) {
+    final count = _photos.length;
+    if (count <= 1) return;
+    final clamped = target.clamp(0, count - 1);
+    if (clamped == _index) return;
+    _controller.animateToPage(
+      clamped,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final profile = data.profile;
-    final asset = profile.primaryPhoto?.assetPath;
+    final profile = widget.data.profile;
+    final count = _photos.length;
     final verified =
         profile.verificationStatus == VerificationStatus.verified;
-
-    final titleLine = data.hasAge ? '${data.displayName}, ${data.age}' : data.displayName;
+    final titleLine = widget.data.hasAge
+        ? '${widget.data.displayName}, ${widget.data.age}'
+        : widget.data.displayName;
 
     return RepaintBoundary(
       child: SizedBox(
@@ -133,88 +171,245 @@ class ProfileHero extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Primary photo (local asset only) or gradient placeholder.
-            if (asset != null)
-              Image.asset(asset, fit: BoxFit.cover)
+            // ── Photo pager (or placeholder) ──────────────────────────────
+            if (count == 0)
+              const _HeroPlaceholder()
             else
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [_kAccent, _kAccent2],
-                  ),
+              PageView.builder(
+                controller: _controller,
+                itemCount: count,
+                onPageChanged: (i) => setState(() => _index = i),
+                itemBuilder: (context, i) => _HeroPhoto(
+                  key: ValueKey('hero_photo_${_photos[i].id}_$i'),
+                  assetPath: _photos[i].assetPath,
                 ),
               ),
 
-            // Layered scrim for text legibility + depth.
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x00000000),
-                    Color(0x22000000),
-                    Color(0xCC05070E),
+            // ── Tap zones (left / center / right) ─────────────────────────
+            if (count > 1)
+              Positioned.fill(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () => _goTo(_index - 1),
+                      ),
+                    ),
+                    const Expanded(child: SizedBox.shrink()),
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () => _goTo(_index + 1),
+                      ),
+                    ),
                   ],
-                  stops: [0.35, 0.62, 1.0],
+                ),
+              ),
+
+            // ── Layered scrim for text legibility + depth ─────────────────
+            const IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x00000000),
+                      Color(0x22000000),
+                      Color(0xCC05070E),
+                    ],
+                    stops: [0.35, 0.62, 1.0],
+                  ),
                 ),
               ),
             ),
 
-            // Bottom-anchored identity block.
+            // ── Segmented progress bars ───────────────────────────────────
+            if (count > 1)
+              Positioned(
+                top: 18,
+                left: 20,
+                right: 20,
+                child: _ProgressBars(count: count, activeIndex: _index),
+              ),
+
+            // ── Identity block ────────────────────────────────────────────
             Positioned(
               left: 20,
               right: 20,
               bottom: 20,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      StrengthBadge(tier: strength.tier, compact: true),
-                      const SizedBox(width: 8),
-                      _CompletionPill(percent: strength.completionPercent),
-                      if (verified) ...[
-                        const SizedBox(width: 8),
-                        const VerifiedBadge(compact: true),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    titleLine,
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.6,
-                      color: Colors.white,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  final curved = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  );
+                  return FadeTransition(
+                    opacity: curved,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.08),
+                        end: Offset.zero,
+                      ).animate(curved),
+                      child: child,
                     ),
-                  ),
-                  if (data.hasUsername) ...[
-                    const SizedBox(height: 2),
+                  );
+                },
+                child: Column(
+                  key: ValueKey('identity_$_index'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (verified) ...[
+                      const VerifiedBadge(compact: true),
+                      const SizedBox(height: 14),
+                    ],
+
                     Text(
-                      data.formattedUsername,
+                      titleLine,
                       style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: _kSoftText,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        color: Colors.white,
                       ),
                     ),
+                    if (widget.data.hasUsername) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.data.formattedUsername,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: _kSoftText,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    _HeroMetaRow(
+                      location: profile.location,
+                      occupation: profile.occupation,
+                    ),
                   ],
-                  const SizedBox(height: 10),
-                  _HeroMetaRow(
-                    location: profile.location,
-                    occupation: profile.occupation,
-                  ),
-                ],
+                ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A single hero photo with graceful image loading and error handling.
+class _HeroPhoto extends StatelessWidget {
+  const _HeroPhoto({
+    required this.assetPath,
+    super.key,
+  });
+
+  final String assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    if (assetPath.trim().isEmpty) {
+      return const _HeroPlaceholder();
+    }
+    return Image.asset(
+      assetPath,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => const _HeroPlaceholder(),
+    );
+  }
+}
+
+class _HeroPlaceholder extends StatelessWidget {
+  const _HeroPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_kAccent, _kAccent2],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.person_rounded,
+          size: 96,
+          color: Colors.white24,
+        ),
+      ),
+    );
+  }
+}
+
+/// Animated segmented progress bars (Tinder/Instagram-style).
+class _ProgressBars extends StatelessWidget {
+  const _ProgressBars({required this.count, required this.activeIndex});
+
+  final int count;
+  final int activeIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < count; i++)
+          Expanded(
+            child: Padding(
+              key: ValueKey('progress_$i'),
+              padding: EdgeInsets.only(right: i == count - 1 ? 0 : 5),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: Stack(
+                  children: [
+                    Container(
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: .28),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                    Container(
+                      height: 3,
+                      color: Colors.white.withValues(alpha: .18),
+                    ),
+                    AnimatedFractionallySizedBox(
+                      duration: const Duration(milliseconds: 420),
+                      curve: Curves.easeOutCubic,
+                      widthFactor: i < activeIndex
+                          ? 1.0
+                          : (i == activeIndex ? 1.0 : 0.0),
+                      child: Container(
+                        height: 3,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(3),
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.white
+                                  .withValues(alpha: i == activeIndex ? .4 : .2),
+                              blurRadius: i == activeIndex ? 6 : 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -272,33 +467,8 @@ class _MetaChip extends StatelessWidget {
   }
 }
 
-class _CompletionPill extends StatelessWidget {
-  const _CompletionPill({required this.percent});
-
-  final int percent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .3),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withValues(alpha: .14)),
-      ),
-      child: Text(
-        '$percent% complete',
-        style: const TextStyle(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w700,
-          color: _kBrightText,
-        ),
-      ),
-    );
-  }
-}
-
 // ── Section shell ───────────────────────────────────────────────────────────
+
 
 /// A large section title used above each section's card.
 class PublicSectionTitle extends StatelessWidget {

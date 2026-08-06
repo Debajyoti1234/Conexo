@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _remember = true;
 
   @override
   void dispose() {
@@ -40,74 +41,86 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: AuthPageFrame(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const AuthHeader(
-                title: 'Welcome back 👋',
-                subtitle: 'Ready to meet someone new?',
+    return AuthPageFrame(
+      backgroundImage: 'assets/images/auth/Login_background.png',
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AuthHeader(
+              label: 'Welcome back',
+              title: 'Where connections feel real. ✨',
+              subtitle: 'Your next meaningful moment starts here.',
+            ),
+            const SizedBox(height: 28),
+            AuthGlassCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PremiumTextField(
+                    controller: _emailController,
+                    label: 'Email',
+                    icon: Icons.mail_outline_rounded,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    validator: emailValidator,
+                  ),
+                  const SizedBox(height: 16),
+                  PremiumTextField(
+                    controller: _passwordController,
+                    label: 'Password',
+                    icon: Icons.lock_outline_rounded,
+                    obscureText: true,
+                    textInputAction: TextInputAction.done,
+                    validator: passwordValidator,
+                  ),
+                  const SizedBox(height: 12),
+                  RememberForgotRow(
+                    remember: _remember,
+                    onRememberChanged: (value) =>
+                        setState(() => _remember = value),
+                    onForgot: () {},
+                  ),
+                  const SizedBox(height: 20),
+                  PrimaryButton(
+                    label: 'Continue to Conexo',
+                    onPressed: _continueToConexo,
+                  ),
+                  const SizedBox(height: 24),
+                  const AuthDivider(),
+                  const SizedBox(height: 20),
+                  SocialButtonsRow(
+                    buttons: [
+                      SocialLoginButton(
+                        label: 'Google',
+                        icon: Icons.g_mobiledata_rounded,
+                        onPressed: () {},
+                      ),
+                      SocialLoginButton(
+                        label: 'Apple',
+                        icon: Icons.apple_rounded,
+                        onPressed: () {},
+                      ),
+                      SocialLoginButton(
+                        label: 'Phone',
+                        icon: Icons.phone_iphone_rounded,
+                        onPressed: _openPhoneAuth,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(height: 34),
-              SocialLoginButton(
-                label: 'Continue with Google',
-                icon: Icons.g_mobiledata_rounded,
-                onPressed: () {},
-              ),
-              const SizedBox(height: 12),
-              SocialLoginButton(
-                label: 'Continue with Apple',
-                icon: Icons.apple_rounded,
-                onPressed: () {},
-              ),
-              const SizedBox(height: 12),
-              SocialLoginButton(
-                label: 'Continue with Phone Number',
-                icon: Icons.phone_iphone_rounded,
-                onPressed: _openPhoneAuth,
-              ),
-              const SizedBox(height: 28),
-              const AuthDivider(),
-              const SizedBox(height: 28),
-              PremiumTextField(
-                controller: _emailController,
-                label: 'Email address',
-                icon: Icons.mail_outline_rounded,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                validator: emailValidator,
-              ),
-              const SizedBox(height: 16),
-              PremiumTextField(
-                controller: _passwordController,
-                label: 'Password',
-                icon: Icons.lock_outline_rounded,
-                obscureText: true,
-                textInputAction: TextInputAction.done,
-                validator: passwordValidator,
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {},
-                  child: const Text('Forgot password?'),
-                ),
-              ),
-              const SizedBox(height: 14),
-              PrimaryButton(label: 'Continue', onPressed: _continueToConexo),
-              const SizedBox(height: 22),
-              AuthFooter(
-                prompt: 'New to Conexo?',
-                action: 'Create account',
-                onTap: () => Navigator.of(
-                  context,
-                ).push(AppRouter.slideRoute(const SignupScreen())),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 28),
+            AuthFooter(
+              prompt: 'New here?',
+              action: 'Create your space',
+              onTap: () => Navigator.of(
+                context,
+              ).push(AppRouter.slideRoute(const SignupScreen())),
+            ),
+          ],
         ),
       ),
     );

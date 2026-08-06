@@ -3,9 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'chat/chat_repository.dart';
+import 'chat/conversation_screen.dart';
 import 'home_connection_dashboard_cards.dart';
 import 'home_connection_dashboard_data.dart';
 import 'home_discovery_animations.dart';
+import 'profile/privacy_verification_widgets.dart';
+import 'profile/profile_navigation_mapper.dart';
+import 'profile/public_profile_screen.dart';
+
 
 /// The premium Connections dashboard — the user's relationship hub.
 ///
@@ -175,6 +181,35 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
   }
 
   // -------------------------------------------------------------------------
+  // Navigation (reuses existing premium screens/routes — wiring only)
+  // -------------------------------------------------------------------------
+
+  void _viewConnectionProfile(NetworkConnection connection) {
+    Navigator.of(context).push(
+      premiumPublicProfileRoute(
+        data: mapNetworkConnectionToProfile(connection),
+      ),
+    );
+  }
+
+  void _openConnectionRoom(NetworkConnection connection) {
+    const repository = LocalChatRepository();
+    final conversation = repository.findConversationForConnection(
+      connection.id,
+    );
+    if (conversation != null) {
+      Navigator.of(context).push(conversationRoute(conversation));
+    } else {
+      ComingSoonDialog.show(
+        context,
+        title: 'Conversation',
+        message: 'Conversation will appear after your first interaction.',
+      );
+    }
+  }
+
+
+  // -------------------------------------------------------------------------
   // Build
   // -------------------------------------------------------------------------
 
@@ -281,8 +316,13 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
                 CardDismiss(
                   key: ValueKey<String>('network-${connection.id}'),
                   visible: !_removing.contains(connection.id),
-                  child: NetworkConnectionCard(connection: connection),
+                  child: NetworkConnectionCard(
+                    connection: connection,
+                    onViewProfile: () => _viewConnectionProfile(connection),
+                    onOpenRoom: () => _openConnectionRoom(connection),
+                  ),
                 ),
+
             ],
           );
     return _ExpandableSection(

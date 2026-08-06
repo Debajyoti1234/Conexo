@@ -3,6 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'home_screen.dart';
+import 'notifications/activity_center_screen.dart';
+import 'notifications/demo_notification_data.dart';
+import 'notifications/notification_widgets.dart';
 import 'secondary_screens.dart';
 
 /// The shared application shell.
@@ -31,9 +34,53 @@ class _MainShellState extends State<MainShell> {
     ProfileScreen(),
   ];
 
+  /// The single, shell-owned notification state. Pure state only — the shell is
+  /// the only place that turns its changes into UI (bell pulse + live toast)
+  /// and navigation. Swappable for a future backend controller without
+  /// changing this widget.
+  final NotificationDemoController _notifications = NotificationDemoController();
+
+  /// Tracks the last handled pulse so a rebuild does not re-show the toast.
+  int _lastHandledPulse = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _notifications.pulseTrigger.addListener(_onPulse);
+    // Demo work is started here, never inside the controller constructor.
+    _notifications.startDemo();
+  }
+
+  @override
+  void dispose() {
+    _notifications.pulseTrigger.removeListener(_onPulse);
+    _notifications.dispose();
+    super.dispose();
+  }
+
+  /// When a new notification arrives, show the live glass toast once. The bell
+  /// reacts to the same trigger on its own via [ValueListenableBuilder].
+  void _onPulse() {
+    final pulse = _notifications.pulseTrigger.value;
+    if (pulse == _lastHandledPulse) return;
+    _lastHandledPulse = pulse;
+    final list = _notifications.notifications;
+    if (list.isEmpty) return;
+    NotificationOverlay.show(context, list.first);
+  }
+
   void _onSelected(int index) {
     if (index == _selectedIndex) return;
     setState(() => _selectedIndex = index);
+  }
+
+  /// Opens the Activity Center, then clears unread — only after the push has
+  /// succeeded (never before navigation).
+  Future<void> _openActivityCenter() async {
+    await Navigator.of(context).push(
+      premiumActivityCenterRoute(controller: _notifications),
+    );
+    _notifications.markAllRead();
   }
 
   @override
@@ -41,7 +88,40 @@ class _MainShellState extends State<MainShell> {
     return Scaffold(
       // The dock floats over the content instead of pushing it up.
       extendBody: true,
-      body: IndexedStack(index: _selectedIndex, children: _screens),
+      body: Stack(
+        children: [
+          IndexedStack(index: _selectedIndex, children: _screens),
+          // Shell-owned bell: shown ONLY on the Connections tab (index 2) so it
+          // never overlaps other screens (e.g. the Profile overflow menu).
+          if (_selectedIndex == 2)
+            SafeArea(
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 10,
+                    right: 14,
+                    child: ValueListenableBuilder<bool>(
+                      valueListenable: _notifications.hasUnread,
+                      builder: (context, hasUnread, _) {
+                        return ValueListenableBuilder<int>(
+                          valueListenable: _notifications.pulseTrigger,
+                          builder: (context, pulse, _) {
+                            return NotificationBell(
+                              hasUnread: hasUnread,
+                              pulseTrigger: pulse,
+                              onTap: _openActivityCenter,
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+        ],
+      ),
       bottomNavigationBar: FloatingNavDock(
         selectedIndex: _selectedIndex,
         onSelected: _onSelected,

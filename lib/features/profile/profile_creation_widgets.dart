@@ -135,11 +135,16 @@ class PhotoGrid extends StatelessWidget {
       children: [
         // Selected strip with ordering + primary badge.
         if (selected.isNotEmpty) ...[
-          Text(
+          const Text(
             'Tap arrows to reorder • first photo is primary',
-            style: const TextStyle(fontSize: 12, color: _kSoftText),
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: _kSoftText,
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
+
           Column(
             children: [
               for (var i = 0; i < selected.length; i++)
@@ -265,19 +270,32 @@ class _SelectedPhotoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GlassCard(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.asset(
-              photo.assetPath,
-              height: 54,
-              width: 54,
-              fit: BoxFit.cover,
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .28),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                photo.assetPath,
+                height: 54,
+                width: 54,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(width: 12),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,9 +402,9 @@ class SelectableChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 240),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
           gradient: selected
               ? const LinearGradient(colors: [_kAccent, _kAccent2])
@@ -398,6 +416,15 @@ class SelectableChip extends StatelessWidget {
                 ? Colors.transparent
                 : Colors.white.withValues(alpha: .1),
           ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: _kAccent.withValues(alpha: .38),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -414,13 +441,15 @@ class SelectableChip extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                letterSpacing: -0.1,
                 color: selected ? Colors.white : const Color(0xFFDDE3F4),
               ),
             ),
           ],
         ),
       ),
+
     );
   }
 }
@@ -488,12 +517,27 @@ class GlassTextField extends StatelessWidget {
       maxLines: maxLines,
       maxLength: maxLength,
       keyboardType: keyboardType,
-      style: const TextStyle(fontWeight: FontWeight.w500),
+      style: const TextStyle(
+        fontSize: 15,
+        height: 1.4,
+        fontWeight: FontWeight.w500,
+      ),
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: icon != null ? Icon(icon) : null,
+        hintStyle: const TextStyle(
+          fontSize: 14.5,
+          color: _kSoftText,
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIcon: icon != null
+            ? Icon(icon, size: 20, color: const Color(0xFFB7A5FF))
+            : null,
         filled: true,
         fillColor: _kFieldFill,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: Colors.white.withValues(alpha: .1)),
@@ -508,6 +552,7 @@ class GlassTextField extends StatelessWidget {
         ),
       ),
     );
+
   }
 }
 
@@ -964,10 +1009,11 @@ class _PreviewChips extends StatelessWidget {
       children: [
         for (final value in values)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
             decoration: BoxDecoration(
+
               color: Colors.white.withValues(alpha: .07),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.white.withValues(alpha: .1)),
             ),
             child: Text(
@@ -975,10 +1021,12 @@ class _PreviewChips extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
                 color: Color(0xFFDDE3F4),
               ),
             ),
           ),
+
       ],
     );
   }

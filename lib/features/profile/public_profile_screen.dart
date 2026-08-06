@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
-import 'profile_strength_data.dart';
 import 'public_profile_data.dart';
+
 import 'public_profile_sections.dart';
 import 'public_profile_widgets.dart';
 
@@ -47,7 +47,6 @@ class PublicProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final profile = data.profile;
-    final strength = computeProfileStrength(profile);
     final mutual = data.mutualInterests;
 
     // A profile with no primary photo AND no meaningful content → empty state.
@@ -59,8 +58,9 @@ class PublicProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: hasAnyContent
-          ? _buildContent(context, strength, mutual)
+          ? _buildContent(context, mutual)
           : SafeArea(
+
               child: Stack(
                 children: [
                   PublicProfileEmptyState(displayName: data.displayName),
@@ -73,7 +73,6 @@ class PublicProfileScreen extends StatelessWidget {
 
   Widget _buildContent(
     BuildContext context,
-    ProfileStrengthResult strength,
     List<String> mutual,
   ) {
     final profile = data.profile;
@@ -87,8 +86,9 @@ class PublicProfileScreen extends StatelessWidget {
           children: [
             // Hero is full-bleed (no horizontal padding).
             RepaintBoundary(
-              child: HeroSection(data: data, strength: strength),
+              child: HeroSection(data: data),
             ),
+
             const SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),

@@ -38,17 +38,16 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: AuthPageFrame(
-      showBackButton: true,
-      child: Form(
-        key: _formKey,
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 320),
-          child: _codeSent
-              ? _OtpStep(onVerify: _verify)
-              : _PhoneStep(controller: _phone, onSend: _send),
-        ),
+  Widget build(BuildContext context) => AuthPageFrame(
+    backgroundImage: 'assets/images/auth/Login_background.png',
+    showBackButton: true,
+    child: Form(
+      key: _formKey,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 320),
+        child: _codeSent
+            ? _OtpStep(onVerify: _verify)
+            : _PhoneStep(controller: _phone, onSend: _send),
       ),
     ),
   );
@@ -64,11 +63,11 @@ class _PhoneStep extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       const AuthHeader(
-        title: 'Verify your number',
-        subtitle:
-            'A verified community helps every connection begin with trust.',
+        label: 'One last step',
+        title: 'Stay connected.',
+        subtitle: 'A quick verification keeps your account secure.',
       ),
-      const SizedBox(height: 34),
+      const SizedBox(height: 28),
       PremiumTextField(
         controller: controller,
         label: 'Phone number',
@@ -94,10 +93,11 @@ class _OtpStep extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       const AuthHeader(
+        label: 'One last step',
         title: 'Enter your code',
         subtitle: 'We sent a 6-digit code to your phone number.',
       ),
-      const SizedBox(height: 34),
+      const SizedBox(height: 28),
       const _OtpInput(),
       const SizedBox(height: 22),
       PrimaryButton(label: 'Verify OTP', onPressed: onVerify),

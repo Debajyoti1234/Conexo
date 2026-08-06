@@ -267,7 +267,7 @@ class ManagementSectionHeader extends StatelessWidget {
               ),
             ),
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 320),
+              duration: const Duration(milliseconds: 240),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInOutCubic,
               transitionBuilder: (child, animation) => FadeTransition(
@@ -281,12 +281,17 @@ class ManagementSectionHeader extends StatelessWidget {
           ],
         ),
         if (subtitle != null) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             subtitle!,
-            style: const TextStyle(fontSize: 13.5, color: _kSoftText),
+            style: const TextStyle(
+              fontSize: 13.5,
+              height: 1.4,
+              color: _kSoftText,
+            ),
           ),
         ],
+
       ],
     );
   }

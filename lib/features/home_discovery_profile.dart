@@ -1,6 +1,8 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 
 import 'home_discovery_animations.dart';
 import 'home_discovery_connect.dart';
@@ -87,33 +89,37 @@ class _HeroSection extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _Portrait(person: person),
-            // Layered premium depth: a soft accent glow, the darkening scrim
-            // for legible overlay text, then a gentle vignette to focus.
-            _HeroGlow(accent: person.color),
-            const _HeroScrim(),
-            const _HeroVignette(),
+            _PhotoGallery(
+              key: ValueKey<String>('gallery_${person.name}'),
+              person: person,
+            ),
+            // A single subtle bottom gradient keeps the overlay text legible
+            // while preserving the sharpness of the photo — no glow, no
+            // vignette in front of the image.
+            const IgnorePointer(child: _HeroScrim()),
             Positioned(
               top: 18,
               left: 18,
-              child: _BadgeColumn(person: person),
+              child: IgnorePointer(child: _BadgeColumn(person: person)),
             ),
             Positioned(
               top: 18,
               right: 18,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 340),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: ScaleTransition(scale: animation, child: child),
-                ),
-                child: HeroBadge(
-                  key: ValueKey<String>(counterLabel),
-                  icon: Icons.location_on_rounded,
-                  label: counterLabel,
-                  color: const Color(0xFFFF4D8D),
+              child: IgnorePointer(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 340),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(scale: animation, child: child),
+                  ),
+                  child: HeroBadge(
+                    key: ValueKey<String>(counterLabel),
+                    icon: Icons.location_on_rounded,
+                    label: counterLabel,
+                    color: const Color(0xFFFF4D8D),
+                  ),
                 ),
               ),
             ),
@@ -121,40 +127,248 @@ class _HeroSection extends StatelessWidget {
               left: 22,
               right: 22,
               bottom: 26,
-              child: _IdentityBlock(
-                person: person,
-                connectPhase: connectPhase,
+              child: IgnorePointer(
+                child: _IdentityBlock(
+                  person: person,
+                  connectPhase: connectPhase,
+                ),
               ),
             ),
           ],
+
         ),
       ),
     );
   }
 }
 
-/// The portrait image with a graceful gradient fallback if the asset is
-/// missing. Kept clean during transitions — no glow or flare in front.
-class _Portrait extends StatelessWidget {
-  const _Portrait({required this.person});
+/// Tinder-style photo gallery: horizontal swipe + tap left/right navigation.
+/// Each person's gallery resets to photo 0 when that person is first shown.
+/// Photo taps never change the person — only the bottom buttons do that.
+class _PhotoGallery extends StatefulWidget {
+  const _PhotoGallery({
+    required this.person,
+    super.key,
+  });
 
   final DiscoveryPerson person;
 
   @override
+  State<_PhotoGallery> createState() => _PhotoGalleryState();
+}
+
+class _PhotoGalleryState extends State<_PhotoGallery> {
+  late final PageController _controller;
+  int _photoIndex = 0;
+
+  // Simulate multi-photo demo: if the person has a portrait, create 3 copies
+  // for demo purposes. In production, this would use the actual photos list.
+  List<String> get _photos {
+    if (widget.person.portrait.isEmpty) return [];
+    // Demo: show the same portrait 3 times to simulate a gallery
+    return [
+      widget.person.portrait,
+      widget.person.portrait,
+      widget.person.portrait,
+    ];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController();
+  }
+
+  @override
+  void didUpdateWidget(_PhotoGallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // When a new person is shown, reset the gallery to photo 0.
+    if (oldWidget.person.name != widget.person.name && _photoIndex != 0) {
+      _photoIndex = 0;
+      if (_controller.hasClients) {
+        _controller.jumpToPage(0);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _goToPhoto(int target) {
+    final count = _photos.length;
+    if (count <= 1) return;
+    final clamped = target.clamp(0, count - 1);
+    if (clamped == _photoIndex) return;
+    HapticFeedback.lightImpact();
+    _controller.animateToPage(
+
+      clamped,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (person.portrait.isEmpty) {
+    final photos = _photos;
+    final count = photos.length;
+
+    if (count == 0) {
+      return _FallbackPortrait(person: widget.person);
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Photo pager
+        PageView.builder(
+          controller: _controller,
+          itemCount: count,
+          onPageChanged: (i) => setState(() => _photoIndex = i),
+          itemBuilder: (context, i) => _HeroPhoto(
+            key: ValueKey('photo_${widget.person.name}_$i'),
+            assetPath: photos[i],
+            person: widget.person,
+          ),
+        ),
+
+        // Tap zones: left 40% → previous photo, right 40% → next photo
+        // Center 20% is neutral (no action)
+        if (count > 1)
+          Positioned.fill(
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 40,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => _goToPhoto(_photoIndex - 1),
+                    child: Container(color: Colors.transparent),
+                  ),
+                ),
+                const Spacer(flex: 20),
+                Expanded(
+                  flex: 40,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => _goToPhoto(_photoIndex + 1),
+                    child: Container(color: Colors.transparent),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // Refined floating progress bars: thin, semi-transparent, premium
+        if (count > 1)
+          Positioned(
+            top: 12,
+            left: 18,
+            right: 18,
+            child: _FloatingProgressBars(count: count, activeIndex: _photoIndex),
+          ),
+      ],
+    );
+  }
+}
+
+/// A single hero photo with graceful error handling.
+class _HeroPhoto extends StatelessWidget {
+  const _HeroPhoto({
+    required this.assetPath,
+    required this.person,
+    super.key,
+  });
+
+  final String assetPath;
+  final DiscoveryPerson person;
+
+  @override
+  Widget build(BuildContext context) {
+    if (assetPath.trim().isEmpty) {
       return _FallbackPortrait(person: person);
     }
     return Image.asset(
-      person.portrait,
+      assetPath,
       fit: BoxFit.cover,
+      gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) =>
           _FallbackPortrait(person: person),
     );
   }
 }
 
+/// Refined floating progress bars: thin (2px), semi-transparent, no solid strip.
+class _FloatingProgressBars extends StatelessWidget {
+  const _FloatingProgressBars({
+    required this.count,
+    required this.activeIndex,
+  });
+
+  final int count;
+  final int activeIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < count; i++)
+          Expanded(
+            child: Padding(
+              key: ValueKey('progress_bar_$i'),
+              padding: EdgeInsets.only(right: i == count - 1 ? 0 : 4),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: Stack(
+                  children: [
+                    // Background track (semi-transparent dark)
+                    Container(
+                      height: 2,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: .35),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    // Active progress (semi-transparent white with subtle glow)
+                    AnimatedFractionallySizedBox(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+
+                      widthFactor: i < activeIndex
+                          ? 1.0
+                          : (i == activeIndex ? 1.0 : 0.0),
+                      child: Container(
+                        height: 2,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(2),
+                          color: Colors.white.withValues(alpha: .85),
+                          boxShadow: i == activeIndex
+                              ? [
+                                  BoxShadow(
+                                    color:
+                                        Colors.white.withValues(alpha: .3),
+                                    blurRadius: 4,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// A soft, multi-stop gradient avatar used when no portrait asset is
+
 /// available. A radial highlight adds subtle lighting so the placeholder
 /// still feels premium rather than flat.
 class _FallbackPortrait extends StatelessWidget {
@@ -212,34 +426,8 @@ class _FallbackPortrait extends StatelessWidget {
   }
 }
 
-/// A soft radial accent glow behind the scrim, tinted by the person's color.
-/// Adds depth and a premium sense of lighting without heavy effects.
-class _HeroGlow extends StatelessWidget {
-  const _HeroGlow({required this.accent});
-
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: const Alignment(0, -0.45),
-            radius: 1.15,
-            colors: [
-              accent.withValues(alpha: .26),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.75],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Layered darkening scrims for readable overlay text and gentle depth.
+
 class _HeroScrim extends StatelessWidget {
   const _HeroScrim();
 
@@ -263,31 +451,8 @@ class _HeroScrim extends StatelessWidget {
   }
 }
 
-/// A faint edge vignette that darkens the corners to draw the eye inward.
-class _HeroVignette extends StatelessWidget {
-  const _HeroVignette();
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: const Alignment(0, -0.15),
-            radius: 1.2,
-            colors: [
-              Colors.transparent,
-              Colors.black.withValues(alpha: .32),
-            ],
-            stops: const [0.62, 1.0],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// The minimal identity block shown before scrolling: name, age, distance,
+
 /// and the live connect-status line.
 class _IdentityBlock extends StatelessWidget {
   const _IdentityBlock({required this.person, required this.connectPhase});

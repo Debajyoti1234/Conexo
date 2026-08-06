@@ -24,13 +24,17 @@ class InsightsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 132,
+      // The insight cards' internal Column (icon + value + label + padding)
+      // measures ~139px; 132 clipped it by 7px. This is the real parent
+      // constraint — typography, spacing, and glass styling are unchanged.
+      height: 140,
       child: ListView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 20),
         children: [
           InsightCard(
+
             value: '${insights.plansHosted}',
             label: 'Plans hosted',
             icon: Icons.campaign_rounded,

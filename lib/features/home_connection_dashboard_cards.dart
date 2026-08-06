@@ -189,9 +189,17 @@ class _ActionPillState extends State<_ActionPill> {
 
 /// A premium card for an established network connection.
 class NetworkConnectionCard extends StatelessWidget {
-  const NetworkConnectionCard({super.key, required this.connection});
+  const NetworkConnectionCard({
+    super.key,
+    required this.connection,
+    required this.onViewProfile,
+    required this.onOpenRoom,
+  });
 
   final NetworkConnection connection;
+  final VoidCallback onViewProfile;
+  final VoidCallback onOpenRoom;
+
 
   @override
   Widget build(BuildContext context) {
@@ -339,7 +347,7 @@ class NetworkConnectionCard extends StatelessWidget {
                 child: _ActionPill(
                   label: 'View Profile',
                   icon: Icons.person_outline_rounded,
-                  onTap: () {},
+                  onTap: onViewProfile,
                 ),
               ),
               const SizedBox(width: 10),
@@ -348,9 +356,10 @@ class NetworkConnectionCard extends StatelessWidget {
                   label: 'Open Room',
                   icon: Icons.chat_bubble_outline_rounded,
                   primary: true,
-                  onTap: () {},
+                  onTap: onOpenRoom,
                 ),
               ),
+
             ],
           ),
         ],
