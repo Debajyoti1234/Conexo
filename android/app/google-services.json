@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "979858760652",
+    "project_id": "conexo-37711",
+    "storage_bucket": "conexo-37711.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:979858760652:android:e29603f82f86c1bbe73369",
+        "android_client_info": {
+          "package_name": "com.conexo.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "979858760652-n0dv4s9fva63o4mfbd30kpp1gqm69pjm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmDyMtM7Zy7yl0DtDApHTl3uQn5FMmgVY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "979858760652-n0dv4s9fva63o4mfbd30kpp1gqm69pjm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "979858760652-e1710qquu1nihn6dbqldmm2s0b9omse6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.conexo"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

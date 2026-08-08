@@ -29,6 +29,7 @@ dependencies:
 
   # Local preferences (Connections dashboard expansion state)
   shared_preferences: ^2.3.2
+  firebase_core: ^4.13.0
 
 
 dev_dependencies:

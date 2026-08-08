@@ -8,7 +8,7 @@
 PRODUCT_NAME = conexo
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.conexo
+PRODUCT_BUNDLE_IDENTIFIER = com.conexo.app
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
