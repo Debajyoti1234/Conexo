@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
 import 'app/theme/app_theme.dart';
+import 'core/supabase/supabase_client.dart';
 import 'features/splash/splash_screen.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await SupabaseClientConfig.initialize();
+
   runApp(const ConexoApp());
 }
 
