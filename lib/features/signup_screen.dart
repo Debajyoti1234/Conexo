@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../app/router/app_router.dart';
+import '../../app/router/app_router.dart';
+import '../../core/supabase/auth_service.dart';
+import 'auth/confirm_email_screen.dart';
 import 'auth_components.dart';
-import 'login_screen.dart';
 import 'phone_auth_screen.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -19,6 +20,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final Set<String> _interests = <String>{};
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -29,22 +31,62 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  void _submit() {
-    if (_formKey.currentState!.validate() && _interests.isNotEmpty) {
-      Navigator.of(context).push(
-        AppRouter.slideRoute(
-          PhoneAuthScreen(phoneNumber: _phoneController.text),
-        ),
-      );
-      return;
+  Future<void> _submit() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      if (_interests.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Choose at least one interest to continue.'),
+          ),
+        );
+        return;
+      }
+      setState(() => _isLoading = true);
+      try {
+        final email = _emailController.text.trim();
+        final shouldNavigateToPhone =
+            email.isEmpty || !_isValidEmail(email);
+        if (shouldNavigateToPhone) {
+          if (!mounted) return;
+          Navigator.of(context).push(
+            AppRouter.slideRoute(
+              PhoneAuthScreen(phoneNumber: _phoneController.text),
+            ),
+          );
+          return;
+        }
+        await AuthService.signUp(
+          email: email,
+          password: _passwordController.text,
+          name: _nameController.text,
+        );
+        if (!mounted) return;
+        Navigator.of(context).push(
+          AppRouter.slideRoute(
+            ConfirmEmailScreen(email: email),
+          ),
+        );
+      } on AuthFailure catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Network error. Please try again.')),
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
-    if (_interests.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Choose at least one interest to continue.'),
-        ),
-      );
-    }
+  }
+
+  bool _isValidEmail(String value) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
   }
 
   @override
@@ -132,7 +174,9 @@ class _SignupScreenState extends State<SignupScreen> {
                   const SizedBox(height: 24),
                   PrimaryButton(
                     label: 'Create my account',
-                    onPressed: _submit,
+                    onPressed: () {
+                      if (!_isLoading) _submit();
+                    },
                   ),
                   const SizedBox(height: 16),
                   const VerificationNote(),
@@ -159,9 +203,25 @@ String? phoneValidator(String? value) {
   return null;
 }
 
+String? passwordValidator(String? value) {
+  if ((value ?? '').length < 8) {
+    return 'Password must be at least 8 characters';
+  }
+  return null;
+}
+
 String? optionalEmailValidator(String? value) {
   if ((value ?? '').trim().isEmpty) {
     return null;
   }
   return emailValidator(value);
+}
+
+String? emailValidator(String? value) {
+  final email = value?.trim() ?? '';
+  if (email.isEmpty) return 'Enter your email address';
+  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+    return 'Enter a valid email address';
+  }
+  return null;
 }

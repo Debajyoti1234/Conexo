@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/supabase/auth_service.dart';
 import '../app/router/app_router.dart';
 import 'auth_components.dart';
 import 'main_shell.dart';
@@ -18,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _remember = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -26,12 +28,34 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _continueToConexo() {
-    if (_formKey.currentState!.validate()) {
-      Navigator.of(context).pushAndRemoveUntil(
-        AppRouter.slideRoute(const MainShell()),
-        (route) => false,
-      );
+  Future<void> _continueToConexo() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      setState(() => _isLoading = true);
+      try {
+        await AuthService.signIn(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          AppRouter.slideRoute(const MainShell()),
+          (route) => false,
+        );
+      } on AuthFailure catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Network error. Please try again.')),
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 
@@ -85,7 +109,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 20),
                   PrimaryButton(
                     label: 'Continue to Conexo',
-                    onPressed: _continueToConexo,
+                    onPressed: () {
+                      if (!_isLoading) _continueToConexo();
+                    },
                   ),
                   const SizedBox(height: 24),
                   const AuthDivider(),

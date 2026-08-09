@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../app/router/app_router.dart';
+import '../../core/supabase/auth_service.dart';
 import '../home_discovery_animations.dart';
+import '../login_screen.dart';
 import 'discovery_preferences_screen.dart';
 import 'my_profile_hero.dart';
 import 'privacy_verification_screen.dart';
@@ -111,7 +114,26 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     );
   }
 
-  void _logout() => _placeholder('Logout');
+  void _logout() async {
+    try {
+      await AuthService.signOut();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        AppRouter.slideRoute(const LoginScreen()),
+        (route) => false,
+      );
+    } on AuthFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Network error. Please try again.')),
+      );
+    }
+  }
 
   void _placeholder(String label) {
     ScaffoldMessenger.of(context).showSnackBar(

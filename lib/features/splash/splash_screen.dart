@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/router/app_router.dart';
+import '../../core/supabase/auth_service.dart';
+import '../main_shell.dart';
 import '../onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -23,11 +25,15 @@ class _SplashScreenState extends State<SplashScreen>
         AnimationController(
           vsync: this,
           duration: const Duration(milliseconds: 4700),
-        )..addStatusListener((status) {
+        )..addStatusListener((status) async {
           if (status == AnimationStatus.completed && mounted) {
+            final hasSession = AuthService.currentSession != null;
+            if (!mounted) return;
+            final target = hasSession ? const MainShell() : const OnboardingScreen();
+            if (!mounted) return;
             Navigator.of(
               context,
-            ).pushReplacement(AppRouter.slideRoute(const OnboardingScreen()));
+            ).pushReplacement(AppRouter.slideRoute(target));
           }
         });
     _controller.forward();

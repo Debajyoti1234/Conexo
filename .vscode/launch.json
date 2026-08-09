@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "conexo (debug)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": ["--dart-define-from-file=tool/supabase_dev.json"]
+    },
+    {
+      "name": "conexo (profile)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile",
+      "program": "lib/main.dart",
+      "args": ["--dart-define-from-file=tool/supabase_dev.json"]
+    },
+    {
+      "name": "conexo (release)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "program": "lib/main.dart",
+      "args": ["--dart-define-from-file=tool/supabase_dev.json"]
+    }
+  ]
+}
