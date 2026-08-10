@@ -5,6 +5,7 @@ import 'profile_data.dart';
 import 'profile_repository.dart';
 import 'profile_strength_data.dart';
 import 'profile_strength_sections.dart';
+import 'session_aware_profile_repository.dart';
 
 /// The complete Profile Strength & Completion screen (Phase 4.4).
 ///
@@ -21,7 +22,7 @@ import 'profile_strength_sections.dart';
 class ProfileStrengthScreen extends StatefulWidget {
   const ProfileStrengthScreen({
     super.key,
-    this.repository = const LocalProfileRepository(),
+    this.repository = const SessionAwareProfileRepository(),
   });
 
   /// Injected repository (defaults to local). A future backend repository can
@@ -214,7 +215,7 @@ Route<void> premiumProfileStrengthRoute({ProfileRepository? repository}) {
     reverseTransitionDuration: const Duration(milliseconds: 320),
     pageBuilder: (context, animation, secondaryAnimation) =>
         ProfileStrengthScreen(
-      repository: repository ?? const LocalProfileRepository(),
+      repository: repository ?? const SessionAwareProfileRepository(),
     ),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(

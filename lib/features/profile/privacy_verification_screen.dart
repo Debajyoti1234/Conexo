@@ -5,6 +5,7 @@ import 'privacy_verification_sections.dart';
 import 'privacy_verification_widgets.dart';
 import 'profile_data.dart';
 import 'profile_repository.dart';
+import 'session_aware_profile_repository.dart';
 
 /// The premium Privacy & Verification module (Phase 4.3).
 ///
@@ -22,7 +23,7 @@ import 'profile_repository.dart';
 class PrivacyVerificationScreen extends StatefulWidget {
   const PrivacyVerificationScreen({
     super.key,
-    this.repository = const LocalProfileRepository(),
+    this.repository = const SessionAwareProfileRepository(),
   });
 
   /// Injected repository (defaults to the local implementation). A future
@@ -372,7 +373,7 @@ Route<void> premiumPrivacyVerificationRoute({ProfileRepository? repository}) {
     reverseTransitionDuration: const Duration(milliseconds: 320),
     pageBuilder: (context, animation, secondaryAnimation) =>
         PrivacyVerificationScreen(
-      repository: repository ?? const LocalProfileRepository(),
+      repository: repository ?? const SessionAwareProfileRepository(),
     ),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(

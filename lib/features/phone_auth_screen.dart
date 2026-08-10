@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../app/router/app_router.dart';
 import 'auth_components.dart';
-import 'main_shell.dart';
+import '../../core/supabase/auth_gate.dart';
+import '../../core/supabase/auth_service.dart';
 
 class PhoneAuthScreen extends StatefulWidget {
   const PhoneAuthScreen({super.key, this.phoneNumber});
@@ -13,7 +14,10 @@ class PhoneAuthScreen extends StatefulWidget {
 class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _phone;
+  final _otpController = TextEditingController();
   bool _codeSent = false;
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -23,18 +27,82 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   @override
   void dispose() {
     _phone.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
-  void _send() {
-    if (_formKey.currentState!.validate()) setState(() => _codeSent = true);
+  Future<void> _send() async {
+    print('[PHONE_OTP] _send() invoked, validating form...');
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      try {
+        await AuthService.signInWithPhone(_phone.text.trim());
+        if (!mounted) return;
+        setState(() => _codeSent = true);
+      } on AuthFailure catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Network error. Please try again.')),
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    }
   }
 
-  void _verify() {
-    Navigator.of(context).pushAndRemoveUntil(
-      AppRouter.slideRoute(const MainShell()),
-      (route) => false,
-    );
+  Future<void> _verify() async {
+    final token = _otpController.text.trim();
+    if (token.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter the 6-digit code')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      await AuthService.verifyPhoneOtp(
+        phone: _phone.text.trim(),
+        token: token,
+      );
+      if (!mounted) return;
+
+      final target = await AuthGate.navigateToTarget();
+      if (!mounted) return;
+
+      if (target == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to load profile. Please check your connection and try again.')),
+        );
+        return;
+      }
+
+      Navigator.of(context).pushAndRemoveUntil(
+        AppRouter.slideRoute(target),
+        (route) => false,
+      );
+    } on AuthFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Network error. Please try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -46,17 +114,18 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 320),
         child: _codeSent
-            ? _OtpStep(onVerify: _verify)
-            : _PhoneStep(controller: _phone, onSend: _send),
+            ? _OtpStep(onVerify: _verify, controller: _otpController, isLoading: _isLoading)
+            : _PhoneStep(controller: _phone, onSend: _send, isLoading: _isLoading),
       ),
     ),
   );
 }
 
 class _PhoneStep extends StatelessWidget {
-  const _PhoneStep({required this.controller, required this.onSend});
+  const _PhoneStep({required this.controller, required this.onSend, required this.isLoading});
   final TextEditingController controller;
   final VoidCallback onSend;
+  final bool isLoading;
   @override
   Widget build(BuildContext context) => Column(
     key: const ValueKey('phone'),
@@ -79,14 +148,21 @@ class _PhoneStep extends StatelessWidget {
             : null,
       ),
       const SizedBox(height: 22),
-      PrimaryButton(label: 'Send OTP', onPressed: onSend),
+      PrimaryButton(
+        label: 'Send OTP',
+        onPressed: () {
+          if (!isLoading) onSend();
+        },
+      ),
     ],
   );
 }
 
 class _OtpStep extends StatelessWidget {
-  const _OtpStep({required this.onVerify});
+  const _OtpStep({required this.onVerify, required this.controller, required this.isLoading});
   final VoidCallback onVerify;
+  final TextEditingController controller;
+  final bool isLoading;
   @override
   Widget build(BuildContext context) => Column(
     key: const ValueKey('otp'),
@@ -98,9 +174,11 @@ class _OtpStep extends StatelessWidget {
         subtitle: 'We sent a 6-digit code to your phone number.',
       ),
       const SizedBox(height: 28),
-      const _OtpInput(),
+      _OtpInput(controller: controller),
       const SizedBox(height: 22),
-      PrimaryButton(label: 'Verify OTP', onPressed: onVerify),
+      PrimaryButton(label: 'Verify OTP', onPressed: () {
+        if (!isLoading) onVerify();
+      }),
       const SizedBox(height: 16),
       const VerificationNote(),
     ],
@@ -108,9 +186,11 @@ class _OtpStep extends StatelessWidget {
 }
 
 class _OtpInput extends StatelessWidget {
-  const _OtpInput();
+  const _OtpInput({required this.controller});
+  final TextEditingController controller;
   @override
   Widget build(BuildContext context) => TextFormField(
+    controller: controller,
     keyboardType: TextInputType.number,
     maxLength: 6,
     textAlign: TextAlign.center,

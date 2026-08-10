@@ -7,6 +7,7 @@ import 'plans/plans_screen.dart';
 import 'profile/my_profile_screen.dart';
 import 'profile/profile_creation_screen.dart';
 import 'profile/profile_repository.dart';
+import 'profile/session_aware_profile_repository.dart';
 import 'social_components.dart';
 
 
@@ -113,7 +114,7 @@ class ChatsScreen extends StatelessWidget {
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     super.key,
-    this.repository = const LocalProfileRepository(),
+    this.repository = const SessionAwareProfileRepository(),
   });
 
   /// Injected repository (defaults to the local implementation). A future

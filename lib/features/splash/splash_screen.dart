@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/router/app_router.dart';
 import '../../core/supabase/auth_service.dart';
-import '../main_shell.dart';
+import '../../core/supabase/auth_gate.dart';
 import '../onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -17,6 +17,8 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  bool _showError = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -29,7 +31,26 @@ class _SplashScreenState extends State<SplashScreen>
           if (status == AnimationStatus.completed && mounted) {
             final hasSession = AuthService.currentSession != null;
             if (!mounted) return;
-            final target = hasSession ? const MainShell() : const OnboardingScreen();
+
+            if (!hasSession) {
+              if (!mounted) return;
+              Navigator.of(
+                context,
+              ).pushReplacement(AppRouter.slideRoute(const OnboardingScreen()));
+              return;
+            }
+
+            final target = await AuthGate.navigateToTarget();
+            if (!mounted) return;
+
+            if (target == null) {
+              setState(() {
+                _showError = true;
+                _errorMessage = 'Unable to load profile. Please check your connection and try again.';
+              });
+              return;
+            }
+
             if (!mounted) return;
             Navigator.of(
               context,
@@ -37,6 +58,14 @@ class _SplashScreenState extends State<SplashScreen>
           }
         });
     _controller.forward();
+  }
+
+  void _retry() {
+    setState(() {
+      _showError = false;
+      _errorMessage = null;
+    });
+    _controller.forward(from: 0);
   }
 
   @override
@@ -47,6 +76,34 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_showError) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.wifi_off_rounded, size: 64, color: Colors.redAccent),
+                const SizedBox(height: 24),
+                Text(
+                  _errorMessage ?? 'Something went wrong',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, color: Colors.white),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _retry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: AnimatedBuilder(
         animation: _controller,

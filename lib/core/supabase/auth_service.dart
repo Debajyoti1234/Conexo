@@ -1,3 +1,4 @@
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_client.dart';
@@ -6,6 +7,7 @@ class AuthService {
   AuthService._();
 
   static final SupabaseClient _client = SupabaseClientConfig.client;
+  static final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
   static User? get currentUser => _client.auth.currentUser;
 
@@ -50,6 +52,45 @@ class AuthService {
     }
   }
 
+  static Future<AuthResponse?> signInWithGoogle() async {
+    try {
+      final account = await _googleSignIn.authenticate();
+      final idToken = account.authentication.idToken;
+      if (idToken == null) {
+        throw const AuthFailure('Unable to obtain Google credentials');
+      }
+
+      String? accessToken;
+      try {
+        final authz = await account.authorizationClient.authorizationForScopes(
+          <String>['email', 'profile'],
+        );
+        accessToken = authz?.accessToken;
+      } catch (_) {
+        // accessToken is optional for Supabase signInWithIdToken
+      }
+
+      final response = await _client.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+
+      return response;
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled ||
+          e.code == GoogleSignInExceptionCode.interrupted ||
+          e.code == GoogleSignInExceptionCode.uiUnavailable) {
+        return null;
+      }
+      throw AuthFailure(e.description ?? 'Google sign-in failed');
+    } on AuthException catch (error) {
+      throw _mapAuthException(error);
+    } catch (_) {
+      throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
   static Future<void> signOut() async {
     try {
       await _client.auth.signOut();
@@ -63,6 +104,49 @@ class AuthService {
   static Future<void> resetPassword(String email) async {
     try {
       await _client.auth.resetPasswordForEmail(email.trim());
+    } on AuthException catch (error) {
+      throw _mapAuthException(error);
+    } catch (_) {
+      throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
+  static Future<void> signInWithPhone(String phone) async {
+    print('[PHONE_OTP] Send OTP pressed');
+    print('[PHONE_OTP] formatted phone: $phone');
+    print('[PHONE_OTP] calling Supabase signInWithOtp');
+    try {
+      await _client.auth.signInWithOtp(
+        phone: phone,
+        channel: OtpChannel.sms,
+        shouldCreateUser: true,
+      );
+      print('[PHONE_OTP] SUCCESS');
+    } on AuthException catch (error) {
+      print('[PHONE_OTP] ERROR');
+      print('[PHONE_OTP] error type: ${error.runtimeType}');
+      print('[PHONE_OTP] error message: ${error.message}');
+      print('[PHONE_OTP] status code: ${error.statusCode}');
+      throw _mapAuthException(error);
+    } catch (error) {
+      print('[PHONE_OTP] ERROR');
+      print('[PHONE_OTP] error type: ${error.runtimeType}');
+      print('[PHONE_OTP] error message: $error');
+      throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
+  static Future<AuthResponse?> verifyPhoneOtp({
+    required String phone,
+    required String token,
+  }) async {
+    try {
+      final response = await _client.auth.verifyOTP(
+        phone: phone,
+        token: token,
+        type: OtpType.sms,
+      );
+      return response;
     } on AuthException catch (error) {
       throw _mapAuthException(error);
     } catch (_) {
@@ -108,3 +192,4 @@ class AuthFailure implements Exception {
   @override
   String toString() => message;
 }
+

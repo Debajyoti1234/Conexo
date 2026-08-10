@@ -14,6 +14,7 @@ import 'profile_strength_data.dart';
 import 'profile_strength_screen.dart';
 import 'public_profile_sections.dart';
 import 'safety_screen.dart';
+import 'session_aware_profile_repository.dart';
 
 /// The premium **My Profile** screen — the default destination of the Profile
 /// tab once a profile exists.
@@ -30,7 +31,7 @@ import 'safety_screen.dart';
 class MyProfileScreen extends StatefulWidget {
   const MyProfileScreen({
     super.key,
-    this.repository = const LocalProfileRepository(),
+    this.repository = const SessionAwareProfileRepository(),
   });
 
   /// Injected repository (defaults to local). A future backend repository can
@@ -387,7 +388,7 @@ Route<void> premiumMyProfileRoute({ProfileRepository? repository}) {
     transitionDuration: const Duration(milliseconds: 420),
     reverseTransitionDuration: const Duration(milliseconds: 320),
     pageBuilder: (context, animation, secondaryAnimation) => MyProfileScreen(
-      repository: repository ?? const LocalProfileRepository(),
+      repository: repository ?? const SessionAwareProfileRepository(),
     ),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(

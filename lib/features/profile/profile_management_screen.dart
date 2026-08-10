@@ -10,6 +10,7 @@ import 'profile_repository.dart';
 import 'profile_strength_screen.dart';
 import 'public_profile_data.dart';
 import 'public_profile_screen.dart';
+import 'session_aware_profile_repository.dart';
 
 /// Neutral UI fallback name for the shared Public Profile Viewer. This is a
 /// presentation-only placeholder — never persisted, never treated as user data.
@@ -31,7 +32,7 @@ const String kDefaultProfileDisplayName = 'Conexo Member';
 class ProfileManagementScreen extends StatefulWidget {
   const ProfileManagementScreen({
     super.key,
-    this.repository = const LocalProfileRepository(),
+    this.repository = const SessionAwareProfileRepository(),
   });
 
   /// Injected repository (defaults to the local implementation). A future
@@ -528,7 +529,7 @@ Route<void> premiumProfileManagementRoute({ProfileRepository? repository}) {
     reverseTransitionDuration: const Duration(milliseconds: 320),
     pageBuilder: (context, animation, secondaryAnimation) =>
         ProfileManagementScreen(
-      repository: repository ?? const LocalProfileRepository(),
+      repository: repository ?? const SessionAwareProfileRepository(),
     ),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(

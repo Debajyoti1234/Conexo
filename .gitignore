@@ -45,3 +45,4 @@ app.*.map.json
 /android/app/release
 # Local Supabase development credentials
 /tool/supabase_dev.json
+node_modules/

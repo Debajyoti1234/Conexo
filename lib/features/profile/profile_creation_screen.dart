@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
+import '../../core/supabase/auth_service.dart';
 import 'profile_creation_sections.dart';
 import 'profile_creation_widgets.dart';
 import 'profile_data.dart';
 import 'profile_repository.dart';
+import 'session_aware_profile_repository.dart';
 
 /// The premium Profile Creation flow (Phase 4.1).
 ///
@@ -21,12 +23,16 @@ import 'profile_repository.dart';
 class ProfileCreationScreen extends StatefulWidget {
   const ProfileCreationScreen({
     super.key,
-    this.repository = const LocalProfileRepository(),
+    this.repository,
+    this.onComplete,
   });
 
-  /// Injected repository (defaults to the local implementation). A future
+  /// Injected repository (defaults to SupabaseProfileRepository). A future
   /// backend repository can be supplied without changing this screen.
-  final ProfileRepository repository;
+  final ProfileRepository? repository;
+
+  /// Called when the profile is successfully completed.
+  final void Function(BuildContext context)? onComplete;
 
   @override
   State<ProfileCreationScreen> createState() => _ProfileCreationScreenState();
@@ -68,7 +74,8 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   }
 
   Future<void> _checkForDraft() async {
-    final saved = await widget.repository.loadDraft();
+    final repo = widget.repository ?? const SessionAwareProfileRepository();
+    final saved = await repo.loadDraft();
     if (!mounted) return;
     final hasContent = saved != null &&
         (saved.photos.isNotEmpty ||
@@ -100,7 +107,8 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   }
 
   Future<void> _discardDraft() async {
-    await widget.repository.clearDraft();
+    final repo = widget.repository ?? const SessionAwareProfileRepository();
+    await repo.clearDraft();
     if (!mounted) return;
     setState(() {
       _restorableDraft = null;
@@ -112,7 +120,8 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     setState(() => _draft = draft);
     _saveDebounce?.cancel();
     _saveDebounce = Timer(const Duration(milliseconds: 600), () {
-      widget.repository.saveDraft(_draft);
+      final repo = widget.repository ?? const SessionAwareProfileRepository();
+      repo.saveDraft(_draft);
     });
   }
 
@@ -121,10 +130,16 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     setState(() => _saving = true);
 
     await Future<void>.delayed(const Duration(milliseconds: 700));
-    final id = 'profile_${DateTime.now().millisecondsSinceEpoch}';
-    final profile = UserProfile.fromDraft(_draft, id: id);
-    await widget.repository.saveProfile(profile);
-    await widget.repository.clearDraft();
+    final userId = AuthService.currentUser?.id;
+    if (userId == null) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      return;
+    }
+    final profile = UserProfile.fromDraft(_draft, id: userId);
+    final repo = widget.repository ?? const SessionAwareProfileRepository();
+    await repo.saveProfile(profile);
+    await repo.clearDraft();
     if (!mounted) return;
 
     setState(() {
@@ -134,7 +149,12 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
     await Future<void>.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
-    Navigator.of(context).maybePop();
+    final onComplete = widget.onComplete;
+    if (onComplete != null) {
+      onComplete(context);
+    } else {
+      Navigator.of(context).maybePop();
+    }
   }
 
   @override
@@ -416,7 +436,7 @@ Route<void> premiumProfileCreationRoute({ProfileRepository? repository}) {
     reverseTransitionDuration: const Duration(milliseconds: 320),
     pageBuilder: (context, animation, secondaryAnimation) =>
         ProfileCreationScreen(
-      repository: repository ?? const LocalProfileRepository(),
+      repository: repository ?? const SessionAwareProfileRepository(),
     ),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(

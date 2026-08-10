@@ -4,37 +4,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'profile_data.dart';
 
-/// The single data-access layer for the entire Profile feature.
-///
-/// Every Profile screen must communicate ONLY through a [ProfileRepository].
-/// This keeps a single source of truth for local persistence today and a
-/// single swap point for a future backend.
-///
-/// The repository is *injected* through constructors (no global singleton, no
-/// service locator) so a future `FirestoreProfileRepository` /
-/// `ApiProfileRepository` can replace [LocalProfileRepository] WITHOUT touching
-/// any UI or business logic.
+enum ProfileStatus { missing, incomplete, complete, error }
+
 abstract class ProfileRepository {
-  /// Loads the in-progress editable draft (or `null` if none).
   Future<UserProfileDraft?> loadDraft();
 
-  /// Persists the in-progress editable draft.
   Future<void> saveDraft(UserProfileDraft draft);
 
-  /// Clears the in-progress editable draft.
   Future<void> clearDraft();
 
-  /// Whether a draft currently exists.
   Future<bool> hasDraft();
 
-  /// Loads the finalized profile (or `null` if none saved yet).
   Future<UserProfile?> loadProfile();
 
-  /// Persists the finalized profile.
   Future<void> saveProfile(UserProfile profile);
 
-  /// Whether a finalized profile currently exists.
   Future<bool> hasProfile();
+
+  Future<ProfileStatus> checkProfileStatus() async {
+    final profile = await loadProfile();
+    if (profile == null) return ProfileStatus.missing;
+    final draft = await loadDraft();
+    if (draft != null && !draft.isComplete) {
+      return ProfileStatus.incomplete;
+    }
+    return ProfileStatus.complete;
+  }
 }
 
 /// The local, on-device implementation backed by [SharedPreferences].
@@ -43,10 +38,15 @@ abstract class ProfileRepository {
 /// [SharedPreferences]. When a backend arrives, implement [ProfileRepository]
 /// elsewhere and inject it; nothing else needs to change.
 class LocalProfileRepository implements ProfileRepository {
-  const LocalProfileRepository();
+  const LocalProfileRepository([this.userId]);
 
-  static const _draftKey = 'conexo_profile_draft_v1';
-  static const _profileKey = 'conexo_profile_v1';
+  final String? userId;
+
+  String get _draftKey =>
+      userId == null ? 'conexo_profile_draft_v1' : 'conexo_profile_draft_v1_$userId';
+
+  String get _profileKey =>
+      userId == null ? 'conexo_profile_v1' : 'conexo_profile_v1_$userId';
 
   @override
   Future<UserProfileDraft?> loadDraft() async {
@@ -104,5 +104,16 @@ class LocalProfileRepository implements ProfileRepository {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_profileKey);
     return raw != null && raw.isNotEmpty;
+  }
+
+  @override
+  Future<ProfileStatus> checkProfileStatus() async {
+    final profile = await loadProfile();
+    if (profile == null) return ProfileStatus.missing;
+    final draft = await loadDraft();
+    if (draft!= null &&!draft.isComplete) {
+      return ProfileStatus.incomplete;
+    }
+    return ProfileStatus.complete;
   }
 }

@@ -4,7 +4,6 @@ import '../../app/router/app_router.dart';
 import '../../core/supabase/auth_service.dart';
 import 'auth/confirm_email_screen.dart';
 import 'auth_components.dart';
-import 'phone_auth_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -45,17 +44,6 @@ class _SignupScreenState extends State<SignupScreen> {
       setState(() => _isLoading = true);
       try {
         final email = _emailController.text.trim();
-        final shouldNavigateToPhone =
-            email.isEmpty || !_isValidEmail(email);
-        if (shouldNavigateToPhone) {
-          if (!mounted) return;
-          Navigator.of(context).push(
-            AppRouter.slideRoute(
-              PhoneAuthScreen(phoneNumber: _phoneController.text),
-            ),
-          );
-          return;
-        }
         await AuthService.signUp(
           email: email,
           password: _passwordController.text,
@@ -85,9 +73,6 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
-  bool _isValidEmail(String value) {
-    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,11 +115,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   const SizedBox(height: 14),
                   PremiumTextField(
                     controller: _emailController,
-                    label: 'Email address (optional)',
+                    label: 'Email address',
                     icon: Icons.mail_outline_rounded,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
-                    validator: optionalEmailValidator,
+                    validator: emailValidator,
                   ),
                   const SizedBox(height: 14),
                   PremiumTextField(
@@ -225,3 +210,5 @@ String? emailValidator(String? value) {
   }
   return null;
 }
+
+

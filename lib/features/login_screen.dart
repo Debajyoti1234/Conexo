@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/supabase/auth_service.dart';
 import '../app/router/app_router.dart';
 import 'auth_components.dart';
-import 'main_shell.dart';
+import '../../core/supabase/auth_gate.dart';
 import 'phone_auth_screen.dart';
 import 'signup_screen.dart';
 
@@ -37,8 +37,20 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text,
         );
         if (!mounted) return;
+
+        final target = await AuthGate.navigateToTarget();
+        if (!mounted) return;
+
+        if (target == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Unable to load profile. Please check your connection and try again.')),
+          );
+          setState(() => _isLoading = false);
+          return;
+        }
+
         Navigator.of(context).pushAndRemoveUntil(
-          AppRouter.slideRoute(const MainShell()),
+          AppRouter.slideRoute(target),
           (route) => false,
         );
       } on AuthFailure catch (error) {
@@ -55,6 +67,51 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           setState(() => _isLoading = false);
         }
+      }
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final result = await AuthService.signInWithGoogle();
+      if (result == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      if (!mounted) return;
+
+      final target = await AuthGate.navigateToTarget();
+      if (!mounted) return;
+
+      if (target == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to load profile. Please check your connection and try again.')),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      Navigator.of(context).pushAndRemoveUntil(
+        AppRouter.slideRoute(target),
+        (route) => false,
+      );
+    } on AuthFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Network error. Please try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -121,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       SocialLoginButton(
                         label: 'Google',
                         icon: Icons.g_mobiledata_rounded,
-                        onPressed: () {},
+                        onPressed: _handleGoogleSignIn,
                       ),
                       SocialLoginButton(
                         label: 'Apple',
