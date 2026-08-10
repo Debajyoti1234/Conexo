@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services/permission_manager.dart';
 import 'profile_creation_widgets.dart';
 import 'profile_data.dart';
 import 'profile_validation.dart';
+import 'package:image_picker/image_picker.dart';
+
+// ignore_for_file: use_build_context_synchronously
 
 /// Section widgets for the Profile Creation flow.
 ///
@@ -72,31 +76,132 @@ class PhotosSection extends StatelessWidget {
   final UserProfileDraft draft;
   final ValueChanged<UserProfileDraft> onChanged;
 
-  void _toggle(String asset) {
-    final current = [...draft.photos];
-    final existingIndex = current.indexWhere((p) => p.assetPath == asset);
-    if (existingIndex >= 0) {
-      current.removeAt(existingIndex);
-    } else {
-      if (current.length >= kMaxProfilePhotos) return;
-      current.add(ProfilePhoto(id: asset, assetPath: asset));
-    }
-    onChanged(draft.copyWith(photos: _normalizePrimary(current)));
-  }
-
-  void _reorder(int oldIndex, int newIndex) {
-    final current = [...draft.photos];
-    final item = current.removeAt(oldIndex);
-    current.insert(newIndex, item);
-    onChanged(draft.copyWith(photos: _normalizePrimary(current)));
-  }
-
   /// Ensures exactly the first photo carries `isPrimary`.
   List<ProfilePhoto> _normalizePrimary(List<ProfilePhoto> photos) {
     return [
       for (var i = 0; i < photos.length; i++)
         photos[i].copyWith(isPrimary: i == 0),
     ];
+  }
+
+  Future<void> _pickFromCamera(BuildContext context) async {
+    final status = await PermissionManager.check(PermissionType.camera);
+    if (status == PermissionStatus.permanentlyDenied) {
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Camera Permission Required'),
+          content: const Text(
+              'Camera permission has been permanently denied. Please enable it in app settings.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Open Settings')),
+          ],
+        ),
+      );
+      if (open == true) await PermissionManager.openAppSettings();
+      return;
+    }
+    if (status != PermissionStatus.granted) {
+      final result =
+          await PermissionManager.request(PermissionType.camera);
+      if (result != PermissionStatus.granted) return;
+    }
+
+    final picker = ImagePicker();
+    final xfile = await picker.pickImage(source: ImageSource.camera);
+    if (xfile == null) return;
+
+    final photo = ProfilePhoto(
+      id: 'camera_${DateTime.now().millisecondsSinceEpoch}',
+      assetPath: xfile.path,
+      isPrimary: draft.photos.isEmpty,
+    );
+    onChanged(draft.copyWith(photos: [...draft.photos, photo]));
+  }
+
+  Future<void> _pickFromGallery(BuildContext context) async {
+    final status = await PermissionManager.check(PermissionType.photos);
+    if (status == PermissionStatus.permanentlyDenied) {
+      final open = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Photos Permission Required'),
+          content: const Text(
+              'Photos permission has been permanently denied. Please enable it in app settings.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Open Settings')),
+          ],
+        ),
+      );
+      if (open == true) await PermissionManager.openAppSettings();
+      return;
+    }
+    if (status != PermissionStatus.granted) {
+      final result =
+          await PermissionManager.request(PermissionType.photos);
+      if (result != PermissionStatus.granted) return;
+    }
+
+    final picker = ImagePicker();
+    final xfile = await picker.pickImage(source: ImageSource.gallery);
+    if (xfile == null) return;
+
+    final photo = ProfilePhoto(
+      id: 'gallery_${DateTime.now().millisecondsSinceEpoch}',
+      assetPath: xfile.path,
+      isPrimary: draft.photos.isEmpty,
+    );
+    onChanged(draft.copyWith(photos: [...draft.photos, photo]));
+  }
+
+  Future<void> _showPickerDialog(BuildContext context) async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF131A2E),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _PickerOption(
+                  icon: Icons.camera_alt_rounded,
+                  label: 'Take Photo',
+                  onTap: () => Navigator.pop(context, 'camera'),
+                ),
+                const SizedBox(height: 12),
+                _PickerOption(
+                  icon: Icons.photo_library_rounded,
+                  label: 'Choose from Gallery',
+                  onTap: () => Navigator.pop(context, 'gallery'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (choice == 'camera') {
+      await _pickFromCamera(context);
+    } else if (choice == 'gallery') {
+      await _pickFromGallery(context);
+    }
   }
 
   @override
@@ -107,10 +212,57 @@ class PhotosSection extends StatelessWidget {
           'Your first photo is your primary.',
       completed: validatePhotos(draft.photos),
       child: PhotoGrid(
-        gallery: profilePhotoGallery,
         selected: draft.photos,
-        onToggle: _toggle,
-        onReorder: _reorder,
+        onAddPhoto: () => _showPickerDialog(context),
+        onRemove: (index) {
+          final current = [...draft.photos];
+          current.removeAt(index);
+          onChanged(draft.copyWith(photos: _normalizePrimary(current)));
+        },
+      ),
+    );
+  }
+}
+
+class _PickerOption extends StatelessWidget {
+  const _PickerOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: .1),
+            width: 1,
+          ),
+          color: Colors.white.withValues(alpha: .06),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: const Color(0xFFB9C3DC)),
+            const SizedBox(width: 14),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFB9C3DC),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -267,13 +419,18 @@ class LocationSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return SectionShell(
       title: 'Location',
-      subtitle: 'Where you are based.',
+      subtitle: 'Tap to use your current location, or type it.',
       completed: draft.location.trim().isNotEmpty,
-      child: GlassTextField(
+      child: LocationDetectField(
         controller: controller,
-        hint: 'e.g. Bengaluru, India',
-        icon: Icons.location_on_outlined,
-        onChanged: (v) => onChanged(draft.copyWith(location: v)),
+        onLocationNameChanged: (v) => onChanged(draft.copyWith(location: v)),
+        onLocationDetected: (name, lat, lng) => onChanged(
+          draft.copyWith(
+            location: name ?? draft.location,
+            latitude: lat,
+            longitude: lng,
+          ),
+        ),
       ),
     );
   }

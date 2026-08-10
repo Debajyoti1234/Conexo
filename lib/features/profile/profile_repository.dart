@@ -111,7 +111,7 @@ class LocalProfileRepository implements ProfileRepository {
     final profile = await loadProfile();
     if (profile == null) return ProfileStatus.missing;
     final draft = await loadDraft();
-    if (draft!= null &&!draft.isComplete) {
+    if (draft != null && !draft.isComplete) {
       return ProfileStatus.incomplete;
     }
     return ProfileStatus.complete;

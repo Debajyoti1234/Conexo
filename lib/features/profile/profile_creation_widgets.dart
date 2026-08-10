@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_widgets.dart';
+import '../../core/services/location_service.dart';
+import '../../core/services/permission_manager.dart';
 import '../home_discovery_animations.dart';
 import 'profile_data.dart';
 
@@ -15,6 +19,45 @@ const _kAccent = Color(0xFF8B5CF6);
 const _kAccent2 = Color(0xFF587BE2);
 const _kSoftText = Color(0xFFB9C3DC);
 const _kFieldFill = Color(0x14FFFFFF);
+
+// ── ProfilePhotoViewer ───────────────────────────────────────────────────────
+
+/// Renders a profile photo from either a bundled asset or a local file path.
+///
+/// Asset paths are displayed with [Image.asset]; all other paths are treated
+/// as local file paths and displayed with [Image.file].
+class ProfilePhotoViewer extends StatelessWidget {
+  const ProfilePhotoViewer({
+    required this.path,
+    this.fit = BoxFit.cover,
+    this.width,
+    this.height,
+    super.key,
+  });
+
+  final String path;
+  final BoxFit fit;
+  final double? width;
+  final double? height;
+
+  @override
+  Widget build(BuildContext context) {
+    if (path.startsWith('assets/')) {
+      return Image.asset(
+        path,
+        fit: fit,
+        width: width,
+        height: height,
+      );
+    }
+    return Image.file(
+      File(path),
+      fit: fit,
+      width: width,
+      height: height,
+    );
+  }
+}
 
 // ── SectionShell ────────────────────────────────────────────────────────────
 
@@ -103,111 +146,68 @@ class _CompletionCheck extends StatelessWidget {
 
 // ── PhotoGrid ───────────────────────────────────────────────────────────────
 
-/// A selectable, reorderable grid of local portrait assets.
+/// A slot-based photo picker with exactly [kMaxProfilePhotos] premium glass
+/// cards. Empty slots show a "+" icon; filled slots show the selected photo.
 ///
-/// Tapping an unselected asset adds it (up to [kMaxProfilePhotos]); tapping a
-/// selected asset removes it. The first selected photo is the primary. Long
-/// controls let the user reorder to change the primary photo.
+/// Tapping an empty slot triggers [onAddPhoto]. Tapping the remove button on a
+/// filled slot triggers [onRemove] with that photo's index. When [onReorder]
+/// is provided, up/down arrows are shown for reordering.
 class PhotoGrid extends StatelessWidget {
   const PhotoGrid({
-    required this.gallery,
     required this.selected,
-    required this.onToggle,
-    required this.onReorder,
+    required this.onAddPhoto,
+    required this.onRemove,
+    this.onReorder,
     super.key,
   });
 
-  /// All available local assets.
-  final List<String> gallery;
-
-  /// Currently selected photos in display order (first = primary).
   final List<ProfilePhoto> selected;
 
-  final ValueChanged<String> onToggle;
+  final VoidCallback onAddPhoto;
 
-  /// Called with (oldIndex, newIndex) within the selected list.
-  final void Function(int oldIndex, int newIndex) onReorder;
+  final ValueChanged<int> onRemove;
+
+  final void Function(int oldIndex, int newIndex)? onReorder;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Selected strip with ordering + primary badge.
-        if (selected.isNotEmpty) ...[
-          const Text(
-            'Tap arrows to reorder • first photo is primary',
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.4,
-              color: _kSoftText,
-            ),
-          ),
-          const SizedBox(height: 12),
+    final slots = <Widget>[];
+    for (var i = 0; i < kMaxProfilePhotos; i++) {
+      if (i < selected.length) {
+        slots.add(_FilledPhotoSlot(
+          photo: selected[i],
+          index: i,
+          onRemove: () => onRemove(i),
+          onUp: onReorder != null && i > 0
+              ? () => onReorder!(i, i - 1)
+              : null,
+          onDown: onReorder != null && i < selected.length - 1
+              ? () => onReorder!(i, i + 1)
+              : null,
+        ));
+      } else {
+        slots.add(_EmptyPhotoSlot(onTap: onAddPhoto));
+      }
+    }
 
-          Column(
-            children: [
-              for (var i = 0; i < selected.length; i++)
-                Padding(
-                  key: ValueKey('sel_${selected[i].id}'),
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _SelectedPhotoRow(
-                    photo: selected[i],
-                    index: i,
-                    onUp: i > 0 ? () => onReorder(i, i - 1) : null,
-                    onDown: i < selected.length - 1
-                        ? () => onReorder(i, i + 1)
-                        : null,
-                    onRemove: () => onToggle(selected[i].assetPath),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 14),
-        ],
-        Text(
-          'Gallery',
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: _kSoftText,
-          ),
-        ),
-        const SizedBox(height: 10),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: gallery.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 0.78,
-          ),
-          itemBuilder: (context, index) {
-            final asset = gallery[index];
-            final isSelected = selected.any((p) => p.assetPath == asset);
-            return _GalleryTile(
-              asset: asset,
-              selected: isSelected,
-              onTap: () => onToggle(asset),
-            );
-          },
-        ),
-      ],
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: slots.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.78,
+      ),
+      itemBuilder: (context, index) => slots[index],
     );
   }
 }
 
-class _GalleryTile extends StatelessWidget {
-  const _GalleryTile({
-    required this.asset,
-    required this.selected,
-    required this.onTap,
-  });
+class _EmptyPhotoSlot extends StatelessWidget {
+  const _EmptyPhotoSlot({required this.onTap});
 
-  final String asset;
-  final bool selected;
   final VoidCallback onTap;
 
   @override
@@ -220,31 +220,119 @@ class _GalleryTile extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? _kAccent : Colors.white.withValues(alpha: .08),
-            width: selected ? 2 : 1,
+            color: Colors.white.withValues(alpha: .08),
+            width: 1,
           ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: _kAccent.withValues(alpha: .4),
-                    blurRadius: 16,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
+        ),
+        child: Center(
+          child: Icon(
+            Icons.add_rounded,
+            size: 28,
+            color: Colors.white.withValues(alpha: .35),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilledPhotoSlot extends StatelessWidget {
+  const _FilledPhotoSlot({
+    required this.photo,
+    required this.index,
+    required this.onRemove,
+    this.onUp,
+    this.onDown,
+  });
+
+  final ProfilePhoto photo;
+  final int index;
+  final VoidCallback onRemove;
+  final VoidCallback? onUp;
+  final VoidCallback? onDown;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onRemove,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _kAccent,
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _kAccent.withValues(alpha: .4),
+              blurRadius: 16,
+              spreadRadius: 1,
+            ),
+          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.asset(asset, fit: BoxFit.cover),
-            if (selected)
-              Container(
-                alignment: Alignment.topRight,
-                padding: const EdgeInsets.all(6),
-                color: Colors.black.withValues(alpha: .16),
-                child: const _CompletionCheck(),
+            ProfilePhotoViewer(
+              path: photo.assetPath,
+              fit: BoxFit.cover,
+            ),
+            if (onUp != null || onDown != null)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: .55),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _SlotIconButton(
+                        icon: Icons.arrow_upward_rounded,
+                        onTap: onUp,
+                      ),
+                      const SizedBox(width: 8),
+                      _SlotIconButton(
+                        icon: Icons.arrow_downward_rounded,
+                        onTap: onDown,
+                      ),
+                    ],
+                  ),
+                ),
               ),
+            Positioned(
+              top: 6,
+              right: 6,
+              child: GestureDetector(
+                onTap: onRemove,
+                child: Container(
+                  height: 24,
+                  width: 24,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black54,
+                  ),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -252,128 +340,30 @@ class _GalleryTile extends StatelessWidget {
   }
 }
 
-class _SelectedPhotoRow extends StatelessWidget {
-  const _SelectedPhotoRow({
-    required this.photo,
-    required this.index,
-    required this.onUp,
-    required this.onDown,
-    required this.onRemove,
-  });
-
-  final ProfilePhoto photo;
-  final int index;
-  final VoidCallback? onUp;
-  final VoidCallback? onDown;
-  final VoidCallback onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: .28),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                photo.assetPath,
-                height: 54,
-                width: 54,
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Photo ${index + 1}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (photo.isPrimary)
-                  const Text(
-                    'Primary',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF47D7A5),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          _RoundIconButton(
-            icon: Icons.arrow_upward_rounded,
-            onTap: onUp,
-            tooltip: 'Move up',
-          ),
-          const SizedBox(width: 6),
-          _RoundIconButton(
-            icon: Icons.arrow_downward_rounded,
-            onTap: onDown,
-            tooltip: 'Move down',
-          ),
-          const SizedBox(width: 6),
-          _RoundIconButton(
-            icon: Icons.close_rounded,
-            onTap: onRemove,
-            tooltip: 'Remove',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
-    required this.icon,
-    required this.onTap,
-    required this.tooltip,
-  });
+class _SlotIconButton extends StatelessWidget {
+  const _SlotIconButton({required this.icon, this.onTap});
 
   final IconData icon;
   final VoidCallback? onTap;
-  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.white.withValues(alpha: enabled ? .08 : .03),
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Icon(
-              icon,
-              size: 18,
-              color: enabled
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: .25),
-            ),
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 28,
+        width: 28,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: enabled
+              ? Colors.white.withValues(alpha: .2)
+              : Colors.white.withValues(alpha: .06),
+        ),
+        child: Icon(
+          icon,
+          size: 16,
+          color: enabled ? Colors.white : Colors.white.withValues(alpha: .3),
         ),
       ),
     );
@@ -499,6 +489,9 @@ class GlassTextField extends StatelessWidget {
     this.maxLength,
     this.keyboardType,
     this.onChanged,
+    this.suffixIcon,
+    this.onSuffixTap,
+    this.suffixBusy = false,
   });
 
   final TextEditingController controller;
@@ -509,8 +502,19 @@ class GlassTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final ValueChanged<String>? onChanged;
 
+  /// Optional trailing action icon (e.g. "use current location"). Kept visually
+  /// minimal so the field's premium glass language is preserved.
+  final IconData? suffixIcon;
+
+  /// Tap handler for [suffixIcon]. When null, no suffix affordance is shown.
+  final VoidCallback? onSuffixTap;
+
+  /// When true, the suffix shows a small spinner instead of the icon.
+  final bool suffixBusy;
+
   @override
   Widget build(BuildContext context) {
+    final hasSuffix = suffixIcon != null || suffixBusy;
     return TextField(
       controller: controller,
       onChanged: onChanged,
@@ -531,6 +535,13 @@ class GlassTextField extends StatelessWidget {
         ),
         prefixIcon: icon != null
             ? Icon(icon, size: 20, color: const Color(0xFFB7A5FF))
+            : null,
+        suffixIcon: hasSuffix
+            ? _GlassFieldSuffix(
+                icon: suffixIcon,
+                busy: suffixBusy,
+                onTap: onSuffixTap,
+              )
             : null,
         filled: true,
         fillColor: _kFieldFill,
@@ -553,6 +564,161 @@ class GlassTextField extends StatelessWidget {
       ),
     );
 
+  }
+}
+
+/// A subtle, tappable suffix used inside [GlassTextField] (e.g. the GPS
+/// "detect" affordance). Shows a small spinner while [busy].
+class _GlassFieldSuffix extends StatelessWidget {
+  const _GlassFieldSuffix({
+    required this.icon,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final IconData? icon;
+  final bool busy;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: busy ? null : onTap,
+      splashRadius: 20,
+      visualDensity: VisualDensity.compact,
+      icon: busy
+          ? const SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFFB7A5FF),
+              ),
+            )
+          : Icon(icon, size: 20, color: const Color(0xFFB7A5FF)),
+    );
+  }
+}
+
+// ── LocationDetectField ─────────────────────────────────────────────────────
+
+/// A [GlassTextField] specialised for location entry with a subtle GPS suffix.
+///
+/// The whole field triggers detection when empty (via [readOnlyTapWhenEmpty]),
+/// and the suffix icon triggers detection at any time; either way the text stays
+/// editable so the resolved area name can be corrected by hand. All GPS /
+/// geocoding lives in [LocationService]; this widget only orchestrates UI state
+/// and surfaces failures.
+class LocationDetectField extends StatefulWidget {
+  const LocationDetectField({
+    required this.controller,
+    required this.onLocationNameChanged,
+    required this.onLocationDetected,
+    super.key,
+    this.hint = 'e.g. Bengaluru, India',
+  });
+
+  final TextEditingController controller;
+
+  /// Called when the user manually edits the location name.
+  final ValueChanged<String> onLocationNameChanged;
+
+  /// Called once per successful GPS detection with the resolved area name
+  /// (may be null) AND the real coordinates. The parent should update the
+  /// draft atomically in a single [copyWith].
+  final void Function(String? areaName, double latitude, double longitude)
+      onLocationDetected;
+
+  final String hint;
+
+  @override
+  State<LocationDetectField> createState() => _LocationDetectFieldState();
+}
+
+class _LocationDetectFieldState extends State<LocationDetectField> {
+  bool _busy = false;
+
+  /// After the first detection attempt, tapping the field no longer auto-detects
+  /// (so manual typing is never interrupted). Re-detection stays on the GPS icon.
+  bool _autoDetectSuppressed = false;
+
+  Future<void> _detect() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _autoDetectSuppressed = true;
+    });
+
+    final result = await LocationService.detectCurrentLocation();
+    if (!mounted) return;
+
+    setState(() => _busy = false);
+
+    switch (result.outcome) {
+      case LocationOutcome.success:
+        final name = result.areaName;
+        if (name != null && name.isNotEmpty) {
+          widget.controller.text = name;
+          widget.controller.selection = TextSelection.collapsed(
+            offset: name.length,
+          );
+        }
+        widget.onLocationDetected(name, result.latitude!, result.longitude!);
+        _showSnack(
+          name != null && name.isNotEmpty
+              ? 'Location detected'
+              : 'Coordinates captured. Add a location name.',
+        );
+      case LocationOutcome.permissionDenied:
+        _showSnack('Location permission denied. You can type it manually.');
+      case LocationOutcome.permissionPermanentlyDenied:
+        _showSettingsSnack();
+      case LocationOutcome.serviceDisabled:
+        _showSnack('Turn on location services, or type your location.');
+      case LocationOutcome.failed:
+        _showSnack("Couldn't get your location. You can type it manually.");
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showSettingsSnack() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: const Text('Location permission is off in Settings.'),
+          action: SnackBarAction(
+            label: 'Settings',
+            onPressed: PermissionManager.openAppSettings,
+          ),
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canAutoDetect =
+        !_autoDetectSuppressed && widget.controller.text.trim().isEmpty && !_busy;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      // Tapping an empty field is the primary "use current location" gesture
+      // (once only); afterwards we defer to normal editing + the suffix icon.
+      onTap: canAutoDetect ? _detect : null,
+      child: GlassTextField(
+        controller: widget.controller,
+        hint: widget.hint,
+        icon: Icons.location_on_outlined,
+        suffixIcon: Icons.my_location_rounded,
+        suffixBusy: _busy,
+        onSuffixTap: _detect,
+        onChanged: widget.onLocationNameChanged,
+      ),
+    );
   }
 }
 
@@ -851,7 +1017,10 @@ class ProfilePreviewCard extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     if (hero != null)
-                      Image.asset(hero, fit: BoxFit.cover)
+                      ProfilePhotoViewer(
+                        path: hero,
+                        fit: BoxFit.cover,
+                      )
                     else
                       const ColoredBox(color: Color(0xFF1A2138)),
                     const DecoratedBox(

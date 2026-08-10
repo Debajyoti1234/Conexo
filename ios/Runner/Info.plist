@@ -26,6 +26,15 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Conexo Phase 9.0: privacy usage descriptions for PermissionManager -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Conexo needs your location to help you discover nearby people and plans.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Conexo needs camera access for profile photos and verification.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Conexo needs photo library access for profile pictures.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Conexo needs microphone access for voice messages and calls.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -143,18 +143,25 @@ class SupabaseProfileRepository implements ProfileRepository {
       switch (key) {
         case 'social_links':
           result['socialLinks'] = value;
+          break;
         case 'about_me':
           result['aboutMe'] = value;
+          break;
         case 'favorite_activities':
           result['favoriteActivities'] = value;
+          break;
         case 'verification_status':
           result['verificationStatus'] = value;
+          break;
         case 'profile_visibility':
           result['profileVisibility'] = value;
+          break;
         case 'created_at':
           result['createdAt'] = value;
+          break;
         case 'updated_at':
           result['updatedAt'] = value;
+          break;
         default:
           result[key] = value;
       }

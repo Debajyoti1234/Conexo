@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'profile_data.dart';
@@ -300,30 +302,51 @@ class _HeroPhoto extends StatelessWidget {
   Widget build(BuildContext context) {
     final child = assetPath.trim().isEmpty
         ? const _HeroPlaceholder()
-        : Image.asset(
-            assetPath,
-            fit: BoxFit.cover,
-            gaplessPlayback: true,
-            // Graceful blur-up: while the frame settles, show the gradient
-            // placeholder, then cross-fade the decoded image in.
-            frameBuilder: (context, image, frame, wasSyncLoaded) {
-              if (wasSyncLoaded) return image;
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  const _HeroPlaceholder(),
-                  AnimatedOpacity(
-                    opacity: frame == null ? 0 : 1,
-                    duration: const Duration(milliseconds: 520),
-                    curve: Curves.easeOut,
-                    child: image,
-                  ),
-                ],
+        : assetPath.startsWith('assets/')
+            ? Image.asset(
+                assetPath,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                frameBuilder: (context, image, frame, wasSyncLoaded) {
+                  if (wasSyncLoaded) return image;
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      const _HeroPlaceholder(),
+                      AnimatedOpacity(
+                        opacity: frame == null ? 0 : 1,
+                        duration: const Duration(milliseconds: 520),
+                        curve: Curves.easeOut,
+                        child: image,
+                      ),
+                    ],
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) =>
+                    const _HeroPlaceholder(),
+              )
+            : Image.file(
+                File(assetPath),
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                frameBuilder: (context, image, frame, wasSyncLoaded) {
+                  if (wasSyncLoaded) return image;
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      const _HeroPlaceholder(),
+                      AnimatedOpacity(
+                        opacity: frame == null ? 0 : 1,
+                        duration: const Duration(milliseconds: 520),
+                        curve: Curves.easeOut,
+                        child: image,
+                      ),
+                    ],
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) =>
+                    const _HeroPlaceholder(),
               );
-            },
-            errorBuilder: (context, error, stackTrace) =>
-                const _HeroPlaceholder(),
-          );
     return AnimatedBuilder(
       animation: controller,
       child: child,

@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/router/app_router.dart';
+import '../../core/services/permission_manager.dart';
 import '../../core/supabase/auth_service.dart';
 import '../../core/supabase/auth_gate.dart';
 import '../onboarding_screen.dart';
@@ -19,6 +21,8 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _controller;
   bool _showError = false;
   String? _errorMessage;
+
+  static const _permissionsRequestedKey = 'conexo_permissions_requested_v1';
 
   @override
   void initState() {
@@ -40,6 +44,9 @@ class _SplashScreenState extends State<SplashScreen>
               return;
             }
 
+            await _ensureFirstLaunchPermissions();
+
+            if (!mounted) return;
             final target = await AuthGate.navigateToTarget();
             if (!mounted) return;
 
@@ -58,6 +65,65 @@ class _SplashScreenState extends State<SplashScreen>
           }
         });
     _controller.forward();
+  }
+
+  Future<void> _ensureFirstLaunchPermissions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyRequested = prefs.getBool(_permissionsRequestedKey) ?? false;
+    if (alreadyRequested) return;
+
+    const permissions = [
+      PermissionType.camera,
+      PermissionType.photos,
+      PermissionType.locationWhenInUse,
+      PermissionType.notifications,
+      PermissionType.microphone,
+    ];
+
+    for (final permission in permissions) {
+      final status = await PermissionManager.check(permission);
+      if (status == PermissionStatus.granted) continue;
+
+      if (status == PermissionStatus.permanentlyDenied) {
+        if (!mounted) return;
+        final open = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('${_permissionLabel(permission)} Permission Required'),
+            content: Text(
+                '${_permissionLabel(permission)} permission is needed for core Conexo features. Please enable it in app settings.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Open Settings')),
+            ],
+          ),
+        );
+        if (open == true) await PermissionManager.openAppSettings();
+      } else {
+        await PermissionManager.request(permission);
+      }
+    }
+
+    await prefs.setBool(_permissionsRequestedKey, true);
+  }
+
+  String _permissionLabel(PermissionType type) {
+    switch (type) {
+      case PermissionType.camera:
+        return 'Camera';
+      case PermissionType.photos:
+        return 'Photos/Media';
+      case PermissionType.locationWhenInUse:
+        return 'Location';
+      case PermissionType.notifications:
+        return 'Notifications';
+      case PermissionType.microphone:
+        return 'Microphone';
+    }
   }
 
   void _retry() {

@@ -32,7 +32,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   }
 
   Future<void> _send() async {
-    print('[PHONE_OTP] _send() invoked, validating form...');
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       try {

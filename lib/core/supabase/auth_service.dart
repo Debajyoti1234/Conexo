@@ -112,26 +112,15 @@ class AuthService {
   }
 
   static Future<void> signInWithPhone(String phone) async {
-    print('[PHONE_OTP] Send OTP pressed');
-    print('[PHONE_OTP] formatted phone: $phone');
-    print('[PHONE_OTP] calling Supabase signInWithOtp');
     try {
       await _client.auth.signInWithOtp(
         phone: phone,
         channel: OtpChannel.sms,
         shouldCreateUser: true,
       );
-      print('[PHONE_OTP] SUCCESS');
     } on AuthException catch (error) {
-      print('[PHONE_OTP] ERROR');
-      print('[PHONE_OTP] error type: ${error.runtimeType}');
-      print('[PHONE_OTP] error message: ${error.message}');
-      print('[PHONE_OTP] status code: ${error.statusCode}');
       throw _mapAuthException(error);
     } catch (error) {
-      print('[PHONE_OTP] ERROR');
-      print('[PHONE_OTP] error type: ${error.runtimeType}');
-      print('[PHONE_OTP] error message: $error');
       throw const AuthFailure('Network error. Please try again.');
     }
   }

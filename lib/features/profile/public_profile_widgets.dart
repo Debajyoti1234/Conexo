@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_widgets.dart';
@@ -319,8 +321,16 @@ class _HeroPhoto extends StatelessWidget {
     if (assetPath.trim().isEmpty) {
       return const _HeroPlaceholder();
     }
-    return Image.asset(
-      assetPath,
+    if (assetPath.startsWith('assets/')) {
+      return Image.asset(
+        assetPath,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        errorBuilder: (context, error, stackTrace) => const _HeroPlaceholder(),
+      );
+    }
+    return Image.file(
+      File(assetPath),
       fit: BoxFit.cover,
       gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) => const _HeroPlaceholder(),
