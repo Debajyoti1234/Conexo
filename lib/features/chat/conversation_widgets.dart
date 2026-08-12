@@ -205,9 +205,13 @@ class MessageComposer extends StatefulWidget {
   const MessageComposer({
     super.key,
     this.onSend,
+    this.initialText,
+    this.onDraftChanged,
   });
 
-  final ValueChanged<String>? onSend;
+  final Future<void> Function(String)? onSend;
+  final String? initialText;
+  final ValueChanged<String>? onDraftChanged;
 
   @override
   State<MessageComposer> createState() => _MessageComposerState();
@@ -218,19 +222,34 @@ class _MessageComposerState extends State<MessageComposer> {
   bool _sending = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Programmatic set does NOT fire TextField.onChanged, so restoring a draft
+    // never triggers an unnecessary save.
+    if (widget.initialText != null && widget.initialText!.isNotEmpty) {
+      _controller.text = widget.initialText!;
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
-  void _handleSend() {
+  Future<void> _handleSend() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
     if (widget.onSend == null) return;
 
     setState(() => _sending = true);
     _controller.clear();
-    widget.onSend!(text);
+    widget.onDraftChanged?.call('');
+    try {
+      await widget.onSend!(text);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
@@ -266,6 +285,7 @@ class _MessageComposerState extends State<MessageComposer> {
                 minLines: 1,
                 maxLines: 5,
                 textInputAction: TextInputAction.send,
+                onChanged: widget.onDraftChanged,
                 onSubmitted: (_) => _handleSend(),
                 decoration: const InputDecoration(
                   hintText: 'Message',

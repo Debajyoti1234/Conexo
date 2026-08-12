@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../home_discovery_animations.dart';
 import 'chat_models.dart';
@@ -34,6 +35,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
   bool _loading = true;
   String? _error;
   StreamSubscription<ChatMessageEvent>? _realtimeSubscription;
+  SharedPreferences? _prefs;
+  String _draftText = '';
+
+  String get _draftKey => 'chat_draft_${widget.conversation.id}';
 
   @override
   void initState() {
@@ -99,22 +104,35 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   Message _mapDtoToMessage(ChatMessage dto) {
+    final isMine = dto.senderId == AuthService.currentUser?.id;
     return Message(
       id: dto.id,
-      author: dto.senderId == AuthService.currentUser?.id
-          ? MessageAuthor.me
-          : MessageAuthor.them,
+      author: isMine ? MessageAuthor.me : MessageAuthor.them,
       timestamp: dto.createdAt,
       type: MessageType.text,
       text: dto.content,
-      deliveryStatus: MessageDeliveryStatus.read,
+      // Truthful status only: a persisted own message is "sent" (gray tick).
+      // Blue "read" is deferred to a future backend read-receipt phase.
+      deliveryStatus: MessageDeliveryStatus.sent,
     );
   }
 
+  void _onDraftChanged(String text) {
+    if (text.isEmpty) {
+      _prefs?.remove(_draftKey);
+    } else {
+      _prefs?.setString(_draftKey, text);
+    }
+  }
+
   Future<void> _load() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    final draft = _prefs!.getString(_draftKey) ?? '';
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
+      _draftText = draft;
     });
 
     try {
@@ -213,6 +231,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     final c = widget.conversation;
     return Scaffold(
       backgroundColor: const Color(0xFF0B1020),
+      resizeToAvoidBottomInset: false,
       appBar: ConversationAppBar(
         conversation: c,
         group: _group,
@@ -246,6 +265,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                         bottom: MediaQuery.of(context).viewInsets.bottom,
                       ),
                       child: MessageComposer(
+                        initialText: _draftText,
+                        onDraftChanged: _onDraftChanged,
                         onSend: widget.chatRepository != null
                             ? _sendMessage
                             : null,

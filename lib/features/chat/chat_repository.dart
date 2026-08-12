@@ -140,14 +140,16 @@ class ChatRepository {
           .eq('user_id', user.id)
           .maybeSingle();
 
-      final lastReadAt = membership != null
-          ? DateTime.parse(membership['last_read_at'] as String)
+      final rawLastRead = membership?['last_read_at'] as String?;
+      final lastReadAt = rawLastRead != null
+          ? DateTime.parse(rawLastRead)
           : DateTime.fromMillisecondsSinceEpoch(0);
 
       final count = await Supabase.instance.client
           .from('messages')
           .select()
           .eq('conversation_id', conversationId)
+          .neq('sender_id', user.id)
           .gt('created_at', lastReadAt.toIso8601String())
           .isFilter('deleted_at', null);
 
@@ -156,6 +158,30 @@ class ChatRepository {
       return ChatResult.failure(e.message);
     } catch (e) {
       return ChatResult.failure('Failed to load unread count');
+    }
+  }
+
+  Future<ChatResult<Map<String, dynamic>?>> getLatestMessagePreview(
+    String conversationId,
+  ) async {
+    try {
+      final response = await Supabase.instance.client
+          .from('messages')
+          .select('content, created_at, sender_id')
+          .eq('conversation_id', conversationId)
+          .isFilter('deleted_at', null)
+          .order('created_at', ascending: false)
+          .limit(1);
+
+      if (response.isEmpty) {
+        return const ChatResult.success(null);
+      }
+
+      return ChatResult.success(response.first);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } catch (e) {
+      return ChatResult.failure('Failed to load latest message');
     }
   }
 }

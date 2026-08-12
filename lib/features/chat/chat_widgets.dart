@@ -105,11 +105,16 @@ class OnlineIndicator extends StatelessWidget {
   }
 }
 
-/// A pill-shaped unread count badge in the Conexo accent.
+/// A pill-shaped unread count badge.
 class UnreadBadge extends StatelessWidget {
-  const UnreadBadge({required this.count, super.key});
+  const UnreadBadge({
+    required this.count,
+    super.key,
+    this.chatStyle = false,
+  });
 
   final int count;
+  final bool chatStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -119,17 +124,22 @@ class UnreadBadge extends StatelessWidget {
       height: 22,
       padding: const EdgeInsets.symmetric(horizontal: 7),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
-        ),
+        color: chatStyle ? const Color(0xFF25D366) : null,
+        gradient: chatStyle
+            ? null
+            : const LinearGradient(
+                colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
+              ),
         borderRadius: BorderRadius.circular(11),
-        boxShadow: [
-          BoxShadow(
-            color: _kAccent.withValues(alpha: .45),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: chatStyle
+            ? null
+            : [
+                BoxShadow(
+                  color: _kAccent.withValues(alpha: .45),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       alignment: Alignment.center,
       child: Text(
@@ -241,7 +251,7 @@ class VerifiedBadge extends StatelessWidget {
       );
 }
 
-/// A premium glass search field with instant local filtering. UI only.
+/// A premium search field with instant local filtering. UI only.
 class PremiumSearchBar extends StatelessWidget {
   const PremiumSearchBar({
     required this.controller,
@@ -258,42 +268,29 @@ class PremiumSearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 54),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .06),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .10)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search_rounded, size: 20, color: _kSubtle),
-          const SizedBox(width: 11),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              textInputAction: TextInputAction.search,
-              style: const TextStyle(
-                fontSize: 14.5,
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
-              cursorColor: const Color(0xFFB7A5FF),
-              decoration: const InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: 'Search connections',
-                hintStyle: TextStyle(
-                  fontSize: 14.5,
-                  color: _kSubtle,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
+    return SizedBox(
+      height: 54,
+      child: TextField(
+        controller: controller,
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        style: const TextStyle(
+          fontSize: 14.5,
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+        ),
+        cursorColor: const Color(0xFFB7A5FF),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: .06),
+          hintText: hint,
+          hintStyle: const TextStyle(
+            fontSize: 14.5,
+            color: _kSubtle,
+            fontWeight: FontWeight.w500,
           ),
-          ValueListenableBuilder<TextEditingValue>(
+          prefixIcon: const Icon(Icons.search_rounded, size: 20, color: _kSubtle),
+          suffixIcon: ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
             builder: (context, value, _) {
               if (value.text.isEmpty) return const SizedBox.shrink();
@@ -306,7 +303,20 @@ class PremiumSearchBar extends StatelessWidget {
               );
             },
           ),
-        ],
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: .10)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: .10)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(18),
+            borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
       ),
     );
   }
@@ -472,42 +482,44 @@ class _Segment extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.1,
-                color: selected ? Colors.white : _kSubtle,
-              ),
-            ),
-            if (count != null && count! > 0) ...[
-              const SizedBox(width: 7),
-              Container(
-                constraints: const BoxConstraints(minWidth: 18),
-                height: 18,
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? Colors.white.withValues(alpha: .22)
-                      : Colors.white.withValues(alpha: .08),
-                  borderRadius: BorderRadius.circular(9),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.1,
+                  color: selected ? Colors.white : _kSubtle,
                 ),
-                child: Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: selected ? Colors.white : _kSubtle,
+              ),
+              if (count != null && count! > 0) ...[
+                const SizedBox(width: 7),
+                Container(
+                  constraints: const BoxConstraints(minWidth: 18),
+                  height: 18,
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? Colors.white.withValues(alpha: .22)
+                        : Colors.white.withValues(alpha: .08),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: selected ? Colors.white : _kSubtle,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -563,10 +575,12 @@ class ConversationTile extends StatelessWidget {
     required this.conversation,
     required this.onTap,
     super.key,
+    this.onLongPress,
   });
 
   final ConversationPreview conversation;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -577,6 +591,7 @@ class ConversationTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(20),
         splashColor: _kAccent.withValues(alpha: .10),
         highlightColor: Colors.white.withValues(alpha: .03),
@@ -736,7 +751,7 @@ class _Trailing extends StatelessWidget {
               const PinnedIndicator(),
               if (c.hasUnread) const SizedBox(width: 6),
             ],
-            if (c.hasUnread) UnreadBadge(count: c.unreadCount),
+            if (c.hasUnread) UnreadBadge(count: c.unreadCount, chatStyle: true),
           ],
         ),
       ],

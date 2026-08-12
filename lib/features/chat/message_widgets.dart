@@ -309,8 +309,9 @@ IconData _contentGlyph(SharedContentType type) {
 }
 
 String _formatClock(DateTime t) {
-  final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
-  final m = t.minute.toString().padLeft(2, '0');
-  final ampm = t.hour < 12 ? 'AM' : 'PM';
+  final local = t.toLocal();
+  final h = local.hour % 12 == 0 ? 12 : local.hour % 12;
+  final m = local.minute.toString().padLeft(2, '0');
+  final ampm = local.hour < 12 ? 'AM' : 'PM';
   return '$h:$m $ampm';
 }

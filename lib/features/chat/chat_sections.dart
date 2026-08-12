@@ -81,10 +81,12 @@ class PinnedConversationsSection extends StatelessWidget {
     required this.conversations,
     required this.onOpen,
     super.key,
+    this.onLongPress,
   });
 
   final List<ConversationPreview> conversations;
   final ValueChanged<ConversationPreview> onOpen;
+  final ValueChanged<ConversationPreview>? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +113,8 @@ class PinnedConversationsSection extends StatelessWidget {
                       child: ConversationTile(
                         conversation: c,
                         onTap: () => onOpen(c),
+                        onLongPress:
+                            onLongPress == null ? null : () => onLongPress!(c),
                       ),
                     ),
                 ],
@@ -130,11 +134,13 @@ class RecentConversationsSection extends StatelessWidget {
     required this.onOpen,
     this.showLabel = true,
     super.key,
+    this.onLongPress,
   });
 
   final List<ConversationPreview> conversations;
   final ValueChanged<ConversationPreview> onOpen;
   final bool showLabel;
+  final ValueChanged<ConversationPreview>? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -150,6 +156,8 @@ class RecentConversationsSection extends StatelessWidget {
             child: ConversationTile(
               conversation: c,
               onTap: () => onOpen(c),
+              onLongPress:
+                  onLongPress == null ? null : () => onLongPress!(c),
             ),
           ),
       ],
