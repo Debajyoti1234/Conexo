@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/theme/app_widgets.dart';
+import '../features/profile/connections_view_model.dart';
 import 'home_connection_dashboard_data.dart';
 
 /// Reusable premium widgets for the Connections dashboard.
@@ -196,10 +197,19 @@ class NetworkConnectionCard extends StatelessWidget {
     required this.onOpenRoom,
   });
 
-  final NetworkConnection connection;
+  final ConnectionUiModel connection;
   final VoidCallback onViewProfile;
   final VoidCallback onOpenRoom;
 
+  String get _connectedSince {
+    final now = DateTime.now();
+    final diff = now.difference(connection.updatedAt);
+    if (diff.inSeconds < 60) return 'Connected just now';
+    if (diff.inMinutes < 60) return 'Connected ${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return 'Connected ${diff.inHours}h ago';
+    if (diff.inDays < 7) return 'Connected ${diff.inDays}d ago';
+    return 'Connected ${connection.updatedAt.day}/${connection.updatedAt.month}/${connection.updatedAt.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -211,9 +221,9 @@ class NetworkConnectionCard extends StatelessWidget {
           Row(
             children: [
               PortraitAvatar(
-                name: connection.name,
-                color: connection.color,
-                portrait: connection.portrait,
+                name: connection.otherUserName,
+                color: connection.otherUserColor ?? const Color(0xFF8B5CF6),
+                portrait: connection.otherUserPortrait ?? '',
                 size: 56,
               ),
               const SizedBox(width: 14),
@@ -225,7 +235,7 @@ class NetworkConnectionCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            connection.name,
+                            connection.otherUserName,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 17,
@@ -235,16 +245,17 @@ class NetworkConnectionCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Icon(
-                          Icons.verified_rounded,
-                          size: 17,
-                          color: Color(0xFF77DFF1),
-                        ),
+                        if (connection.isVerified)
+                          const Icon(
+                            Icons.verified_rounded,
+                            size: 17,
+                            color: Color(0xFF77DFF1),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${connection.age} • ${connection.occupation}',
+                      '${connection.otherUserAge ?? 0} • ${connection.otherUserOccupation ?? ''}',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFFB9C3DC),
@@ -261,7 +272,7 @@ class NetworkConnectionCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            connection.city,
+                            connection.otherUserCity ?? '',
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 12.5,
@@ -293,7 +304,7 @@ class NetworkConnectionCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  connection.connectedSince,
+                  _connectedSince,
                   style: const TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
@@ -375,11 +386,13 @@ class IncomingRequestCard extends StatelessWidget {
     required this.request,
     required this.onAccept,
     required this.onDecline,
+    this.onViewProfile,
   });
 
-  final IncomingRequest request;
+  final ConnectionUiModel request;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
+  final VoidCallback? onViewProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -390,36 +403,45 @@ class IncomingRequestCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              PortraitAvatar(
-                name: request.name,
-                color: request.color,
-                portrait: request.portrait,
-                size: 54,
-              ),
-              const SizedBox(width: 13),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      request.name,
-                      style: const TextStyle(
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w800,
+                child: InkWell(
+                  onTap: onViewProfile,
+                  child: Row(
+                    children: [
+                      PortraitAvatar(
+                        name: request.otherUserName,
+                        color: request.otherUserColor ?? const Color(0xFFFF4D8D),
+                        portrait: request.otherUserPortrait ?? '',
+                        size: 54,
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      request.bio,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        height: 1.35,
-                        color: Color(0xFFB9C3DC),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              request.otherUserName,
+                              style: const TextStyle(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              request.otherUserBio ?? '',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                height: 1.35,
+                                color: Color(0xFFB9C3DC),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -475,7 +497,7 @@ class IncomingRequestCard extends StatelessWidget {
               ),
             ],
           ),
-        ],
+          ],
       ),
     );
   }
@@ -487,73 +509,77 @@ class PendingRequestCard extends StatelessWidget {
     super.key,
     required this.request,
     required this.onCancel,
+    this.onViewProfile,
   });
 
-  final PendingRequest request;
+  final ConnectionUiModel request;
   final VoidCallback onCancel;
+  final VoidCallback? onViewProfile;
 
   @override
   Widget build(BuildContext context) {
     return GlassCard(
       padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          PortraitAvatar(
-            name: request.name,
-            color: request.color,
-            portrait: request.portrait,
-            size: 48,
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  request.name,
-                  style: const TextStyle(
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Row(
-                  children: [
-                    Icon(
-                      Icons.hourglass_top_rounded,
-                      size: 13,
-                      color: Color(0xFFFFC24D),
+      child: InkWell(
+        onTap: onViewProfile,
+        child: Row(
+          children: [
+            PortraitAvatar(
+              name: request.otherUserName,
+              color: request.otherUserColor ?? const Color(0xFFFFC24D),
+              portrait: request.otherUserPortrait ?? '',
+              size: 48,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    request.otherUserName,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w800,
                     ),
-                    SizedBox(width: 5),
-                    Flexible(
-                      child: Text(
-                        'Waiting for response',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFFFC24D),
+                  ),
+                  const SizedBox(height: 4),
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.hourglass_top_rounded,
+                        size: 13,
+                        color: Color(0xFFFFC24D),
+                      ),
+                      SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          'Waiting for response',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFFFC24D),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Flexible(
-            child: _ActionPill(
-              label: 'Cancel',
-              icon: Icons.close_rounded,
-              danger: true,
-              onTap: onCancel,
+            const SizedBox(width: 10),
+            Flexible(
+              child: _ActionPill(
+                label: 'Cancel',
+                icon: Icons.close_rounded,
+                danger: true,
+                onTap: onCancel,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-
     );
   }
 }

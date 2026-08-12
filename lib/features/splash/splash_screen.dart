@@ -1,12 +1,15 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/router/app_router.dart';
 import '../../core/services/permission_manager.dart';
 import '../../core/supabase/auth_service.dart';
 import '../../core/supabase/auth_gate.dart';
+import '../../core/supabase/supabase_client.dart';
 import '../onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -21,6 +24,7 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _controller;
   bool _showError = false;
   String? _errorMessage;
+  bool _initializing = false;
 
   static const _permissionsRequestedKey = 'conexo_permissions_requested_v1';
 
@@ -33,38 +37,93 @@ class _SplashScreenState extends State<SplashScreen>
           duration: const Duration(milliseconds: 4700),
         )..addStatusListener((status) async {
           if (status == AnimationStatus.completed && mounted) {
-            final hasSession = AuthService.currentSession != null;
-            if (!mounted) return;
-
-            if (!hasSession) {
-              if (!mounted) return;
-              Navigator.of(
-                context,
-              ).pushReplacement(AppRouter.slideRoute(const OnboardingScreen()));
-              return;
-            }
-
-            await _ensureFirstLaunchPermissions();
-
-            if (!mounted) return;
-            final target = await AuthGate.navigateToTarget();
-            if (!mounted) return;
-
-            if (target == null) {
-              setState(() {
-                _showError = true;
-                _errorMessage = 'Unable to load profile. Please check your connection and try again.';
-              });
-              return;
-            }
-
-            if (!mounted) return;
-            Navigator.of(
-              context,
-            ).pushReplacement(AppRouter.slideRoute(target));
+            await _attemptStartup();
           }
         });
     _controller.forward();
+  }
+
+  Future<void> _attemptStartup() async {
+    if (_initializing) return;
+    setState(() => _initializing = true);
+
+    final hasNetwork = await _hasNetwork();
+    if (!mounted) return;
+
+    if (!hasNetwork) {
+      setState(() {
+        _showError = true;
+        _errorMessage = 'No network connection';
+      });
+      return;
+    }
+
+    await _initializeServicesAndNavigate();
+  }
+
+  Future<void> _initializeServicesAndNavigate() async {
+    try {
+      await SupabaseClientConfig.initialize();
+      if (!mounted) return;
+
+      await GoogleSignIn.instance.initialize(
+        serverClientId: const String.fromEnvironment(
+          'GOOGLE_SERVER_CLIENT_ID',
+        ),
+      );
+      if (!mounted) return;
+
+      final hasSession = AuthService.currentSession != null;
+      if (!mounted) return;
+
+      if (!hasSession) {
+        if (!mounted) return;
+        Navigator.of(
+          context,
+        ).pushReplacement(AppRouter.slideRoute(const OnboardingScreen()));
+        return;
+      }
+
+      await _ensureFirstLaunchPermissions();
+
+      if (!mounted) return;
+      final target = await AuthGate.navigateToTarget();
+      if (!mounted) return;
+
+      if (target == null) {
+        setState(() {
+          _showError = true;
+          _errorMessage =
+              'Unable to load profile. Please check your connection and try again.';
+        });
+        return;
+      }
+
+      if (!mounted) return;
+      Navigator.of(
+        context,
+      ).pushReplacement(AppRouter.slideRoute(target));
+    } on Exception {
+      if (!mounted) return;
+      setState(() {
+        _showError = true;
+        _errorMessage =
+            'Unable to load profile. Please check your connection and try again.';
+      });
+    }
+  }
+
+  Future<bool> _hasNetwork() async {
+    try {
+      final result = await InternetAddress.lookup('supabase.com').timeout(
+        const Duration(seconds: 3),
+      );
+      return result.isNotEmpty;
+    } on UnsupportedError {
+      return true;
+    } on Exception {
+      return false;
+    }
   }
 
   Future<void> _ensureFirstLaunchPermissions() async {
@@ -130,6 +189,7 @@ class _SplashScreenState extends State<SplashScreen>
     setState(() {
       _showError = false;
       _errorMessage = null;
+      _initializing = false;
     });
     _controller.forward(from: 0);
   }
@@ -144,26 +204,64 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     if (_showError) {
       return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.wifi_off_rounded, size: 64, color: Colors.redAccent),
-                const SizedBox(height: 24),
-                Text(
-                  _errorMessage ?? 'Something went wrong',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16, color: Colors.white),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  onPressed: _retry,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Retry'),
-                ),
-              ],
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF090B14), Colors.black],
+            ),
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    height: 80,
+                    width: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
+                          blurRadius: 40,
+                          spreadRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.wifi_off_rounded,
+                      size: 36,
+                      color: Color(0xFFB7A5FF),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    _errorMessage ?? 'Something went wrong',
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: -0.3,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Connect to the internet to continue.',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 36),
+                  _RetryButton(onPressed: _retry),
+                ],
+              ),
             ),
           ),
         ),
@@ -273,7 +371,7 @@ class _SplashScreenState extends State<SplashScreen>
                         Opacity(
                           opacity: taglineOpacity,
                           child: const Text(
-                            'Meet • Connect • Explore',
+                            'Meet \u2022 Connect \u2022 Explore',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
@@ -290,6 +388,50 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _RetryButton extends StatelessWidget {
+  const _RetryButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.refresh_rounded, size: 20, color: Colors.white),
+            const SizedBox(width: 10),
+            const Text(
+              'Try Again',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

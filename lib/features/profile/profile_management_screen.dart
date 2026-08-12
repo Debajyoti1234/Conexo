@@ -51,6 +51,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
   final _occupationController = TextEditingController();
   final _collegeController = TextEditingController();
   final _hometownController = TextEditingController();
+  final _displayNameController = TextEditingController();
 
   /// The identity of the loaded profile — never regenerated on save.
   String _profileId = '';
@@ -81,6 +82,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     _occupationController.dispose();
     _collegeController.dispose();
     _hometownController.dispose();
+    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -103,6 +105,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     _occupationController.text = draft.occupation;
     _collegeController.text = draft.college;
     _hometownController.text = draft.hometown;
+    _displayNameController.text = draft.displayName;
     setState(() {
       _profileId = profile.id;
       _original = draft;
@@ -243,6 +246,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
         ManageInterestsSection(draft: d, onChanged: _onDraftChanged),
         ManageLanguagesSection(draft: d, onChanged: _onDraftChanged),
         ManageGenderSection(draft: d, onChanged: _onDraftChanged),
+        ManageDobSection(draft: d, onChanged: _onDraftChanged),
         ManageLocationSection(
           controller: _locationController,
           draft: d,
@@ -257,6 +261,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
           occupationController: _occupationController,
           collegeController: _collegeController,
           hometownController: _hometownController,
+          displayNameController: _displayNameController,
           draft: d,
           onChanged: _onDraftChanged,
         ),

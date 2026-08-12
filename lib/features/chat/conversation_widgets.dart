@@ -198,12 +198,40 @@ class _TitleBlock extends StatelessWidget {
   }
 }
 
-/// The premium (disabled) message composer.
+/// The premium message composer.
 ///
-/// Phase 6.2 is UI-only: the field is decorative, the send button is inert.
-/// A future phase wires text state + sending without changing this shell.
-class MessageComposer extends StatelessWidget {
-  const MessageComposer({super.key});
+/// Phase 9.5.2 wires text state + sending through ChatRepository.
+class MessageComposer extends StatefulWidget {
+  const MessageComposer({
+    super.key,
+    this.onSend,
+  });
+
+  final ValueChanged<String>? onSend;
+
+  @override
+  State<MessageComposer> createState() => _MessageComposerState();
+}
+
+class _MessageComposerState extends State<MessageComposer> {
+  final _controller = TextEditingController();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleSend() {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _sending) return;
+    if (widget.onSend == null) return;
+
+    setState(() => _sending = true);
+    _controller.clear();
+    widget.onSend!(text);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -233,17 +261,25 @@ class MessageComposer extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 48),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                alignment: Alignment.centerLeft,
-                child: const Text(
-                  'Message',
-                  style: TextStyle(
+              child: TextField(
+                controller: _controller,
+                minLines: 1,
+                maxLines: 5,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _handleSend(),
+                decoration: const InputDecoration(
+                  hintText: 'Message',
+                  hintStyle: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w500,
                     color: _kSubtle,
                   ),
+                  border: InputBorder.none,
+                ),
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -251,13 +287,14 @@ class MessageComposer extends StatelessWidget {
             _CircleButton(
               icon: Icons.arrow_upward_rounded,
               filled: true,
-              onTap: () {},
+              onTap: () {
+                if (!_sending) _handleSend();
+              },
             ),
           ],
         ),
       ),
     );
-
   }
 }
 

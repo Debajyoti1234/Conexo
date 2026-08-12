@@ -30,7 +30,7 @@ class _HeartBurstState extends State<HeartBurst>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 720),
+      duration: const Duration(milliseconds: 1400),
     );
     _scale = TweenSequence<double>([
       TweenSequenceItem(

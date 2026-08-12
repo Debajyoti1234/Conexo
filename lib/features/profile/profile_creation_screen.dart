@@ -8,6 +8,7 @@ import 'profile_creation_sections.dart';
 import 'profile_creation_widgets.dart';
 import 'profile_data.dart';
 import 'profile_repository.dart';
+import 'profile_validation.dart';
 import 'session_aware_profile_repository.dart';
 
 /// The premium Profile Creation flow (Phase 4.1).
@@ -45,6 +46,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   final _occupationController = TextEditingController();
   final _collegeController = TextEditingController();
   final _hometownController = TextEditingController();
+  final _displayNameController = TextEditingController();
 
   UserProfileDraft _draft = const UserProfileDraft();
   UserProfileDraft? _restorableDraft;
@@ -63,13 +65,13 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
 
   @override
   void dispose() {
-    _saveDebounce?.cancel();
     _bioController.dispose();
     _locationController.dispose();
     _socialController.dispose();
     _occupationController.dispose();
     _collegeController.dispose();
     _hometownController.dispose();
+    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -100,6 +102,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     _occupationController.text = saved.occupation;
     _collegeController.text = saved.college;
     _hometownController.text = saved.hometown;
+    _displayNameController.text = saved.displayName;
     setState(() {
       _draft = saved;
       _showRestorePrompt = false;
@@ -198,7 +201,8 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     final showInterests = showBio && validateBioStage(d);
     final showLanguages = showInterests && validateInterestsStage(d);
     final showGender = showLanguages && validateLanguagesStage(d);
-    final showLocation = showGender && d.gender.trim().isNotEmpty;
+    final showDob = showGender && d.gender.trim().isNotEmpty;
+    final showLocation = showDob && validateDateOfBirth(d.dateOfBirth);
     final showSocial = showLocation && d.location.trim().isNotEmpty;
     final showOptional = showSocial && validateSocialStage(d);
     final showPreview = d.photos.isNotEmpty;
@@ -240,6 +244,10 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
           GenderSection(draft: d, onChanged: _onDraftChanged),
         ),
         _reveal(
+          showDob,
+          DobSection(draft: d, onChanged: _onDraftChanged),
+        ),
+        _reveal(
           showLocation,
           LocationSection(
             controller: _locationController,
@@ -261,6 +269,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
             occupationController: _occupationController,
             collegeController: _collegeController,
             hometownController: _hometownController,
+            displayNameController: _displayNameController,
             draft: d,
             onChanged: _onDraftChanged,
           ),

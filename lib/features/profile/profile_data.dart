@@ -196,6 +196,7 @@ enum ProfileStage {
   interests,
   languages,
   gender,
+  dateOfBirth,
   location,
   socialLinks,
   optionalDetails,
@@ -214,6 +215,7 @@ ProfileStage stageFromDraft(UserProfileDraft draft) {
   if (!validateInterests(draft.interests)) return ProfileStage.interests;
   if (!validateLanguages(draft.languages)) return ProfileStage.languages;
   if (draft.gender.trim().isEmpty) return ProfileStage.gender;
+  if (!validateDateOfBirth(draft.dateOfBirth)) return ProfileStage.dateOfBirth;
   if (draft.location.trim().isEmpty) return ProfileStage.location;
   if (!validateSocialLinks(draft.socialLinks)) return ProfileStage.socialLinks;
   if (draft.isComplete) return ProfileStage.complete;
@@ -278,6 +280,7 @@ class UserProfileDraft {
     this.interests = const [],
     this.languages = const [],
     this.gender = '',
+    this.dateOfBirth,
     this.location = '',
     this.socialLinks = const [],
     // Optional
@@ -296,6 +299,8 @@ class UserProfileDraft {
     this.longitude,
     this.createdAt,
     this.updatedAt,
+    this.displayName = '',
+    this.availabilityStatus = 'offline',
   });
 
   // Required
@@ -304,6 +309,12 @@ class UserProfileDraft {
   final List<String> interests;
   final List<String> languages;
   final String gender;
+
+  /// Required date of birth (calendar day only). Persisted as `YYYY-MM-DD`.
+  /// Nullable so existing profiles without a DOB load safely and are treated
+  /// as incomplete until the user provides one.
+  final DateTime? dateOfBirth;
+
   final String location;
   final List<SocialLink> socialLinks;
 
@@ -324,6 +335,8 @@ class UserProfileDraft {
   final double? longitude;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String displayName;
+  final String availabilityStatus;
 
   /// The primary photo (first `isPrimary`, else the first photo, else null).
   ProfilePhoto? get primaryPhoto {
@@ -337,16 +350,17 @@ class UserProfileDraft {
   /// Whether every required field passes validation.
   bool get isComplete => validateDraft(this);
 
-  /// A 0..1 progress ratio across the seven required fields, used by the
+  /// A 0..1 progress ratio across the eight required fields, used by the
   /// completion meter. Pure and UI-free.
   double get completionProgress {
     var done = 0;
-    const total = 7;
+    const total = 8;
     if (validatePhotos(photos)) done++;
     if (validateBio(bio)) done++;
     if (validateInterests(interests)) done++;
     if (validateLanguages(languages)) done++;
     if (gender.trim().isNotEmpty) done++;
+    if (validateDateOfBirth(dateOfBirth)) done++;
     if (location.trim().isNotEmpty) done++;
     if (validateSocialLinks(socialLinks)) done++;
     return done / total;
@@ -380,6 +394,7 @@ class UserProfileDraft {
     List<String>? interests,
     List<String>? languages,
     String? gender,
+    DateTime? dateOfBirth,
     String? location,
     List<SocialLink>? socialLinks,
     String? occupation,
@@ -396,6 +411,8 @@ class UserProfileDraft {
     double? longitude,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? displayName,
+    String? availabilityStatus,
   }) {
     return UserProfileDraft(
       photos: photos ?? this.photos,
@@ -403,6 +420,7 @@ class UserProfileDraft {
       interests: interests ?? this.interests,
       languages: languages ?? this.languages,
       gender: gender ?? this.gender,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       location: location ?? this.location,
       socialLinks: socialLinks ?? this.socialLinks,
       occupation: occupation ?? this.occupation,
@@ -419,6 +437,8 @@ class UserProfileDraft {
       longitude: longitude ?? this.longitude,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      displayName: displayName ?? this.displayName,
+      availabilityStatus: availabilityStatus ?? this.availabilityStatus,
     );
   }
 
@@ -428,6 +448,7 @@ class UserProfileDraft {
         'interests': interests,
         'languages': languages,
         'gender': gender,
+        'dateOfBirth': dateOfBirth == null ? null : formatDateOnly(dateOfBirth!),
         'location': location,
         'socialLinks': [for (final s in socialLinks) s.toJson()],
         'occupation': occupation,
@@ -444,6 +465,8 @@ class UserProfileDraft {
         'longitude': longitude,
         'createdAt': createdAt?.toIso8601String(),
         'updatedAt': updatedAt?.toIso8601String(),
+        'displayName': displayName,
+        'availabilityStatus': availabilityStatus,
       };
 
   /// Builds an editable draft from an existing finalized [profile].
@@ -457,6 +480,7 @@ class UserProfileDraft {
       interests: profile.interests,
       languages: profile.languages,
       gender: profile.gender,
+      dateOfBirth: profile.dateOfBirth,
       location: profile.location,
       socialLinks: profile.socialLinks,
       occupation: profile.occupation,
@@ -473,6 +497,8 @@ class UserProfileDraft {
       longitude: profile.longitude,
       createdAt: profile.createdAt,
       updatedAt: profile.updatedAt,
+      displayName: profile.displayName,
+      availabilityStatus: profile.availabilityStatus,
     );
   }
 
@@ -486,6 +512,7 @@ class UserProfileDraft {
       interests: _stringList(json['interests']),
       languages: _stringList(json['languages']),
       gender: json['gender'] as String? ?? '',
+      dateOfBirth: _parseDateOnly(json['dateOfBirth']),
       location: json['location'] as String? ?? '',
       socialLinks: [
         for (final s in (json['socialLinks'] as List? ?? const []))
@@ -505,6 +532,8 @@ class UserProfileDraft {
       longitude: (json['longitude'] as num?)?.toDouble(),
       createdAt: _parseDate(json['createdAt']),
       updatedAt: _parseDate(json['updatedAt']),
+      displayName: json['displayName'] as String? ?? '',
+      availabilityStatus: json['availabilityStatus'] as String? ?? 'offline',
     );
   }
 }
@@ -522,6 +551,7 @@ class UserProfile {
     required this.gender,
     required this.location,
     required this.socialLinks,
+    this.dateOfBirth,
     this.occupation = '',
     this.education = '',
     this.company = '',
@@ -536,6 +566,8 @@ class UserProfile {
     this.longitude,
     this.createdAt,
     this.updatedAt,
+    this.displayName = '',
+    this.availabilityStatus = 'offline',
   });
 
   final String id;
@@ -546,6 +578,12 @@ class UserProfile {
   final String gender;
   final String location;
   final List<SocialLink> socialLinks;
+
+  /// Required date of birth (calendar day only). Persisted as `YYYY-MM-DD`.
+  /// Nullable so existing profiles without a DOB load safely and are treated
+  /// as incomplete until the user provides one.
+  final DateTime? dateOfBirth;
+
   final String occupation;
   final String education;
   final String company;
@@ -560,6 +598,8 @@ class UserProfile {
   final double? longitude;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String displayName;
+  final String availabilityStatus;
 
   ProfilePhoto? get primaryPhoto {
     if (photos.isEmpty) return null;
@@ -601,6 +641,7 @@ class UserProfile {
       interests: draft.interests,
       languages: draft.languages,
       gender: draft.gender,
+      dateOfBirth: draft.dateOfBirth,
       location: draft.location,
       socialLinks: draft.socialLinks,
       occupation: draft.occupation,
@@ -617,6 +658,8 @@ class UserProfile {
       longitude: draft.longitude,
       createdAt: draft.createdAt ?? now,
       updatedAt: now,
+      displayName: draft.displayName,
+      availabilityStatus: draft.availabilityStatus,
     );
   }
 
@@ -629,6 +672,7 @@ class UserProfile {
     String? gender,
     String? location,
     List<SocialLink>? socialLinks,
+    DateTime? dateOfBirth,
     String? occupation,
     String? education,
     String? company,
@@ -643,6 +687,8 @@ class UserProfile {
     double? longitude,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? displayName,
+    String? availabilityStatus,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -653,6 +699,7 @@ class UserProfile {
       gender: gender ?? this.gender,
       location: location ?? this.location,
       socialLinks: socialLinks ?? this.socialLinks,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       occupation: occupation ?? this.occupation,
       education: education ?? this.education,
       company: company ?? this.company,
@@ -667,6 +714,8 @@ class UserProfile {
       longitude: longitude ?? this.longitude,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      displayName: displayName ?? this.displayName,
+      availabilityStatus: availabilityStatus ?? this.availabilityStatus,
     );
   }
 
@@ -679,6 +728,7 @@ class UserProfile {
         'gender': gender,
         'location': location,
         'socialLinks': [for (final s in socialLinks) s.toJson()],
+        'dateOfBirth': dateOfBirth == null ? null : formatDateOnly(dateOfBirth!),
         'occupation': occupation,
         'education': education,
         'company': company,
@@ -693,6 +743,8 @@ class UserProfile {
         'longitude': longitude,
         'createdAt': createdAt?.toIso8601String(),
         'updatedAt': updatedAt?.toIso8601String(),
+        'displayName': displayName,
+        'availabilityStatus': availabilityStatus,
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -711,6 +763,7 @@ class UserProfile {
         for (final s in (json['socialLinks'] as List? ?? const []))
           SocialLink.fromJson(Map<String, dynamic>.from(s as Map)),
       ],
+      dateOfBirth: _parseDateOnly(json['dateOfBirth']),
       occupation: json['occupation'] as String? ?? '',
       education: json['education'] as String? ?? '',
       company: json['company'] as String? ?? '',
@@ -725,6 +778,8 @@ class UserProfile {
       longitude: (json['longitude'] as num?)?.toDouble(),
       createdAt: _parseDate(json['createdAt']),
       updatedAt: _parseDate(json['updatedAt']),
+      displayName: json['displayName'] as String? ?? '',
+      availabilityStatus: json['availabilityStatus'] as String? ?? 'offline',
     );
   }
 }
@@ -741,6 +796,7 @@ class UserProfile {
 bool profileDraftEquals(UserProfileDraft a, UserProfileDraft b) {
   return a.bio == b.bio &&
       a.gender == b.gender &&
+      a.dateOfBirth == b.dateOfBirth &&
       a.location == b.location &&
       a.occupation == b.occupation &&
       a.education == b.education &&
@@ -802,6 +858,20 @@ List<String> _stringList(Object? raw) {
 DateTime? _parseDate(Object? raw) {
   if (raw is String && raw.isNotEmpty) {
     return DateTime.tryParse(raw);
+  }
+  return null;
+}
+
+/// Parses a date-only value (`YYYY-MM-DD`) into a [DateTime] at midnight.
+///
+/// Accepts the Postgres `DATE` string returned by Supabase and the same format
+/// written to local JSON. Returns null for null/empty/invalid input so existing
+/// profiles without a DOB load safely.
+DateTime? _parseDateOnly(Object? raw) {
+  if (raw is String && raw.isNotEmpty) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return null;
+    return DateTime(parsed.year, parsed.month, parsed.day);
   }
   return null;
 }

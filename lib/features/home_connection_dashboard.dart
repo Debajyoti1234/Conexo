@@ -3,22 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'chat/chat_models.dart';
 import 'chat/chat_repository.dart';
 import 'chat/conversation_screen.dart';
 import 'home_connection_dashboard_cards.dart';
 import 'home_connection_dashboard_data.dart';
 import 'home_discovery_animations.dart';
-import 'profile/privacy_verification_widgets.dart';
+import 'profile/connections_view_model.dart';
 import 'profile/profile_navigation_mapper.dart';
 import 'profile/public_profile_screen.dart';
+import 'profile/realtime_connections_service.dart';
 
-
-/// The premium Connections dashboard — the user's relationship hub.
-///
-/// Owns all mutable state (network, requests, pending, hosted plans) so the
-/// whole screen stays data-driven and animated. Section expansion state is
-/// persisted locally via [SharedPreferences] and restored when the user
-/// returns to the tab. No Firebase / backend involvement.
 class ConnectionsDashboard extends StatefulWidget {
   const ConnectionsDashboard({super.key});
 
@@ -29,12 +24,18 @@ class ConnectionsDashboard extends StatefulWidget {
 class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
   static const _sectionIds = ['network', 'requests', 'pending', 'hosted'];
 
-  late final List<NetworkConnection> _network = List.of(demoNetwork);
-  late final List<IncomingRequest> _requests = List.of(demoRequests);
-  late final List<PendingRequest> _pending = List.of(demoPending);
-  late final List<HostedPlan> _plans = _copyPlans(demoHostedPlans);
+  late final ConnectionsViewModel _viewModel = const ConnectionsViewModel();
 
-  /// IDs currently animating out of the list (fade + collapse).
+  List<ConnectionUiModel> _network = const [];
+  List<ConnectionUiModel> _requests = const [];
+  List<ConnectionUiModel> _pending = const [];
+  late final List<HostedPlan> _plans;
+
+  bool _loading = true;
+  String? _error;
+
+  _ConnectionsDashboardState() : _plans = _copyPlans(demoHostedPlans);
+
   final Set<String> _removing = <String>{};
 
   final Map<String, bool> _sectionExpanded = {
@@ -54,12 +55,54 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
   void initState() {
     super.initState();
     _restorePreferences();
+    _load();
+    RealtimeConnectionsService.instance.start();
+    _realtimeSubscription =
+        RealtimeConnectionsService.instance.onConnectionsChanged.listen((_) {
+      if (!mounted || _loading) return;
+      _load();
+    });
   }
 
   @override
   void dispose() {
+    _realtimeSubscription?.cancel();
+    RealtimeConnectionsService.instance.stop();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  StreamSubscription<void>? _realtimeSubscription;
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final accepted = await _viewModel.loadAcceptedConnections();
+      final incoming = await _viewModel.loadIncomingRequests();
+      final outgoing = await _viewModel.loadOutgoingRequests();
+
+      if (!mounted) return;
+      setState(() {
+        _network = accepted;
+        _requests = incoming;
+        _pending = outgoing;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _refresh() async {
+    await _load();
   }
 
   // -------------------------------------------------------------------------
@@ -111,7 +154,7 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
   }
 
   // -------------------------------------------------------------------------
-  // Mutations (all local, animated)
+  // Mutations (real backend)
   // -------------------------------------------------------------------------
 
   void _animateRemoval(String id, VoidCallback complete) {
@@ -125,37 +168,45 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
     });
   }
 
-  void _acceptRequest(IncomingRequest request) {
-    _animateRemoval(request.id, () {
-      _requests.removeWhere((r) => r.id == request.id);
+  Future<void> _acceptRequest(ConnectionUiModel request) async {
+    final result = await _viewModel.acceptRequest(request.connectionId);
+    if (!mounted) return;
+    if (result.isFailure) {
+      _showError(result.error ?? 'Failed to accept request');
+      return;
+    }
+    _animateRemoval(request.connectionId, () {
+      _requests.removeWhere((r) => r.connectionId == request.connectionId);
       _network.insert(
         0,
-        NetworkConnection(
-          id: 'network_${request.id}',
-          name: request.name,
-          age: request.age,
-          occupation: request.occupation,
-          city: request.city,
-          connectedSince: 'Connected just now',
-          mutualInterests: request.mutualInterests,
-          color: request.color,
-          portrait: request.portrait,
-        ),
+        request,
       );
     });
   }
 
-  void _declineRequest(IncomingRequest request) {
+  Future<void> _declineRequest(ConnectionUiModel request) async {
+    final result = await _viewModel.rejectRequest(request.connectionId);
+    if (!mounted) return;
+    if (result.isFailure) {
+      _showError(result.error ?? 'Failed to decline request');
+      return;
+    }
     _animateRemoval(
-      request.id,
-      () => _requests.removeWhere((r) => r.id == request.id),
+      request.connectionId,
+      () => _requests.removeWhere((r) => r.connectionId == request.connectionId),
     );
   }
 
-  void _cancelPending(PendingRequest request) {
+  Future<void> _cancelPending(ConnectionUiModel request) async {
+    final result = await _viewModel.cancelRequest(request.connectionId);
+    if (!mounted) return;
+    if (result.isFailure) {
+      _showError(result.error ?? 'Failed to cancel request');
+      return;
+    }
     _animateRemoval(
-      request.id,
-      () => _pending.removeWhere((r) => r.id == request.id),
+      request.connectionId,
+      () => _pending.removeWhere((r) => r.connectionId == request.connectionId),
     );
   }
 
@@ -180,34 +231,83 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Navigation (reuses existing premium screens/routes — wiring only)
-  // -------------------------------------------------------------------------
-
-  void _viewConnectionProfile(NetworkConnection connection) {
-    Navigator.of(context).push(
-      premiumPublicProfileRoute(
-        data: mapNetworkConnectionToProfile(connection),
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFFFF4D8D),
       ),
     );
   }
 
-  void _openConnectionRoom(NetworkConnection connection) {
-    const repository = LocalChatRepository();
-    final conversation = repository.findConversationForConnection(
-      connection.id,
+  // -------------------------------------------------------------------------
+  // Navigation (reuses existing premium screens/routes — wiring only)
+  // -------------------------------------------------------------------------
+
+  void _viewIncomingRequestProfile(ConnectionUiModel request) {
+    Navigator.of(context).push(
+      premiumPublicProfileRoute(
+        data: mapConnectionUiModelToProfile(request),
+      ),
     );
-    if (conversation != null) {
-      Navigator.of(context).push(conversationRoute(conversation));
-    } else {
-      ComingSoonDialog.show(
-        context,
-        title: 'Conversation',
-        message: 'Conversation will appear after your first interaction.',
-      );
-    }
   }
 
+  void _viewPendingRequestProfile(ConnectionUiModel request) {
+    Navigator.of(context).push(
+      premiumPublicProfileRoute(
+        data: mapConnectionUiModelToProfile(request),
+      ),
+    );
+  }
+
+  void _viewConnectionProfile(ConnectionUiModel connection) {
+    Navigator.of(context).push(
+      premiumPublicProfileRoute(
+        data: mapConnectionUiModelToProfile(connection),
+      ),
+    );
+  }
+
+  void _openConnectionRoom(ConnectionUiModel connection) async {
+    final chatRepository = const ChatRepository();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final result = await chatRepository.getOrCreateConnectionConversation(
+      connection.connectionId,
+    );
+    if (!mounted) return;
+    if (result.isFailure) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to open conversation'),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
+
+    final conversationId = result.value!;
+    final unreadResult = await chatRepository.loadUnreadCount(conversationId);
+    final unreadCount = unreadResult.isSuccess ? (unreadResult.value ?? 0) : 0;
+
+    final realPreview = ConversationPreview(
+      id: conversationId,
+      name: connection.otherUserName,
+      avatarAsset: connection.otherUserPortrait ?? '',
+      lastMessage: '',
+      timestamp: '',
+      type: ConversationType.private,
+      status: ConversationStatus.recentlyConnected,
+      lastMessageType: LastMessageType.connectionAccepted,
+      unreadCount: unreadCount,
+      isVerified: connection.isVerified,
+    );
+
+    navigator.push(
+      conversationRoute(realPreview, chatRepository: chatRepository),
+    );
+  }
 
   // -------------------------------------------------------------------------
   // Build
@@ -215,38 +315,56 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      controller: _scrollController,
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      padding: const EdgeInsets.fromLTRB(2, 8, 2, 150),
-      children: [
-        const Text(
-          'Connections',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
-          ),
+    Widget body;
+    if (_loading) {
+      body = const Center(
+        child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+      );
+    } else if (_error != null) {
+      body = _ErrorState(
+        message: _error!,
+        onRetry: _load,
+      );
+    } else {
+      body = ListView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
         ),
-        const SizedBox(height: 8),
-        const Text(
-          'Your network, requests and hosted plans in one place.',
-          style: TextStyle(
-            fontSize: 14.5,
-            color: Color(0xFFAFB8D4),
-            height: 1.4,
+        padding: const EdgeInsets.fromLTRB(2, 8, 2, 150),
+        children: [
+          const Text(
+            'Connections',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+            ),
           ),
-        ),
-        const SizedBox(height: 24),
-        _buildSummaryGrid(),
-        const SizedBox(height: 26),
-        _buildNetworkSection(),
-        _buildRequestsSection(),
-        _buildPendingSection(),
-        _buildHostedPlansSection(),
-      ],
+          const SizedBox(height: 8),
+          const Text(
+            'Your network, requests and hosted plans in one place.',
+            style: TextStyle(
+              fontSize: 14.5,
+              color: Color(0xFFAFB8D4),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 24),
+          _buildSummaryGrid(),
+          const SizedBox(height: 26),
+          _buildNetworkSection(),
+          _buildRequestsSection(),
+          _buildPendingSection(),
+          _buildHostedPlansSection(),
+        ],
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      color: const Color(0xFF8B5CF6),
+      child: body,
     );
   }
 
@@ -314,15 +432,14 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
             children: [
               for (final connection in _network)
                 CardDismiss(
-                  key: ValueKey<String>('network-${connection.id}'),
-                  visible: !_removing.contains(connection.id),
+                  key: ValueKey<String>('network-${connection.connectionId}'),
+                  visible: !_removing.contains(connection.connectionId),
                   child: NetworkConnectionCard(
                     connection: connection,
                     onViewProfile: () => _viewConnectionProfile(connection),
                     onOpenRoom: () => _openConnectionRoom(connection),
                   ),
                 ),
-
             ],
           );
     return _ExpandableSection(
@@ -350,12 +467,13 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
             children: [
               for (final request in _requests)
                 CardDismiss(
-                  key: ValueKey<String>('request-${request.id}'),
-                  visible: !_removing.contains(request.id),
+                  key: ValueKey<String>('request-${request.connectionId}'),
+                  visible: !_removing.contains(request.connectionId),
                   child: IncomingRequestCard(
                     request: request,
                     onAccept: () => _acceptRequest(request),
                     onDecline: () => _declineRequest(request),
+                    onViewProfile: () => _viewIncomingRequestProfile(request),
                   ),
                 ),
             ],
@@ -385,11 +503,12 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
             children: [
               for (final request in _pending)
                 CardDismiss(
-                  key: ValueKey<String>('pending-${request.id}'),
-                  visible: !_removing.contains(request.id),
+                  key: ValueKey<String>('pending-${request.connectionId}'),
+                  visible: !_removing.contains(request.connectionId),
                   child: PendingRequestCard(
                     request: request,
                     onCancel: () => _cancelPending(request),
+                    onViewProfile: () => _viewPendingRequestProfile(request),
                   ),
                 ),
             ],
@@ -644,18 +763,75 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
   }
 
   static List<HostedPlan> _copyPlans(List<HostedPlan> source) => [
-    for (final plan in source)
-      HostedPlan(
-        id: plan.id,
-        name: plan.name,
-        date: plan.date,
-        time: plan.time,
-        location: plan.location,
-        color: plan.color,
-        joinRequests: List.of(plan.joinRequests),
-        participants: List.of(plan.participants),
+        for (final plan in source)
+          HostedPlan(
+            id: plan.id,
+            name: plan.name,
+            date: plan.date,
+            time: plan.time,
+            location: plan.location,
+            color: plan.color,
+            joinRequests: List.of(plan.joinRequests),
+            participants: List.of(plan.participants),
+          ),
+      ];
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 72, horizontal: 28),
+      child: Column(
+        children: [
+          Container(
+            height: 58,
+            width: 58,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFF4D8D).withValues(alpha: .12),
+            ),
+            child: const Icon(
+              Icons.wifi_off_rounded,
+              size: 27,
+              color: Color(0xFFFF4D8D),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Something went wrong',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13.5,
+              color: Color(0xFFB9C3DC),
+            ),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Retry'),
+          ),
+        ],
       ),
-  ];
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

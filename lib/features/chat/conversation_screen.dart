@@ -1,28 +1,28 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
 import 'chat_models.dart';
 import 'chat_repository.dart';
+import 'chat_dtos.dart';
 import 'conversation_widgets.dart';
 import 'message_models.dart';
 import 'message_widgets.dart';
-
-/// The premium conversation screen (Phase 6.2).
-///
-/// Displays a message thread for a private or group conversation. UI-only: the
-/// composer is decorative, no sending happens, no realtime updates. Loads the
-/// thread + optional group metadata through [LocalChatRepository], reverses
-/// the chronological list for display, and uses a premium slide-fade route.
+import 'realtime_messages_service.dart';
+import '../../core/supabase/auth_service.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({
     required this.conversation,
     super.key,
     this.repository = const LocalChatRepository(),
+    this.chatRepository,
   });
 
   final ConversationPreview conversation;
   final LocalChatRepository repository;
+  final ChatRepository? chatRepository;
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -32,26 +32,179 @@ class _ConversationScreenState extends State<ConversationScreen> {
   List<Message> _messages = const [];
   GroupMetadata? _group;
   bool _loading = true;
+  String? _error;
+  StreamSubscription<ChatMessageEvent>? _realtimeSubscription;
 
   @override
   void initState() {
     super.initState();
     _load();
+    if (widget.chatRepository != null &&
+        widget.conversation.type == ConversationType.private) {
+      _startRealtime();
+    }
+  }
+
+  @override
+  void dispose() {
+    _realtimeSubscription?.cancel();
+    RealtimeMessagesService.instance.stop();
+    super.dispose();
+  }
+
+  void _startRealtime() {
+    _realtimeSubscription =
+        RealtimeMessagesService.instance
+            .onMessageChanged
+            .listen(_handleRealtimeEvent);
+    RealtimeMessagesService.instance.start(widget.conversation.id);
+  }
+
+  void _handleRealtimeEvent(ChatMessageEvent event) {
+    if (!mounted) return;
+    switch (event.type) {
+      case ChatEventType.inserted:
+        if (event.message != null) {
+          final existingIndex = _messages.indexWhere(
+            (m) => m.id == event.messageId,
+          );
+          final mapped = _mapDtoToMessage(event.message!);
+          if (existingIndex >= 0) {
+            setState(() {
+              _messages = List<Message>.from(_messages);
+              _messages[existingIndex] = mapped;
+            });
+          } else {
+            setState(() {
+              _messages = List<Message>.from(_messages)..add(mapped);
+            });
+          }
+        }
+        break;
+      case ChatEventType.updated:
+        if (event.message != null && event.message!.deletedAt != null) {
+          setState(() {
+            _messages = _messages
+                .where((m) => m.id != event.messageId)
+                .toList();
+          });
+        }
+        break;
+      case ChatEventType.deleted:
+        setState(() {
+          _messages = _messages.where((m) => m.id != event.messageId).toList();
+        });
+        break;
+    }
+  }
+
+  Message _mapDtoToMessage(ChatMessage dto) {
+    return Message(
+      id: dto.id,
+      author: dto.senderId == AuthService.currentUser?.id
+          ? MessageAuthor.me
+          : MessageAuthor.them,
+      timestamp: dto.createdAt,
+      type: MessageType.text,
+      text: dto.content,
+      deliveryStatus: MessageDeliveryStatus.read,
+    );
   }
 
   Future<void> _load() async {
-    final messages = await widget.repository.loadMessages(widget.conversation.id);
-    final group = await widget.repository.loadGroupMetadata(widget.conversation.id);
-    if (!mounted) return;
     setState(() {
-      _messages = messages;
-      _group = group;
-      _loading = false;
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      if (widget.chatRepository != null &&
+          widget.conversation.type == ConversationType.private) {
+        final messagesResult = await widget.chatRepository!.loadMessages(
+          widget.conversation.id,
+        );
+        final readResult = await widget.chatRepository!.updateLastReadAt(
+          widget.conversation.id,
+        );
+
+        if (!mounted) return;
+        if (messagesResult.isFailure) {
+          setState(() {
+            _error = messagesResult.error ?? 'Failed to load messages';
+            _loading = false;
+          });
+          return;
+        }
+
+        if (readResult.isFailure) {
+          setState(() {
+            _error = readResult.error ?? 'Failed to update read state';
+            _loading = false;
+          });
+          return;
+        }
+
+        final dtoMessages = messagesResult.value!;
+        final mapped = <Message>[
+          for (final dto in dtoMessages)
+            _mapDtoToMessage(dto),
+        ];
+
+        setState(() {
+          _messages = mapped;
+          _group = null;
+          _loading = false;
+        });
+      } else {
+        final messages = await widget.repository.loadMessages(
+          widget.conversation.id,
+        );
+        final group = await widget.repository.loadGroupMetadata(
+          widget.conversation.id,
+        );
+        if (!mounted) return;
+        setState(() {
+          _messages = messages;
+          _group = group;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _sendMessage(String text) async {
+    if (text.trim().isEmpty) return;
+    if (widget.chatRepository == null) return;
+
+    final result = await widget.chatRepository!.sendMessage(
+      conversationId: widget.conversation.id,
+      content: text.trim(),
+    );
+
+    if (!mounted) return;
+    if (result.isFailure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to send message'),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
+
+    final sent = _mapDtoToMessage(result.value!);
+    setState(() {
+      _messages = List<Message>.from(_messages)..add(sent);
     });
   }
 
   void _handleMenuAction(String actionId) {
-    // Phase 6.3: handle view_profile, mute, block, report, etc.
     debugPrint('Menu action: $actionId');
   }
 
@@ -67,30 +220,40 @@ class _ConversationScreenState extends State<ConversationScreen> {
         onMenuSelected: _handleMenuAction,
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF8B5CF6)))
-          : Column(
-              children: [
-                Expanded(
-                  child: _messages.isEmpty
-                      ? _EmptyThread(name: c.name)
-                      : _MessageList(
-                          messages: _messages,
-                          conversation: c,
-                          group: _group,
-                        ),
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+            )
+          : _error != null
+              ? _ErrorState(
+                  message: _error!,
+                  onRetry: _load,
+                )
+              : Column(
+                  children: [
+                    Expanded(
+                      child: _messages.isEmpty
+                          ? _EmptyThread(name: c.name)
+                          : _MessageList(
+                              messages: _messages,
+                              conversation: c,
+                              group: _group,
+                            ),
+                    ),
+                    AnimatedPadding(
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeOutCubic,
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: MessageComposer(
+                        onSend: widget.chatRepository != null
+                            ? _sendMessage
+                            : null,
+                      ),
+                    ),
+                  ],
                 ),
-                AnimatedPadding(
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutCubic,
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
-                  ),
-                  child: const MessageComposer(),
-                ),
-              ],
-            ),
     );
-
   }
 
   List<ChatMenuAction> _buildMenuActions(ConversationPreview c) {
@@ -98,43 +261,42 @@ class _ConversationScreenState extends State<ConversationScreen> {
       const ChatMenuAction(
         id: 'view_profile',
         label: 'View profile',
-        icon: 0xe491, // Icons.person_outline_rounded
+        icon: 0xe491,
       ),
       if (c.isMuted)
         const ChatMenuAction(
           id: 'unmute',
           label: 'Unmute',
-          icon: 0xe7f6, // Icons.notifications_active_rounded
+          icon: 0xe7f6,
         )
       else
         const ChatMenuAction(
           id: 'mute',
           label: 'Mute',
-          icon: 0xe7f5, // Icons.notifications_off_rounded
+          icon: 0xe7f5,
         ),
       if (c.isGroup)
         const ChatMenuAction(
           id: 'group_details',
           label: 'Group details',
-          icon: 0xe88a, // Icons.group_rounded
+          icon: 0xe88a,
         ),
       const ChatMenuAction(
         id: 'block',
         label: 'Block',
-        icon: 0xe14a, // Icons.block_rounded
+        icon: 0xe14a,
         isDestructive: true,
       ),
       const ChatMenuAction(
         id: 'report',
         label: 'Report',
-        icon: 0xe160, // Icons.flag_rounded
+        icon: 0xe160,
         isDestructive: true,
       ),
     ];
   }
 }
 
-/// The reversed message list with entrance animations and smart sectioning.
 class _MessageList extends StatelessWidget {
   const _MessageList({
     required this.messages,
@@ -148,7 +310,6 @@ class _MessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Repository stores chronological; UI displays newest at bottom.
     final reversed = messages.reversed.toList();
     final showSenderNames = conversation.isGroup;
 
@@ -193,7 +354,6 @@ class _MessageList extends StatelessWidget {
   }
 }
 
-/// The empty state shown when a conversation has no messages yet.
 class _EmptyThread extends StatelessWidget {
   const _EmptyThread({required this.name});
 
@@ -209,13 +369,75 @@ class _EmptyThread extends StatelessWidget {
   }
 }
 
-/// Premium slide-fade route for entering a conversation from the inbox.
-Route<void> conversationRoute(ConversationPreview conversation) {
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 72, horizontal: 28),
+      child: Column(
+        children: [
+          Container(
+            height: 58,
+            width: 58,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFFF4D8D).withValues(alpha: .12),
+            ),
+            child: const Icon(
+              Icons.wifi_off_rounded,
+              size: 27,
+              color: Color(0xFFFF4D8D),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Something went wrong',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13.5,
+              color: Color(0xFFB9C3DC),
+            ),
+          ),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Route<void> conversationRoute(
+  ConversationPreview conversation, {
+  ChatRepository? chatRepository,
+}) {
   return PageRouteBuilder<void>(
     transitionDuration: const Duration(milliseconds: 380),
     reverseTransitionDuration: const Duration(milliseconds: 300),
     pageBuilder: (context, animation, secondaryAnimation) =>
-        ConversationScreen(conversation: conversation),
+        ConversationScreen(
+          conversation: conversation,
+          chatRepository: chatRepository,
+        ),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
       final curved = CurvedAnimation(
         parent: animation,

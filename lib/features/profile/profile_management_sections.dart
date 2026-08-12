@@ -408,6 +408,32 @@ class ManageGenderSection extends StatelessWidget {
   }
 }
 
+// ── DateOfBirthSection ───────────────────────────────────────────────────────
+
+class ManageDobSection extends StatelessWidget {
+  const ManageDobSection({
+    required this.draft,
+    required this.onChanged,
+    super.key,
+  });
+
+  final UserProfileDraft draft;
+  final ValueChanged<UserProfileDraft> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ManagementSection(
+      title: 'Date of Birth',
+      subtitle: 'You must be at least 18 years old. Future dates are not allowed.',
+      completed: validateDateOfBirth(draft.dateOfBirth),
+      child: DateOfBirthField(
+        value: draft.dateOfBirth,
+        onChanged: (d) => onChanged(draft.copyWith(dateOfBirth: d)),
+      ),
+    );
+  }
+}
+
 // ── LocationSection ──────────────────────────────────────────────────────────
 
 class ManageLocationSection extends StatelessWidget {
@@ -499,6 +525,7 @@ class ManageOptionalDetailsSection extends StatelessWidget {
     required this.occupationController,
     required this.collegeController,
     required this.hometownController,
+    required this.displayNameController,
     required this.draft,
     required this.onChanged,
     super.key,
@@ -507,6 +534,7 @@ class ManageOptionalDetailsSection extends StatelessWidget {
   final TextEditingController occupationController;
   final TextEditingController collegeController;
   final TextEditingController hometownController;
+  final TextEditingController displayNameController;
   final UserProfileDraft draft;
   final ValueChanged<UserProfileDraft> onChanged;
 
@@ -517,6 +545,13 @@ class ManageOptionalDetailsSection extends StatelessWidget {
       subtitle: 'These are optional and never block saving.',
       child: Column(
         children: [
+          GlassTextField(
+            controller: displayNameController,
+            hint: 'Display name',
+            icon: Icons.person_outline_rounded,
+            onChanged: (v) => onChanged(draft.copyWith(displayName: v)),
+          ),
+          const SizedBox(height: 12),
           GlassTextField(
             controller: occupationController,
             hint: 'Occupation',

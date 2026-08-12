@@ -1,7 +1,9 @@
 import '../home_connection_dashboard_data.dart';
 import '../home_discovery_data.dart';
+import 'connections_view_model.dart';
 import 'profile_data.dart';
 import 'public_profile_data.dart';
+import 'discovery_data.dart';
 
 /// The single, reusable mapper from existing demo models to the shared
 /// [PublicProfileViewData] consumed by `premiumPublicProfileRoute()`.
@@ -79,6 +81,106 @@ PublicProfileViewData mapDiscoveryPersonToProfile(DiscoveryPerson p) {
             ],
       occupation: p.occupation,
       aboutMe: p.lookingFor,
+    ),
+  );
+}
+
+/// Maps a [DiscoveryProfile] to a public profile view model.
+PublicProfileViewData mapDiscoveryProfileToProfile(DiscoveryProfile p) {
+  return PublicProfileViewData(
+    displayName: p.displayName.isNotEmpty ? p.displayName : p.name,
+    age: p.age,
+    viewerInterests: const [],
+    profile: UserProfile(
+      id: p.id,
+      photos: _galleryFor(p.id, p.portrait),
+      bio: p.bio,
+      interests: p.interests,
+      languages: p.languages,
+      gender: p.gender,
+      location: p.location,
+      socialLinks: const [],
+      occupation: p.occupation ?? '',
+      verificationStatus: p.verificationStatus,
+      profileVisibility: p.profileVisibility,
+      dateOfBirth: p.dateOfBirth,
+      aboutMe: p.bio,
+      displayName: p.displayName,
+      availabilityStatus: p.availabilityStatus,
+    ),
+  );
+}
+
+/// Maps an [IncomingRequest] to a public profile view model.
+PublicProfileViewData mapIncomingRequestToProfile(IncomingRequest request) {
+  return PublicProfileViewData(
+    displayName: request.name,
+    age: request.age,
+    viewerInterests: request.mutualInterests,
+    profile: UserProfile(
+      id: request.id,
+      photos: _galleryFor(request.id, request.portrait),
+      bio: request.bio,
+      interests: request.mutualInterests,
+      languages: const [],
+      gender: '',
+      location: request.city,
+      socialLinks: const [],
+      occupation: request.occupation,
+      verificationStatus: VerificationStatus.notVerified,
+      profileVisibility: ProfileVisibility.public,
+      displayName: request.name,
+      availabilityStatus: 'offline',
+    ),
+  );
+}
+
+/// Maps a [PendingRequest] to a public profile view model.
+PublicProfileViewData mapPendingRequestToProfile(PendingRequest request) {
+  return PublicProfileViewData(
+    displayName: request.name,
+    age: 0,
+    viewerInterests: const [],
+    profile: UserProfile(
+      id: request.id,
+      photos: _galleryFor(request.id, request.portrait),
+      bio: '',
+      interests: const [],
+      languages: const [],
+      gender: '',
+      location: '',
+      socialLinks: const [],
+      occupation: '',
+      verificationStatus: VerificationStatus.notVerified,
+      profileVisibility: ProfileVisibility.public,
+      displayName: request.name,
+      availabilityStatus: 'offline',
+    ),
+  );
+}
+
+/// Maps a [ConnectionUiModel] to a public profile view model.
+PublicProfileViewData mapConnectionUiModelToProfile(ConnectionUiModel model) {
+  return PublicProfileViewData(
+    displayName: model.otherUserName,
+    age: model.otherUserAge,
+    viewerInterests: model.mutualInterests,
+    profile: UserProfile(
+      id: model.otherUserId,
+      photos: _galleryFor(model.otherUserId, model.otherUserPortrait ?? ''),
+      bio: model.otherUserBio ?? '',
+      interests: model.mutualInterests,
+      languages: model.otherUserLanguages,
+      gender: '',
+      location: model.otherUserCity ?? '',
+      socialLinks: const [],
+      occupation: model.otherUserOccupation ?? '',
+      verificationStatus: model.isVerified
+          ? VerificationStatus.verified
+          : VerificationStatus.notVerified,
+      profileVisibility: ProfileVisibility.public,
+      displayName: model.otherUserName,
+      availabilityStatus: model.otherUserAvailabilityStatus ?? 'offline',
     ),
   );
 }

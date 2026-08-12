@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'chat_models.dart';
@@ -5,18 +7,9 @@ import 'chat_repository.dart';
 import 'chat_sections.dart';
 import 'chat_widgets.dart';
 import 'conversation_screen.dart';
+import '../profile/connections_view_model.dart';
+import '../profile/realtime_connections_service.dart';
 
-/// The premium Chat home (Phases 6.1–6.3).
-///
-/// Two premium segmented tabs share one screen, one search field, and one
-/// data source ([LocalChatRepository]):
-///
-///   • **Connections** — private one-to-one chats only.
-///   • **Plans** — plan group chats only.
-///
-/// Each tab keeps independent data, its own pinned/recent grouping, and a
-/// tab-specific empty state. Tapping any conversation opens the shared
-/// [ConversationScreen]. UI-only: no messaging, no backend.
 class ConnectionsInboxScreen extends StatefulWidget {
   const ConnectionsInboxScreen({super.key});
 
@@ -25,6 +18,7 @@ class ConnectionsInboxScreen extends StatefulWidget {
 }
 
 class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
+  final _chatRepository = const ChatRepository();
   final _repository = const LocalChatRepository();
   final _searchController = TextEditingController();
 
@@ -34,24 +28,54 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
   String _query = '';
   bool _loading = true;
 
+  late final ConnectionsViewModel _viewModel = const ConnectionsViewModel();
+  final Map<String, ConnectionUiModel> _connectionModels = {};
+
   @override
   void initState() {
     super.initState();
     _load();
+    RealtimeConnectionsService.instance.start();
+    _realtimeSubscription =
+        RealtimeConnectionsService.instance.onConnectionsChanged.listen((_) {
+      if (!mounted || _loading) return;
+      _load();
+    });
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _realtimeSubscription?.cancel();
+    RealtimeConnectionsService.instance.stop();
     super.dispose();
   }
 
+  StreamSubscription<void>? _realtimeSubscription;
+
   Future<void> _load() async {
-    final connections = await _repository.loadConnectionConversations();
+    final accepted = await _viewModel.loadAcceptedConnections();
     final plans = await _repository.loadPlanConversations();
     if (!mounted) return;
     setState(() {
-      _connections = connections;
+      _connectionModels.clear();
+      for (final m in accepted) {
+        _connectionModels[m.connectionId] = m;
+      }
+      _connections = accepted
+          .map((m) => ConversationPreview(
+                id: m.connectionId,
+                name: m.otherUserName,
+                avatarAsset: m.otherUserPortrait ?? '',
+                lastMessage: '',
+                timestamp: '',
+                type: ConversationType.private,
+                status: ConversationStatus.recentlyConnected,
+                lastMessageType: LastMessageType.connectionAccepted,
+                unreadCount: 0,
+                isVerified: m.isVerified,
+              ))
+          .toList();
       _plans = plans;
       _loading = false;
     });
@@ -71,11 +95,9 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
     setState(() => _tabIndex = index);
   }
 
-  /// The conversations backing the currently-selected tab.
   List<ConversationPreview> get _tabSource =>
       _tabIndex == 0 ? _connections : _plans;
 
-  /// Instant local filtering — checks name only, within the active tab.
   List<ConversationPreview> get _filtered {
     if (_query.isEmpty) return _tabSource;
     return _tabSource
@@ -89,8 +111,48 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
   List<ConversationPreview> get _recent =>
       _filtered.where((c) => !c.isPinned).toList();
 
-  void _openConversation(ConversationPreview c) {
-    Navigator.of(context).push(conversationRoute(c));
+  void _openConversation(ConversationPreview c) async {
+    final isConnectionChat = _connectionModels.containsKey(c.id);
+    if (isConnectionChat) {
+      final connectionId = c.id;
+      final result = await _chatRepository.getOrCreateConnectionConversation(
+        connectionId,
+      );
+      if (result.isFailure) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'Failed to open conversation'),
+            backgroundColor: const Color(0xFFFF4D8D),
+          ),
+        );
+        return;
+      }
+
+      final conversationId = result.value!;
+      final unreadResult = await _chatRepository.loadUnreadCount(conversationId);
+      final unreadCount = unreadResult.isSuccess ? (unreadResult.value ?? 0) : 0;
+
+      final realPreview = ConversationPreview(
+        id: conversationId,
+        name: c.name,
+        avatarAsset: c.avatarAsset,
+        lastMessage: '',
+        timestamp: '',
+        type: ConversationType.private,
+        status: ConversationStatus.recentlyConnected,
+        lastMessageType: LastMessageType.connectionAccepted,
+        unreadCount: unreadCount,
+        isVerified: c.isVerified,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).push(
+        conversationRoute(realPreview, chatRepository: _chatRepository),
+      );
+    } else {
+      Navigator.of(context).push(conversationRoute(c));
+    }
   }
 
   @override
@@ -134,8 +196,6 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
                   onClear: _clearSearch,
                 ),
                 const SizedBox(height: 24),
-                // AnimatedSwitcher gives a soft cross-fade between tabs while
-                // keeping each tab's content keyed for correct rebuilds.
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 240),
                   switchInCurve: Curves.easeOut,

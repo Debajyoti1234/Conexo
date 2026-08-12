@@ -754,6 +754,95 @@ class GenderSelector extends StatelessWidget {
   }
 }
 
+// ── DateOfBirthField ────────────────────────────────────────────────────────
+
+/// A tappable, read-only date-of-birth field that opens the native Material
+/// date picker. Never a free-text field. The picker's `lastDate` is today, so a
+/// future date can never be chosen; the empty state prompts a selection.
+class DateOfBirthField extends StatelessWidget {
+  const DateOfBirthField({
+    required this.value,
+    required this.onChanged,
+    super.key,
+  });
+
+  final DateTime? value;
+  final ValueChanged<DateTime> onChanged;
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  String _formatDisplay(DateTime d) =>
+      '${d.day} ${_months[d.month - 1]} ${d.year}';
+
+  Future<void> _pick(BuildContext context) async {
+    final now = DateTime.now();
+    final latestAllowed = DateTime(now.year - 18, now.month, now.day);
+    final seed = value ?? latestAllowed;
+    final initial = seed.isAfter(latestAllowed) ? latestAllowed : seed;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1900),
+      lastDate: latestAllowed,
+      helpText: 'Select your date of birth',
+      initialEntryMode: DatePickerEntryMode.calendar,
+    );
+    if (picked != null) {
+      onChanged(DateTime(picked.year, picked.month, picked.day));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasValue = value != null;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _pick(context),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: _kFieldFill,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: .1)),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.cake_outlined,
+                size: 20,
+                color: Color(0xFFB7A5FF),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  hasValue
+                      ? _formatDisplay(value!)
+                      : 'Select your date of birth',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: hasValue ? Colors.white : _kSoftText,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.expand_more_rounded,
+                size: 20,
+                color: Color(0xFF8592B4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── SocialLinkField ─────────────────────────────────────────────────────────
 
 /// A row that captures one social link: a platform chip + a URL/handle field.

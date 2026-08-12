@@ -3,35 +3,36 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-
+import '../../core/supabase/auth_service.dart';
 import 'home_discovery_animations.dart';
-import 'home_discovery_connect.dart';
-import 'home_discovery_data.dart';
+import 'profile/connection_data.dart';
+import 'profile/discovery_data.dart';
 
-/// Immersive, full-screen discovery experience for a single person.
-///
-/// The whole page is one continuous vertical scroll: an immersive hero
-/// portrait flows straight into a glass details section. Floating controls
-/// are rendered by the parent and stay fixed above this scroll view.
 class ImmersiveProfileView extends StatefulWidget {
   const ImmersiveProfileView({
     required super.key,
-    required this.person,
+    required this.profile,
     required this.counterLabel,
-    required this.connectPhase,
+    required this.connection,
+    required this.connecting,
+    required this.onConnect,
+    required this.onProfileTap,
+    this.connectionError,
   });
 
-  final DiscoveryPerson person;
+  final DiscoveryProfile profile;
   final String counterLabel;
-  final ConnectPhase connectPhase;
+  final Connection? connection;
+  final bool connecting;
+  final VoidCallback onConnect;
+  final VoidCallback onProfileTap;
+  final String? connectionError;
 
   @override
   State<ImmersiveProfileView> createState() => _ImmersiveProfileViewState();
 }
 
 class _ImmersiveProfileViewState extends State<ImmersiveProfileView> {
-  // Each profile owns its scroll controller so the AnimatedSwitcher can mount
-  // two views during a transition without attaching one controller twice.
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -50,33 +51,38 @@ class _ImmersiveProfileViewState extends State<ImmersiveProfileView> {
       slivers: [
         SliverToBoxAdapter(
           child: _HeroSection(
-            person: widget.person,
+            profile: widget.profile,
             counterLabel: widget.counterLabel,
-            connectPhase: widget.connectPhase,
+            connection: widget.connection,
+            connecting: widget.connecting,
+            onConnect: widget.onConnect,
+            onTap: widget.onProfileTap,
           ),
         ),
         SliverToBoxAdapter(
-          child: _DetailsSection(person: widget.person),
+          child: _DetailsSection(profile: widget.profile),
         ),
       ],
     );
   }
 }
 
-
-/// Full-bleed hero: portrait photo, layered scrims, badges, and the minimal
-/// identity block (name, age, distance). Height tracks the viewport so the
-/// image feels immersive without a hard-coded percentage.
 class _HeroSection extends StatelessWidget {
   const _HeroSection({
-    required this.person,
+    required this.profile,
     required this.counterLabel,
-    required this.connectPhase,
+    required this.connection,
+    required this.connecting,
+    required this.onConnect,
+    required this.onTap,
   });
 
-  final DiscoveryPerson person;
+  final DiscoveryProfile profile;
   final String counterLabel;
-  final ConnectPhase connectPhase;
+  final Connection? connection;
+  final bool connecting;
+  final VoidCallback onConnect;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -84,74 +90,72 @@ class _HeroSection extends StatelessWidget {
     final heroHeight = media.size.height - media.padding.top - 150;
     return SizedBox(
       height: heroHeight.clamp(420.0, 900.0),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _PhotoGallery(
-              key: ValueKey<String>('gallery_${person.name}'),
-              person: person,
-            ),
-            // A single subtle bottom gradient keeps the overlay text legible
-            // while preserving the sharpness of the photo — no glow, no
-            // vignette in front of the image.
-            const IgnorePointer(child: _HeroScrim()),
-            Positioned(
-              top: 18,
-              left: 18,
-              child: IgnorePointer(child: _BadgeColumn(person: person)),
-            ),
-            Positioned(
-              top: 18,
-              right: 18,
-              child: IgnorePointer(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 340),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(scale: animation, child: child),
-                  ),
-                  child: HeroBadge(
-                    key: ValueKey<String>(counterLabel),
-                    icon: Icons.location_on_rounded,
-                    label: counterLabel,
-                    color: const Color(0xFFFF4D8D),
+      child: GestureDetector(
+        onTap: onTap,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _PhotoGallery(
+                key: ValueKey<String>('gallery_${profile.name}'),
+                profile: profile,
+              ),
+              const IgnorePointer(child: _HeroScrim()),
+              Positioned(
+                top: 18,
+                left: 18,
+                child: IgnorePointer(child: _BadgeColumn(profile: profile)),
+              ),
+              Positioned(
+                top: 18,
+                right: 18,
+                child: IgnorePointer(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 340),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(scale: animation, child: child),
+                    ),
+                    child: HeroBadge(
+                      key: ValueKey<String>(counterLabel),
+                      icon: Icons.location_on_rounded,
+                      label: counterLabel,
+                      color: const Color(0xFFFF4D8D),
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              left: 22,
-              right: 22,
-              bottom: 26,
-              child: IgnorePointer(
-                child: _IdentityBlock(
-                  person: person,
-                  connectPhase: connectPhase,
+              Positioned(
+                left: 22,
+                right: 22,
+                bottom: 26,
+                child: IgnorePointer(
+                  child: _IdentityBlock(
+                    profile: profile,
+                    connection: connection,
+                    connecting: connecting,
+                    onConnect: onConnect,
+                  ),
                 ),
               ),
-            ),
-          ],
-
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Tinder-style photo gallery: horizontal swipe + tap left/right navigation.
-/// Each person's gallery resets to photo 0 when that person is first shown.
-/// Photo taps never change the person — only the bottom buttons do that.
 class _PhotoGallery extends StatefulWidget {
   const _PhotoGallery({
-    required this.person,
+    required this.profile,
     super.key,
   });
 
-  final DiscoveryPerson person;
+  final DiscoveryProfile profile;
 
   @override
   State<_PhotoGallery> createState() => _PhotoGalleryState();
@@ -161,16 +165,11 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
   late final PageController _controller;
   int _photoIndex = 0;
 
-  // Simulate multi-photo demo: if the person has a portrait, create 3 copies
-  // for demo purposes. In production, this would use the actual photos list.
   List<String> get _photos {
-    if (widget.person.portrait.isEmpty) return [];
-    // Demo: show the same portrait 3 times to simulate a gallery
-    return [
-      widget.person.portrait,
-      widget.person.portrait,
-      widget.person.portrait,
-    ];
+    final assets = [for (final p in widget.profile.photos) p.assetPath];
+    if (assets.isEmpty) return [];
+    if (assets.length > 1) return assets;
+    return [assets.first, assets.first, assets.first];
   }
 
   @override
@@ -182,8 +181,7 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
   @override
   void didUpdateWidget(_PhotoGallery oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // When a new person is shown, reset the gallery to photo 0.
-    if (oldWidget.person.name != widget.person.name && _photoIndex != 0) {
+    if (oldWidget.profile.name != widget.profile.name && _photoIndex != 0) {
       _photoIndex = 0;
       if (_controller.hasClients) {
         _controller.jumpToPage(0);
@@ -204,7 +202,6 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
     if (clamped == _photoIndex) return;
     HapticFeedback.lightImpact();
     _controller.animateToPage(
-
       clamped,
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
@@ -217,26 +214,22 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
     final count = photos.length;
 
     if (count == 0) {
-      return _FallbackPortrait(person: widget.person);
+      return _FallbackPortrait(profile: widget.profile);
     }
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Photo pager
         PageView.builder(
           controller: _controller,
           itemCount: count,
           onPageChanged: (i) => setState(() => _photoIndex = i),
           itemBuilder: (context, i) => _HeroPhoto(
-            key: ValueKey('photo_${widget.person.name}_$i'),
+            key: ValueKey('photo_${widget.profile.name}_$i'),
             assetPath: photos[i],
-            person: widget.person,
+            profile: widget.profile,
           ),
         ),
-
-        // Tap zones: left 40% → previous photo, right 40% → next photo
-        // Center 20% is neutral (no action)
         if (count > 1)
           Positioned.fill(
             child: Row(
@@ -261,8 +254,6 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
               ],
             ),
           ),
-
-        // Refined floating progress bars: thin, semi-transparent, premium
         if (count > 1)
           Positioned(
             top: 12,
@@ -275,33 +266,31 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
   }
 }
 
-/// A single hero photo with graceful error handling.
 class _HeroPhoto extends StatelessWidget {
   const _HeroPhoto({
     required this.assetPath,
-    required this.person,
+    required this.profile,
     super.key,
   });
 
   final String assetPath;
-  final DiscoveryPerson person;
+  final DiscoveryProfile profile;
 
   @override
   Widget build(BuildContext context) {
     if (assetPath.trim().isEmpty) {
-      return _FallbackPortrait(person: person);
+      return _FallbackPortrait(profile: profile);
     }
     return Image.asset(
       assetPath,
       fit: BoxFit.cover,
       gaplessPlayback: true,
       errorBuilder: (context, error, stackTrace) =>
-          _FallbackPortrait(person: person),
+          _FallbackPortrait(profile: profile),
     );
   }
 }
 
-/// Refined floating progress bars: thin (2px), semi-transparent, no solid strip.
 class _FloatingProgressBars extends StatelessWidget {
   const _FloatingProgressBars({
     required this.count,
@@ -324,7 +313,6 @@ class _FloatingProgressBars extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
                 child: Stack(
                   children: [
-                    // Background track (semi-transparent dark)
                     Container(
                       height: 2,
                       decoration: BoxDecoration(
@@ -332,7 +320,6 @@ class _FloatingProgressBars extends StatelessWidget {
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    // Active progress (semi-transparent white with subtle glow)
                     AnimatedFractionallySizedBox(
                       duration: const Duration(milliseconds: 200),
                       curve: Curves.easeOutCubic,
@@ -367,18 +354,26 @@ class _FloatingProgressBars extends StatelessWidget {
   }
 }
 
-/// A soft, multi-stop gradient avatar used when no portrait asset is
-
-/// available. A radial highlight adds subtle lighting so the placeholder
-/// still feels premium rather than flat.
 class _FallbackPortrait extends StatelessWidget {
-  const _FallbackPortrait({required this.person});
+  const _FallbackPortrait({required this.profile});
 
-  final DiscoveryPerson person;
+  final DiscoveryProfile profile;
+
+  Color get _baseColor {
+    final colors = [
+      Color(0xFFE36D9D),
+      Color(0xFF22BFE0),
+      Color(0xFFF09A65),
+      Color(0xFF6C8EF5),
+      Color(0xFFB78AF6),
+      Color(0xFF47D7A5),
+    ];
+    return colors[profile.name.hashCode.abs() % colors.length];
+  }
 
   @override
   Widget build(BuildContext context) {
-    final base = person.color;
+    final base = _baseColor;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -396,7 +391,6 @@ class _FallbackPortrait extends StatelessWidget {
             ),
           ),
         ),
-        // Soft top-left lighting for a gentle sense of volume.
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: RadialGradient(
@@ -412,7 +406,7 @@ class _FallbackPortrait extends StatelessWidget {
         ),
         Center(
           child: Text(
-            person.name.isEmpty ? '?' : person.name.characters.first,
+            profile.name.isEmpty ? '?' : profile.name.characters.first,
             style: TextStyle(
               fontSize: 128,
               fontWeight: FontWeight.w800,
@@ -425,8 +419,6 @@ class _FallbackPortrait extends StatelessWidget {
     );
   }
 }
-
-/// Layered darkening scrims for readable overlay text and gentle depth.
 
 class _HeroScrim extends StatelessWidget {
   const _HeroScrim();
@@ -451,14 +443,18 @@ class _HeroScrim extends StatelessWidget {
   }
 }
 
-/// The minimal identity block shown before scrolling: name, age, distance,
-
-/// and the live connect-status line.
 class _IdentityBlock extends StatelessWidget {
-  const _IdentityBlock({required this.person, required this.connectPhase});
+  const _IdentityBlock({
+    required this.profile,
+    required this.connection,
+    required this.connecting,
+    required this.onConnect,
+  });
 
-  final DiscoveryPerson person;
-  final ConnectPhase connectPhase;
+  final DiscoveryProfile profile;
+  final Connection? connection;
+  final bool connecting;
+  final VoidCallback onConnect;
 
   @override
   Widget build(BuildContext context) {
@@ -466,7 +462,7 @@ class _IdentityBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${person.name}, ${person.age}',
+          '${profile.name}, ${profile.age}',
           style: const TextStyle(
             fontSize: 40,
             fontWeight: FontWeight.w800,
@@ -488,7 +484,7 @@ class _IdentityBlock extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              person.distance,
+              profile.formattedDistance,
               style: const TextStyle(
                 color: Color(0xFFEAEEF9),
                 fontSize: 15,
@@ -499,27 +495,42 @@ class _IdentityBlock extends StatelessWidget {
             ),
           ],
         ),
-        _ConnectStatus(connectPhase: connectPhase),
+        _ConnectStatus(
+          connection: connection,
+          connecting: connecting,
+          onConnect: onConnect,
+        ),
       ],
     );
   }
 }
 
-/// Shows the current stage of the connect flow, if any.
 class _ConnectStatus extends StatelessWidget {
-  const _ConnectStatus({required this.connectPhase});
+  const _ConnectStatus({
+    required this.connection,
+    required this.connecting,
+    required this.onConnect,
+  });
 
-  final ConnectPhase connectPhase;
+  final Connection? connection;
+  final bool connecting;
+  final VoidCallback onConnect;
 
   @override
   Widget build(BuildContext context) {
-    final (String, Color)? status = switch (connectPhase) {
-
-      ConnectPhase.none => null,
-      ConnectPhase.sending => ('Sending request…', const Color(0xFFFFC24D)),
-      ConnectPhase.pending => ('Request sent • Pending', const Color(0xFF22D3EE)),
-      ConnectPhase.connected => ('✨ You\u2019re connected', const Color(0xFF47D7A5)),
+    final status = switch (connection?.status) {
+      ConnectionStatus.accepted => ('Connected', const Color(0xFF47D7A5)),
+      ConnectionStatus.pending when connection != null =>
+        (connection!.requesterId == AuthService.currentUser?.id
+            ? 'Pending'
+            : 'Incoming request', const Color(0xFF22D3EE)),
+      null when connecting => ('Sending request...', const Color(0xFFFFC24D)),
+      null => null,
+      ConnectionStatus.pending => ('Pending', const Color(0xFF22D3EE)),
+      ConnectionStatus.rejected => ('Declined', const Color(0xFFFF8BAE)),
+      ConnectionStatus.cancelled => ('Cancelled', const Color(0xFF9DB2E8)),
     };
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       child: status == null
@@ -544,16 +555,16 @@ class _ConnectStatus extends StatelessWidget {
 }
 
 class _BadgeColumn extends StatelessWidget {
-  const _BadgeColumn({required this.person});
+  const _BadgeColumn({required this.profile});
 
-  final DiscoveryPerson person;
+  final DiscoveryProfile profile;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (person.verified) ...[
+        if (profile.verified) ...[
           const _PulsingBadge(
             icon: Icons.verified_rounded,
             label: 'Verified',
@@ -561,18 +572,11 @@ class _BadgeColumn extends StatelessWidget {
           ),
           const SizedBox(height: 10),
         ],
-        if (person.availability.isNotEmpty)
-          _ShimmerBadge(
-            icon: Icons.bolt_rounded,
-            label: person.availability,
-            color: const Color(0xFF47D7A5),
-          ),
       ],
     );
   }
 }
 
-/// Small glass pill used for hero badges.
 class HeroBadge extends StatelessWidget {
   const HeroBadge({
     required this.icon,
@@ -613,7 +617,6 @@ class HeroBadge extends StatelessWidget {
   }
 }
 
-/// Verified badge with a soft breathing pulse every few seconds.
 class _PulsingBadge extends StatefulWidget {
   const _PulsingBadge({
     required this.icon,
@@ -684,63 +687,10 @@ class _PulsingBadgeState extends State<_PulsingBadge>
   }
 }
 
-/// Available-now badge with a gentle fade shimmer loop.
-class _ShimmerBadge extends StatefulWidget {
-  const _ShimmerBadge({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  State<_ShimmerBadge> createState() => _ShimmerBadgeState();
-}
-
-class _ShimmerBadgeState extends State<_ShimmerBadge>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _opacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1900),
-    )..repeat(reverse: true);
-    _opacity = Tween<double>(begin: 0.55, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _opacity,
-      child: HeroBadge(
-        icon: widget.icon,
-        label: widget.label,
-        color: widget.color,
-      ),
-    );
-  }
-}
-
-/// The glass details section that flows below the hero in the same scroll.
 class _DetailsSection extends StatelessWidget {
-  const _DetailsSection({required this.person});
+  const _DetailsSection({required this.profile});
 
-  final DiscoveryPerson person;
+  final DiscoveryProfile profile;
 
   @override
   Widget build(BuildContext context) {
@@ -784,7 +734,7 @@ class _DetailsSection extends StatelessWidget {
       ),
       const SizedBox(height: 22),
       Text(
-        person.introduction,
+        profile.bio,
         style: const TextStyle(
           fontSize: 18,
           height: 1.4,
@@ -813,33 +763,15 @@ class _DetailsSection extends StatelessWidget {
       );
     }
 
-    addChipSection('Interests', Icons.interests_rounded, person.tags);
-    addTextSection('Bio', Icons.auto_stories_rounded, person.bio);
-    addTextSection('City', Icons.location_city_rounded, person.city);
-    addTextSection('Occupation', Icons.work_outline_rounded, person.occupation);
+    addChipSection('Interests', Icons.interests_rounded, profile.interests);
+    addTextSection('Bio', Icons.auto_stories_rounded, profile.bio);
+    addTextSection('City', Icons.location_city_rounded, profile.location);
     addTextSection(
-      'Looking for',
-      Icons.favorite_border_rounded,
-      person.lookingFor,
+      'Occupation',
+      Icons.work_outline_rounded,
+      profile.occupation ?? '',
     );
-    addChipSection('Lifestyle', Icons.spa_outlined, person.lifestyle);
-    addChipSection('Languages', Icons.translate_rounded, person.languages);
-    addChipSection(
-      'Mutual interests',
-      Icons.people_alt_outlined,
-      person.mutualInterests,
-    );
-    if (person.instagram.isNotEmpty) {
-      sections.add(
-        _RevealSection(
-          child: _TextSection(
-            title: 'Instagram',
-            icon: Icons.camera_alt_outlined,
-            value: person.instagram,
-          ),
-        ),
-      );
-    }
+    addChipSection('Languages', Icons.translate_rounded, profile.languages);
 
     return sections;
   }
@@ -956,7 +888,6 @@ class _DetailChip extends StatelessWidget {
   }
 }
 
-/// Wraps a section with a gentle fade + slide + scale entrance (no bounce).
 class _RevealSection extends StatelessWidget {
   const _RevealSection({required this.child});
 
@@ -976,20 +907,21 @@ class _RevealSection extends StatelessWidget {
   }
 }
 
-/// Premium floating controls: Previous • Connect • Next.
 class DiscoveryControls extends StatelessWidget {
   const DiscoveryControls({
     required this.onPrevious,
     required this.onNext,
     required this.onConnect,
-    required this.connectPhase,
+    required this.connection,
+    required this.connecting,
     super.key,
   });
 
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final VoidCallback onConnect;
-  final ConnectPhase connectPhase;
+  final Connection? connection;
+  final bool connecting;
 
   @override
   Widget build(BuildContext context) {
@@ -1002,7 +934,11 @@ class DiscoveryControls extends StatelessWidget {
           tooltip: 'Previous',
         ),
         const SizedBox(width: 34),
-        _ConnectControl(connectPhase: connectPhase, onTap: onConnect),
+        _ConnectControl(
+          connection: connection,
+          connecting: connecting,
+          onTap: onConnect,
+        ),
         const SizedBox(width: 34),
         _CircleControl(
           icon: Icons.arrow_forward_rounded,
@@ -1014,8 +950,6 @@ class DiscoveryControls extends StatelessWidget {
   }
 }
 
-/// Glass Previous / Next button with a soft border, small shadow, and
-/// animated press feedback.
 class _CircleControl extends StatefulWidget {
   const _CircleControl({
     required this.icon,
@@ -1084,12 +1018,15 @@ class _CircleControlState extends State<_CircleControl> {
   }
 }
 
-/// Gradient Connect circle with a strong glow and animated press feedback.
-/// Reflects the current [ConnectPhase] with icon + gradient changes.
 class _ConnectControl extends StatefulWidget {
-  const _ConnectControl({required this.connectPhase, required this.onTap});
+  const _ConnectControl({
+    required this.connection,
+    required this.connecting,
+    required this.onTap,
+  });
 
-  final ConnectPhase connectPhase;
+  final Connection? connection;
+  final bool connecting;
   final VoidCallback onTap;
 
   @override
@@ -1099,7 +1036,7 @@ class _ConnectControl extends StatefulWidget {
 class _ConnectControlState extends State<_ConnectControl> {
   bool _pressed = false;
 
-  bool get _busy => widget.connectPhase != ConnectPhase.none;
+  bool get _busy => widget.connecting;
 
   void _setPressed(bool value) {
     if (_busy) return;
@@ -1108,9 +1045,8 @@ class _ConnectControlState extends State<_ConnectControl> {
 
   @override
   Widget build(BuildContext context) {
-    final connected = widget.connectPhase == ConnectPhase.connected;
-    final pending = widget.connectPhase == ConnectPhase.pending ||
-        widget.connectPhase == ConnectPhase.sending;
+    final connected = widget.connection?.isAccepted == true;
+    final pending = widget.connection?.isPending == true || widget.connecting;
     final IconData icon = connected
         ? Icons.check_rounded
         : pending
@@ -1129,11 +1065,16 @@ class _ConnectControlState extends State<_ConnectControl> {
           );
 
     return Tooltip(
-      message: switch (widget.connectPhase) {
-        ConnectPhase.none => 'Connect',
-        ConnectPhase.sending => 'Sending…',
-        ConnectPhase.pending => 'Pending',
-        ConnectPhase.connected => 'Connected',
+      message: switch (widget.connection?.status) {
+        ConnectionStatus.accepted => 'Connected',
+        ConnectionStatus.pending when widget.connection?.requesterId ==
+                AuthService.currentUser?.id =>
+          'Pending',
+        ConnectionStatus.pending => 'Incoming request',
+        ConnectionStatus.rejected => 'Declined',
+        ConnectionStatus.cancelled => 'Cancelled',
+        null when widget.connecting => 'Sending…',
+        null => 'Connect',
       },
       child: GestureDetector(
         onTapDown: (_) => _setPressed(true),

@@ -75,6 +75,8 @@ class SupabaseProfileRepository implements ProfileRepository {
       'gender': profile.gender,
       'location': profile.location,
       'social_links': [for (final s in profile.socialLinks) s.toJson()],
+      'date_of_birth':
+          profile.dateOfBirth == null ? null : formatDateOnly(profile.dateOfBirth!),
       'occupation': profile.occupation,
       'education': profile.education,
       'company': profile.company,
@@ -90,6 +92,8 @@ class SupabaseProfileRepository implements ProfileRepository {
       'created_at': profile.createdAt?.toIso8601String(),
       'updated_at': profile.updatedAt?.toIso8601String(),
       'profile_completed': profileCompleted,
+      'display_name': profile.displayName,
+      'availability_status': profile.availabilityStatus,
     };
 
     await Supabase.instance.client
@@ -121,12 +125,14 @@ class SupabaseProfileRepository implements ProfileRepository {
     try {
       final data = await Supabase.instance.client
           .from('profiles')
-          .select('profile_completed')
+          .select('profile_completed, date_of_birth')
           .eq('id', user.id)
           .maybeSingle();
 
       if (data == null) return ProfileStatus.missing;
-      return (data['profile_completed'] == true)
+      final completed = data['profile_completed'] == true;
+      final hasDob = data['date_of_birth'] != null;
+      return (completed && hasDob)
           ? ProfileStatus.complete
           : ProfileStatus.incomplete;
     } catch (_) {
@@ -156,11 +162,20 @@ class SupabaseProfileRepository implements ProfileRepository {
         case 'profile_visibility':
           result['profileVisibility'] = value;
           break;
+        case 'date_of_birth':
+          result['dateOfBirth'] = value;
+          break;
         case 'created_at':
           result['createdAt'] = value;
           break;
         case 'updated_at':
           result['updatedAt'] = value;
+          break;
+        case 'display_name':
+          result['displayName'] = value;
+          break;
+        case 'availability_status':
+          result['availabilityStatus'] = value;
           break;
         default:
           result[key] = value;

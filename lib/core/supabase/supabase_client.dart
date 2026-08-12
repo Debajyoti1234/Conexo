@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract final class SupabaseClientConfig {
@@ -11,7 +13,20 @@ abstract final class SupabaseClientConfig {
 
   static SupabaseClient get client => Supabase.instance.client;
 
+  static bool _initialized = false;
+  static bool get isInitialized => _initialized;
+
+  static final Future<void> ready = _readyCompleter.future;
+  static final Completer<void> _readyCompleter = Completer<void>();
+
   static Future<void> initialize() async {
+    if (_initialized) {
+      if (!_readyCompleter.isCompleted) {
+        _readyCompleter.complete();
+      }
+      return;
+    }
+
     if (url.isEmpty || publishableKey.isEmpty) {
       throw StateError(
         'Supabase configuration is missing. '
@@ -24,5 +39,10 @@ abstract final class SupabaseClientConfig {
       url: url,
       publishableKey: publishableKey,
     );
+
+    _initialized = true;
+    if (!_readyCompleter.isCompleted) {
+      _readyCompleter.complete();
+    }
   }
 }
