@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
 enum PermissionType {
@@ -18,20 +19,24 @@ enum PermissionStatus {
 
 abstract final class PermissionManager {
   static Future<PermissionStatus> check(PermissionType type) async {
+    if (_unsupportedOnWeb(type)) return _webSafeStatus(type);
     final status = await _toPermission(type).status;
     return _mapStatus(status);
   }
 
   static Future<PermissionStatus> request(PermissionType type) async {
+    if (_unsupportedOnWeb(type)) return _webSafeStatus(type);
     final status = await _toPermission(type).request();
     return _mapStatus(status);
   }
 
   static Future<bool> isGranted(PermissionType type) async {
+    if (_unsupportedOnWeb(type)) return _webSafeStatus(type) == PermissionStatus.granted;
     return await _toPermission(type).isGranted;
   }
 
   static Future<bool> isPermanentlyDenied(PermissionType type) async {
+    if (_unsupportedOnWeb(type)) return false;
     return await _toPermission(type).isPermanentlyDenied;
   }
 
@@ -69,5 +74,23 @@ abstract final class PermissionManager {
       case ph.PermissionStatus.provisional:
         return PermissionStatus.limited;
     }
+  }
+
+  static bool _unsupportedOnWeb(PermissionType type) {
+    return switch (type) {
+      PermissionType.locationWhenInUse ||
+      PermissionType.camera ||
+      PermissionType.photos ||
+      PermissionType.microphone ||
+      PermissionType.notifications =>
+        kIsWeb,
+    };
+  }
+
+  static PermissionStatus _webSafeStatus(PermissionType type) {
+    return switch (type) {
+      PermissionType.locationWhenInUse => PermissionStatus.granted,
+      _ => PermissionStatus.denied,
+    };
   }
 }

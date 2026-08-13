@@ -60,6 +60,11 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
   final Map<String, String> _conversationToConnectionMap = {};
   final Set<String> _pinnedConnectionIds = <String>{};
   SharedPreferences? _prefs;
+  bool _realtimeReady = false;
+  final List<ChatMessageEvent> _pendingRealtimeEvents = [];
+  final Set<String> _processedMessageIds = {};
+  final Set<String> _viewedConversationIds = {};
+  bool _suppressUnreadIncrement = false;
 
   static const _pinnedPrefsKey = 'chat_pinned_ids';
 
@@ -90,6 +95,7 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
     RealtimeMessagesService.instance.stopGlobal();
     RealtimeConnectionsService.instance.stop();
     _searchController.dispose();
+    _viewedConversationIds.clear();
     super.dispose();
   }
 
@@ -97,14 +103,27 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
     if (event.type != ChatEventType.inserted) return;
     if (event.message == null) return;
 
-    final conversationId = event.message!.conversationId;
+    if (!_realtimeReady) {
+      _pendingRealtimeEvents.add(event);
+      return;
+    }
+
+    _processMessageEvent(event);
+  }
+
+  void _processMessageEvent(ChatMessageEvent event) {
+    final message = event.message!;
+
+    if (!_processedMessageIds.add(message.id)) return;
+
+    final conversationId = message.conversationId;
     final connectionId = _conversationToConnectionMap[conversationId];
     if (connectionId == null) return;
     if (!_connectionModels.containsKey(connectionId)) return;
 
-    final message = event.message!;
     final localCreatedAt = message.createdAt.toLocal();
     final isFromOther = message.senderId != AuthService.currentUser?.id;
+    final isCurrentlyViewed = _viewedConversationIds.contains(connectionId);
 
     setState(() {
       _latestMessageTimes[connectionId] = localCreatedAt;
@@ -121,7 +140,10 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
           type: existing.type,
           status: existing.status,
           lastMessageType: existing.lastMessageType,
-          unreadCount: existing.unreadCount + (isFromOther ? 1 : 0),
+          unreadCount: existing.unreadCount +
+              ((isFromOther && !isCurrentlyViewed && !_suppressUnreadIncrement)
+                  ? 1
+                  : 0),
           isTyping: existing.isTyping,
           isPinned: existing.isPinned,
           isMuted: existing.isMuted,
@@ -141,6 +163,8 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
   }
 
   Future<void> _load() async {
+    _realtimeReady = false;
+    _pendingRealtimeEvents.clear();
     _prefs ??= await SharedPreferences.getInstance();
     _pinnedConnectionIds
       ..clear()
@@ -220,6 +244,17 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
       _plans = plans;
       _loading = false;
     });
+
+    _realtimeReady = true;
+    _suppressUnreadIncrement = true;
+    if (_pendingRealtimeEvents.isNotEmpty) {
+      final pending = List<ChatMessageEvent>.from(_pendingRealtimeEvents);
+      _pendingRealtimeEvents.clear();
+      for (final evt in pending) {
+        _processMessageEvent(evt);
+      }
+    }
+    _suppressUnreadIncrement = false;
   }
 
   void _onSearchChanged(String value) {
@@ -271,6 +306,8 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
       }
 
       final conversationId = result.value!;
+      _viewedConversationIds.add(connectionId);
+
       final unreadResult = await _chatRepository.loadUnreadCount(conversationId);
       final unreadCount = unreadResult.isSuccess ? (unreadResult.value ?? 0) : 0;
 
@@ -292,6 +329,7 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
         conversationRoute(realPreview, chatRepository: _chatRepository),
       );
       if (!mounted) return;
+      _viewedConversationIds.remove(connectionId);
       _clearUnread(connectionId);
     } else {
       Navigator.of(context).push(conversationRoute(c));

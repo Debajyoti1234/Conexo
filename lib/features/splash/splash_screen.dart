@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,22 +26,52 @@ class _SplashScreenState extends State<SplashScreen>
   bool _showError = false;
   String? _errorMessage;
   bool _initializing = false;
+  bool _urlHadAuthParams = false;
+  bool _startupTriggered = false;
+  Object? _initError;
 
   static const _permissionsRequestedKey = 'conexo_permissions_requested_v1';
 
   @override
   void initState() {
     super.initState();
+
+    if (kIsWeb) {
+      _urlHadAuthParams = _hasAuthParameters(Uri.base);
+
+      if (!SupabaseClientConfig.isInitialized) {
+        SupabaseClientConfig.initialize().catchError((error) {
+          _initError = error;
+        });
+      }
+
+      SupabaseClientConfig.ready.then((_) {
+        if (!mounted) return;
+        if (_urlHadAuthParams &&
+            AuthService.currentUser != null &&
+            _initError == null) {
+          _controller.stop();
+          _triggerStartup();
+        }
+      });
+    }
+
     _controller =
         AnimationController(
           vsync: this,
           duration: const Duration(milliseconds: 4700),
         )..addStatusListener((status) async {
           if (status == AnimationStatus.completed && mounted) {
-            await _attemptStartup();
+            await _triggerStartup();
           }
         });
     _controller.forward();
+  }
+
+  Future<void> _triggerStartup() async {
+    if (_startupTriggered) return;
+    _startupTriggered = true;
+    await _attemptStartup();
   }
 
   Future<void> _attemptStartup() async {
@@ -63,14 +94,30 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _initializeServicesAndNavigate() async {
     try {
-      await SupabaseClientConfig.initialize();
+      final initError = _initError;
+      if (initError != null) throw initError;
+
+      if (!SupabaseClientConfig.isInitialized) {
+        await SupabaseClientConfig.initialize();
+      } else {
+        await SupabaseClientConfig.ready;
+      }
+
       if (!mounted) return;
 
-      await GoogleSignIn.instance.initialize(
-        serverClientId: const String.fromEnvironment(
-          'GOOGLE_SERVER_CLIENT_ID',
-        ),
-      );
+      if (kIsWeb) {
+        await GoogleSignIn.instance.initialize(
+          clientId: const String.fromEnvironment(
+            'GOOGLE_WEB_CLIENT_ID',
+          ),
+        );
+      } else {
+        await GoogleSignIn.instance.initialize(
+          serverClientId: const String.fromEnvironment(
+            'GOOGLE_SERVER_CLIENT_ID',
+          ),
+        );
+      }
       if (!mounted) return;
 
       final hasSession = AuthService.currentSession != null;
@@ -390,6 +437,18 @@ class _SplashScreenState extends State<SplashScreen>
         },
       ),
     );
+  }
+  static bool _hasAuthParameters(Uri uri) {
+    final fragmentParameters = Uri.splitQueryString(uri.fragment);
+    bool hasParameter(String key) =>
+        uri.queryParameters.containsKey(key) ||
+        fragmentParameters.containsKey(key);
+
+    return hasParameter('access_token') ||
+        hasParameter('code') ||
+        hasParameter('error') ||
+        hasParameter('error_code') ||
+        hasParameter('error_description');
   }
 }
 

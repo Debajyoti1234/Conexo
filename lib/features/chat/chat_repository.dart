@@ -114,7 +114,7 @@ class ChatRepository {
 
       await Supabase.instance.client
           .from('conversation_members')
-          .update({'last_read_at': DateTime.now().toIso8601String()})
+          .update({'last_read_at': DateTime.now().toUtc().toIso8601String()})
           .eq('conversation_id', conversationId)
           .eq('user_id', user.id);
 
