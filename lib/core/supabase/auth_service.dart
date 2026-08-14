@@ -55,18 +55,21 @@ class AuthService {
 
   static Future<AuthResponse?> signInWithGoogle() async {
     if (kIsWeb) {
-      try {
-        await _client.auth.signInWithOAuth(
-          OAuthProvider.google,
-          redirectTo: 'http://localhost:5000/',
-        );
-        return null;
-      } on AuthException catch (error) {
-        throw _mapAuthException(error);
-      } catch (error) {
-        throw AuthFailure(error.toString());
-      }
-    }
+  try {
+    await _client.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: const String.fromEnvironment(
+        'WEB_OAUTH_REDIRECT_URL',
+        defaultValue: 'http://localhost:5000/',
+      ),
+    );
+    return null;
+  } on AuthException catch (error) {
+    throw _mapAuthException(error);
+  } catch (error) {
+    throw AuthFailure(error.toString());
+  }
+}
 
     try {
       final account = await _googleSignIn.authenticate();
