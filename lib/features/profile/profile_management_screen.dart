@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
@@ -11,6 +12,9 @@ import 'profile_strength_screen.dart';
 import 'public_profile_data.dart';
 import 'public_profile_screen.dart';
 import 'session_aware_profile_repository.dart';
+import 'supabase_profile_repository.dart';
+import '../../core/services/permission_manager.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// Neutral UI fallback name for the shared Public Profile Viewer. This is a
 /// presentation-only placeholder — never persisted, never treated as user data.
@@ -67,6 +71,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
   bool _notFound = false;
   bool _saving = false;
   bool _saved = false;
+  final Set<String> _inFlightUploads = {};
 
   @override
   void initState() {
@@ -124,6 +129,87 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     setState(() => _draft = draft);
   }
 
+  void _onPhotoAdded(ProfilePhoto photo) {
+    setState(() {
+      _draft = _draft.copyWith(photos: [..._draft.photos, photo]);
+    });
+  }
+
+  void _onPhotoUploadUpdated(String photoId,
+      {String? remoteUrl, PhotoUploadStatus? uploadStatus}) {
+    final currentPhotos = [..._draft.photos];
+    final index = currentPhotos.indexWhere((p) => p.id == photoId);
+    if (index == -1) return;
+    currentPhotos[index] = currentPhotos[index].copyWith(
+      remoteUrl: remoteUrl ?? currentPhotos[index].remoteUrl,
+      uploadStatus: uploadStatus ?? currentPhotos[index].uploadStatus,
+    );
+    setState(() {
+      _draft = _draft.copyWith(photos: currentPhotos);
+    });
+  }
+
+  Future<void> _replacePhoto(int index) async {
+    if (_inFlightUploads.isNotEmpty) return;
+    final old = _draft.photos[index];
+
+    if (!kIsWeb) {
+      final status = await PermissionManager.check(PermissionType.photos);
+      if (status != PermissionStatus.granted) {
+        final result =
+            await PermissionManager.request(PermissionType.photos);
+        if (result != PermissionStatus.granted) return;
+      }
+    }
+
+    final picker = ImagePicker();
+    final xfile = await picker.pickImage(source: ImageSource.gallery);
+    if (xfile == null) return;
+    await _uploadAndReplace(index, old, xfile);
+  }
+
+  Future<void> _uploadAndReplace(
+      int index, ProfilePhoto old, XFile xfile) async {
+    final draftSnapshot = _draft;
+    final photoId = 'replace_${DateTime.now().millisecondsSinceEpoch}';
+    final replacement = ProfilePhoto(
+      id: photoId,
+      assetPath: xfile.path,
+      isPrimary: old.isPrimary,
+      uploadStatus: PhotoUploadStatus.uploading,
+    );
+
+    final updated = [...draftSnapshot.photos];
+    updated[index] = replacement;
+    setState(() => _draft = draftSnapshot.copyWith(photos: updated));
+    _inFlightUploads.add(photoId);
+
+    try {
+      final storagePath = await const SupabaseProfileRepository()
+          .uploadProfilePhoto(photoId, xfile);
+      final updated = _draft.photos.map((p) {
+        if (p.id == photoId) {
+          return p.copyWith(
+            remoteUrl: storagePath,
+            uploadStatus: PhotoUploadStatus.uploaded,
+          );
+        }
+        return p;
+      }).toList();
+      setState(() => _draft = _draft.copyWith(photos: updated));
+    } catch (_) {
+      final updated = _draft.photos.map((p) {
+        if (p.id == photoId) {
+          return p.copyWith(uploadStatus: PhotoUploadStatus.failed);
+        }
+        return p;
+      }).toList();
+      setState(() => _draft = _draft.copyWith(photos: updated));
+    } finally {
+      _inFlightUploads.remove(photoId);
+    }
+  }
+
   /// Persists the working draft, preserving id + createdAt (only updatedAt
   /// changes). No-ops (without writing) when nothing changed.
   Future<bool> _save() async {
@@ -134,7 +220,48 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     setState(() => _saving = true);
     await Future<void>.delayed(const Duration(milliseconds: 500));
     final profile = UserProfile.fromDraft(_draft, id: _profileId);
-    await widget.repository.saveProfile(profile);
+    try {
+      await widget.repository.saveProfile(profile);
+    } catch (_) {
+      final newRemote = _draft.photos
+          .where((p) => p.remoteUrl != null && p.remoteUrl!.startsWith('profiles/'))
+          .map((p) => p.remoteUrl!)
+          .toSet();
+      final oldRemote = _original.photos
+          .where((p) => p.remoteUrl != null && p.remoteUrl!.startsWith('profiles/'))
+          .map((p) => p.remoteUrl!)
+          .toSet();
+      final newObjects = newRemote.difference(oldRemote);
+      for (final path in newObjects) {
+        try {
+          await const SupabaseProfileRepository().deleteProfilePhoto(path);
+        } catch (_) {}
+      }
+      if (!mounted) return false;
+      setState(() => _saving = false);
+      rethrow;
+    }
+
+    final originalRemote = _original.photos
+        .where((p) => p.remoteUrl != null && p.remoteUrl!.startsWith('profiles/'))
+        .map((p) => p.remoteUrl!)
+        .toSet();
+    final currentRemote = _draft.photos
+        .where((p) => p.remoteUrl != null && p.remoteUrl!.startsWith('profiles/'))
+        .map((p) => p.remoteUrl!)
+        .toSet();
+    final toDelete = originalRemote.difference(currentRemote);
+    if (toDelete.isNotEmpty) {
+      final storageRepo = const SupabaseProfileRepository();
+      for (final path in toDelete) {
+        try {
+          await storageRepo.deleteProfilePhoto(path);
+        } catch (_) {
+          // best-effort cleanup
+        }
+      }
+    }
+
     if (!mounted) return false;
 
     setState(() {
@@ -185,7 +312,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
         _handlePop();
       },
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: kIsWeb ? Colors.black : Colors.transparent,
         body: SafeArea(
           child: Stack(
             children: [
@@ -237,7 +364,13 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
       padding: const EdgeInsets.only(top: 8, bottom: 100),
       children: [
         _header(),
-        ManagePhotosSection(draft: d, onChanged: _onDraftChanged),
+        ManagePhotosSection(
+          draft: d,
+          onChanged: _onDraftChanged,
+          onReplace: _replacePhoto,
+          onPhotoAdded: _onPhotoAdded,
+          onPhotoUploadUpdated: _onPhotoUploadUpdated,
+        ),
         ManageBioSection(
           controller: _bioController,
           draft: d,

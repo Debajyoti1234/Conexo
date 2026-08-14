@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_widgets.dart';
 import 'profile_data.dart';
 import 'public_profile_data.dart';
+import 'supabase_profile_repository.dart';
 
 
 /// Reusable, const, presentational widgets for Phase 4.5 — Public Profile
@@ -184,6 +186,7 @@ class _ProfileHeroState extends State<ProfileHero> {
                 itemBuilder: (context, i) => _HeroPhoto(
                   key: ValueKey('hero_photo_${_photos[i].id}_$i'),
                   assetPath: _photos[i].assetPath,
+                  remoteUrl: _photos[i].remoteUrl,
                 ),
               ),
 
@@ -308,33 +311,149 @@ class _ProfileHeroState extends State<ProfileHero> {
 }
 
 /// A single hero photo with graceful image loading and error handling.
-class _HeroPhoto extends StatelessWidget {
+class _HeroPhoto extends StatefulWidget {
   const _HeroPhoto({
     required this.assetPath,
+    this.remoteUrl,
     super.key,
   });
 
   final String assetPath;
+  final String? remoteUrl;
+
+  @override
+  State<_HeroPhoto> createState() => _HeroPhotoState();
+}
+
+class _HeroPhotoState extends State<_HeroPhoto> {
+  String? _signedUrl;
+  bool _loadingSignedUrl = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.remoteUrl != null && widget.remoteUrl!.startsWith('profiles/')) {
+      _fetchSignedUrl();
+    } else {
+      _loadingSignedUrl = false;
+    }
+  }
+
+  Future<void> _fetchSignedUrl() async {
+    final url = await const SupabaseProfileRepository()
+        .getSignedPhotoUrl(widget.remoteUrl!);
+    if (!mounted) return;
+    setState(() {
+      _signedUrl = url;
+      _loadingSignedUrl = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (assetPath.trim().isEmpty) {
-      return const _HeroPlaceholder();
-    }
-    if (assetPath.startsWith('assets/')) {
-      return Image.asset(
-        assetPath,
+    Widget child;
+    if (_signedUrl != null) {
+      child = Image.network(
+        _signedUrl!,
         fit: BoxFit.cover,
         gaplessPlayback: true,
-        errorBuilder: (context, error, stackTrace) => const _HeroPlaceholder(),
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            const _HeroPlaceholder(),
+      );
+    } else if (_loadingSignedUrl) {
+      child = const _HeroPlaceholder();
+    } else if (widget.remoteUrl != null && widget.remoteUrl!.startsWith('profiles/')) {
+      child = const _HeroPlaceholder();
+    } else if (widget.assetPath.trim().isEmpty) {
+      child = const _HeroPlaceholder();
+    } else if (widget.assetPath.startsWith('assets/')) {
+      child = Image.asset(
+        widget.assetPath,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            const _HeroPlaceholder(),
+      );
+    } else if (kIsWeb && widget.assetPath.startsWith('blob:')) {
+      child = Image.network(
+        widget.assetPath,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            const _HeroPlaceholder(),
+      );
+    } else if (kIsWeb) {
+      child = const _HeroPlaceholder();
+    } else {
+      child = Image.file(
+        File(widget.assetPath),
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            const _HeroPlaceholder(),
       );
     }
-    return Image.file(
-      File(assetPath),
-      fit: BoxFit.cover,
-      gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) => const _HeroPlaceholder(),
-    );
+    return child;
   }
 }
 

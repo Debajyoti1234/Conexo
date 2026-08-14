@@ -3,8 +3,11 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geocoding_platform_interface/geocoding_platform_interface.dart'
     as pi;
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter/foundation.dart';
 
 import 'permission_manager.dart';
+import 'location_service_web_stub.dart'
+    if (dart.library.html) 'location_service_web_impl.dart';
 
 /// Outcome of a "use current location" request.
 ///
@@ -127,8 +130,8 @@ abstract final class LocationService {
         longitude: position.longitude,
         areaName: areaName,
       );
-    } catch (_) {
-      // Permission was granted but no fix could be obtained.
+    } catch (e) {
+      debugPrint('LocationService.detectCurrentLocation failed: $e');
       return const LocationResult.failure(LocationOutcome.failed);
     }
   }
@@ -138,6 +141,10 @@ abstract final class LocationService {
   /// Returns null (never throws) when the OS geocoder yields nothing, so callers
   /// can keep real coordinates while leaving the name for manual entry.
   static Future<String?> _reverseGeocode(double lat, double lng) async {
+    if (kIsWeb) {
+      return webReverseGeocode(lat, lng);
+    }
+
     try {
       final geocoding = Geocoding();
       final placemarks = await geocoding.placemarkFromCoordinates(lat, lng);

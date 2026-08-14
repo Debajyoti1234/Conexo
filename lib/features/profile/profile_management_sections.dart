@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/services/permission_manager.dart';
@@ -11,6 +12,7 @@ import 'profile_creation_widgets.dart';
 import 'profile_data.dart';
 import 'profile_management_widgets.dart';
 import 'profile_validation.dart';
+import 'supabase_profile_repository.dart';
 import 'package:image_picker/image_picker.dart';
 
 // ignore_for_file: use_build_context_synchronously
@@ -65,11 +67,17 @@ class ManagePhotosSection extends StatelessWidget {
   const ManagePhotosSection({
     required this.draft,
     required this.onChanged,
+    this.onReplace,
+    required this.onPhotoAdded,
+    required this.onPhotoUploadUpdated,
     super.key,
   });
 
   final UserProfileDraft draft;
   final ValueChanged<UserProfileDraft> onChanged;
+  final void Function(int index)? onReplace;
+  final ValueChanged<ProfilePhoto> onPhotoAdded;
+  final void Function(String photoId, {String? remoteUrl, PhotoUploadStatus? uploadStatus}) onPhotoUploadUpdated;
 
   void _remove(int index) {
     final current = [...draft.photos];
@@ -94,84 +102,100 @@ class ManagePhotosSection extends StatelessWidget {
     ];
   }
 
-  Future<void> _pickFromCamera(BuildContext context) async {
-    final status = await PermissionManager.check(PermissionType.camera);
-    if (status == PermissionStatus.permanentlyDenied) {
-      final open = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Camera Permission Required'),
-          content: const Text(
-              'Camera permission has been permanently denied. Please enable it in app settings.'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
-            TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Open Settings')),
-          ],
-        ),
-      );
-      if (open == true) await PermissionManager.openAppSettings();
-      return;
+  Future<void> _uploadAndAddPhoto(
+      XFile xfile, String prefix, BuildContext context) async {
+    final currentDraft = draft;
+    final photoId = '${prefix}_${DateTime.now().millisecondsSinceEpoch}';
+    final photo = ProfilePhoto(
+      id: photoId,
+      assetPath: xfile.path,
+      isPrimary: currentDraft.photos.isEmpty,
+      uploadStatus: PhotoUploadStatus.uploading,
+    );
+    onPhotoAdded(photo);
+
+    try {
+      final storagePath = await const SupabaseProfileRepository()
+          .uploadProfilePhoto(photoId, xfile);
+      onPhotoUploadUpdated(photoId,
+          remoteUrl: storagePath,
+          uploadStatus: PhotoUploadStatus.uploaded);
+    } catch (_) {
+      onPhotoUploadUpdated(photoId,
+          uploadStatus: PhotoUploadStatus.failed);
     }
-    if (status != PermissionStatus.granted) {
-      final result =
-          await PermissionManager.request(PermissionType.camera);
-      if (result != PermissionStatus.granted) return;
+  }
+
+  Future<void> _pickFromCamera(BuildContext context) async {
+    if (!kIsWeb) {
+      final status = await PermissionManager.check(PermissionType.camera);
+      if (status == PermissionStatus.permanentlyDenied) {
+        final open = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Camera Permission Required'),
+            content: const Text(
+                'Camera permission has been permanently denied. Please enable it in app settings.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Open Settings')),
+            ],
+          ),
+        );
+        if (open == true) await PermissionManager.openAppSettings();
+        return;
+      }
+      if (status != PermissionStatus.granted) {
+        final result =
+            await PermissionManager.request(PermissionType.camera);
+        if (result != PermissionStatus.granted) return;
+      }
     }
 
     final picker = ImagePicker();
     final xfile = await picker.pickImage(source: ImageSource.camera);
     if (xfile == null) return;
-
-    final photo = ProfilePhoto(
-      id: 'camera_${DateTime.now().millisecondsSinceEpoch}',
-      assetPath: xfile.path,
-      isPrimary: draft.photos.isEmpty,
-    );
-    onChanged(draft.copyWith(photos: [...draft.photos, photo]));
+    await _uploadAndAddPhoto(xfile, 'camera', context);
   }
 
   Future<void> _pickFromGallery(BuildContext context) async {
-    final status = await PermissionManager.check(PermissionType.photos);
-    if (status == PermissionStatus.permanentlyDenied) {
-      final open = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Photos Permission Required'),
-          content: const Text(
-              'Photos permission has been permanently denied. Please enable it in app settings.'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
-            TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Open Settings')),
-          ],
-        ),
-      );
-      if (open == true) await PermissionManager.openAppSettings();
-      return;
-    }
-    if (status != PermissionStatus.granted) {
-      final result =
-          await PermissionManager.request(PermissionType.photos);
-      if (result != PermissionStatus.granted) return;
+    if (!kIsWeb) {
+      final status = await PermissionManager.check(PermissionType.photos);
+      if (status == PermissionStatus.permanentlyDenied) {
+        final open = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Photos Permission Required'),
+            content: const Text(
+                'Photos permission has been permanently denied. Please enable it in app settings.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Cancel')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('Open Settings')),
+            ],
+          ),
+        );
+        if (open == true) await PermissionManager.openAppSettings();
+        return;
+      }
+      if (status != PermissionStatus.granted) {
+        final result =
+            await PermissionManager.request(PermissionType.photos);
+        if (result != PermissionStatus.granted) return;
+      }
     }
 
     final picker = ImagePicker();
     final xfile = await picker.pickImage(source: ImageSource.gallery);
     if (xfile == null) return;
-
-    final photo = ProfilePhoto(
-      id: 'gallery_${DateTime.now().millisecondsSinceEpoch}',
-      assetPath: xfile.path,
-      isPrimary: draft.photos.isEmpty,
-    );
-    onChanged(draft.copyWith(photos: [...draft.photos, photo]));
+    await _uploadAndAddPhoto(xfile, 'gallery', context);
   }
 
   Future<void> _showPickerDialog(BuildContext context) async {
@@ -225,6 +249,7 @@ class ManagePhotosSection extends StatelessWidget {
         selected: draft.photos,
         onAddPhoto: () => _showPickerDialog(context),
         onRemove: _remove,
+        onReplace: onReplace,
         onReorder: _reorder,
       ),
     );

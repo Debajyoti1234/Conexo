@@ -1,10 +1,12 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'profile_data.dart';
 import 'profile_strength_data.dart';
 import 'profile_strength_widgets.dart' show StrengthBadge;
+import 'supabase_profile_repository.dart';
 
 /// A premium, Tinder/Bumble-style hero photo carousel for the *own* profile
 /// (My Profile). One large photo is shown at a time with:
@@ -107,6 +109,7 @@ class _MyProfileHeroState extends State<MyProfileHero> {
                   controller: _controller,
                   page: i,
                   assetPath: _photos[i].assetPath,
+                  remoteUrl: _photos[i].remoteUrl,
                 ),
               ),
 
@@ -286,78 +289,162 @@ class _MyProfileHeroState extends State<MyProfileHero> {
 
 /// A single hero photo with a subtle parallax + scale as it scrolls past,
 /// giving photo transitions a smoother, more premium feel than a flat slide.
-class _HeroPhoto extends StatelessWidget {
+class _HeroPhoto extends StatefulWidget {
   const _HeroPhoto({
     required this.controller,
     required this.page,
     required this.assetPath,
+    this.remoteUrl,
     super.key,
   });
 
   final PageController controller;
   final int page;
   final String assetPath;
+  final String? remoteUrl;
+
+  @override
+  State<_HeroPhoto> createState() => _HeroPhotoState();
+}
+
+class _HeroPhotoState extends State<_HeroPhoto> {
+  String? _signedUrl;
+  bool _loadingSignedUrl = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.remoteUrl != null && widget.remoteUrl!.startsWith('profiles/')) {
+      _fetchSignedUrl();
+    } else {
+      _loadingSignedUrl = false;
+    }
+  }
+
+  Future<void> _fetchSignedUrl() async {
+    final url = await const SupabaseProfileRepository()
+        .getSignedPhotoUrl(widget.remoteUrl!);
+    if (!mounted) return;
+    setState(() {
+      _signedUrl = url;
+      _loadingSignedUrl = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final child = assetPath.trim().isEmpty
-        ? const _HeroPlaceholder()
-        : assetPath.startsWith('assets/')
-            ? Image.asset(
-                assetPath,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                frameBuilder: (context, image, frame, wasSyncLoaded) {
-                  if (wasSyncLoaded) return image;
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      const _HeroPlaceholder(),
-                      AnimatedOpacity(
-                        opacity: frame == null ? 0 : 1,
-                        duration: const Duration(milliseconds: 520),
-                        curve: Curves.easeOut,
-                        child: image,
-                      ),
-                    ],
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) =>
-                    const _HeroPlaceholder(),
-              )
-            : Image.file(
-                File(assetPath),
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
-                frameBuilder: (context, image, frame, wasSyncLoaded) {
-                  if (wasSyncLoaded) return image;
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      const _HeroPlaceholder(),
-                      AnimatedOpacity(
-                        opacity: frame == null ? 0 : 1,
-                        duration: const Duration(milliseconds: 520),
-                        curve: Curves.easeOut,
-                        child: image,
-                      ),
-                    ],
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) =>
-                    const _HeroPlaceholder(),
-              );
+    Widget child;
+    if (_signedUrl != null) {
+      child = Image.network(
+        _signedUrl!,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            const _HeroPlaceholder(),
+      );
+    } else if (_loadingSignedUrl) {
+      child = const _HeroPlaceholder();
+    } else if (widget.remoteUrl != null && widget.remoteUrl!.startsWith('profiles/')) {
+      child = const _HeroPlaceholder();
+    } else if (widget.assetPath.trim().isEmpty) {
+      child = const _HeroPlaceholder();
+    } else if (widget.assetPath.startsWith('assets/')) {
+      child = Image.asset(
+        widget.assetPath,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            const _HeroPlaceholder(),
+      );
+    } else if (kIsWeb && widget.assetPath.startsWith('blob:')) {
+      child = Image.network(
+        widget.assetPath,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            const _HeroPlaceholder(),
+      );
+    } else if (kIsWeb) {
+      child = const _HeroPlaceholder();
+    } else {
+      child = Image.file(
+        File(widget.assetPath),
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) =>
+            const _HeroPlaceholder(),
+      );
+    }
     return AnimatedBuilder(
-      animation: controller,
+      animation: widget.controller,
       child: child,
       builder: (context, inner) {
         var offset = 0.0;
-        if (controller.position.haveDimensions) {
-          offset = (controller.page ?? controller.initialPage.toDouble()) - page;
+        if (widget.controller.position.haveDimensions) {
+          offset = (widget.controller.page ??
+              widget.controller.initialPage.toDouble()) - widget.page;
         }
         final t = offset.clamp(-1.0, 1.0);
-        // Gentle horizontal parallax + slight zoom on the incoming/outgoing
-        // page for a soft, cinematic hand-off between photos.
         final scale = 1.0 + (1 - t.abs()) * 0.03;
         return Transform.translate(
           offset: Offset(-t * 36, 0),

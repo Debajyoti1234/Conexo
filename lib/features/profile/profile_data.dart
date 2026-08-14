@@ -126,7 +126,8 @@ class ProfilePhoto {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'assetPath': assetPath,
+        if (uploadStatus != PhotoUploadStatus.uploaded || remoteUrl == null)
+          'assetPath': assetPath,
         'isPrimary': isPrimary,
         'remoteUrl': remoteUrl,
         'uploadStatus': uploadStatus.name,
@@ -233,6 +234,7 @@ class ProfilePreviewData {
   const ProfilePreviewData({
     required this.photoAssets,
     required this.primaryPhotoAsset,
+    this.primaryPhotoRemoteUrl,
     required this.bio,
     required this.interests,
     required this.languages,
@@ -251,6 +253,7 @@ class ProfilePreviewData {
 
   final List<String> photoAssets;
   final String? primaryPhotoAsset;
+  final String? primaryPhotoRemoteUrl;
   final String bio;
   final List<String> interests;
   final List<String> languages;
@@ -371,6 +374,7 @@ class UserProfileDraft {
     return ProfilePreviewData(
       photoAssets: [for (final p in photos) p.assetPath],
       primaryPhotoAsset: primaryPhoto?.assetPath,
+      primaryPhotoRemoteUrl: primaryPhoto?.remoteUrl,
       bio: bio,
       interests: interests,
       languages: languages,
@@ -614,6 +618,7 @@ class UserProfile {
     return ProfilePreviewData(
       photoAssets: [for (final p in photos) p.assetPath],
       primaryPhotoAsset: primaryPhoto?.assetPath,
+      primaryPhotoRemoteUrl: primaryPhoto?.remoteUrl,
       bio: bio,
       interests: interests,
       languages: languages,
@@ -819,7 +824,9 @@ bool _photosEqual(List<ProfilePhoto> a, List<ProfilePhoto> b) {
   for (var i = 0; i < a.length; i++) {
     if (a[i].id != b[i].id ||
         a[i].assetPath != b[i].assetPath ||
-        a[i].isPrimary != b[i].isPrimary) {
+        a[i].isPrimary != b[i].isPrimary ||
+        a[i].remoteUrl != b[i].remoteUrl ||
+        a[i].uploadStatus != b[i].uploadStatus) {
       return false;
     }
   }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
@@ -65,7 +66,7 @@ class _ProfileStrengthScreenState extends State<ProfileStrengthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: kIsWeb ? Colors.black : Colors.transparent,
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 400),

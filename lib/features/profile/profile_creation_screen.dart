@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
@@ -128,6 +129,26 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
     });
   }
 
+  void _onPhotoAdded(ProfilePhoto photo) {
+    setState(() {
+      _draft = _draft.copyWith(photos: [..._draft.photos, photo]);
+    });
+  }
+
+  void _onPhotoUploadUpdated(String photoId,
+      {String? remoteUrl, PhotoUploadStatus? uploadStatus}) {
+    final currentPhotos = [..._draft.photos];
+    final index = currentPhotos.indexWhere((p) => p.id == photoId);
+    if (index == -1) return;
+    currentPhotos[index] = currentPhotos[index].copyWith(
+      remoteUrl: remoteUrl ?? currentPhotos[index].remoteUrl,
+      uploadStatus: uploadStatus ?? currentPhotos[index].uploadStatus,
+    );
+    setState(() {
+      _draft = _draft.copyWith(photos: currentPhotos);
+    });
+  }
+
   Future<void> _complete() async {
     if (!_draft.isComplete || _saving) return;
     setState(() => _saving = true);
@@ -163,7 +184,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: kIsWeb ? const Color(0xFF0B1020) : Colors.transparent,
       body: SafeArea(
         child: Stack(
           children: [
@@ -221,7 +242,12 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
         if (_showRestorePrompt)
           RestoreBanner(onRestore: _restoreDraft, onDiscard: _discardDraft),
 
-        PhotosSection(draft: d, onChanged: _onDraftChanged),
+        PhotosSection(
+          draft: d,
+          onChanged: _onDraftChanged,
+          onPhotoAdded: _onPhotoAdded,
+          onPhotoUploadUpdated: _onPhotoUploadUpdated,
+        ),
 
         _reveal(
           showBio,
@@ -323,13 +349,14 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text(
+              children: [
+                 Text(
                   'Create your profile',
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
+                    color: kIsWeb ? Colors.white : null,
                   ),
                 ),
                 SizedBox(height: 4),

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'permission_manager.dart';
@@ -71,7 +72,8 @@ abstract final class LiveLocationTracker {
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: _accuracy),
       );
-    } on Exception {
+    } on Exception catch (e) {
+      debugPrint('LiveLocationTracker._getPosition failed: $e');
       return null;
     }
   }

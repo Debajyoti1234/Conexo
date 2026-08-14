@@ -1,3 +1,4 @@
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import './profile_repository.dart';
@@ -11,6 +12,8 @@ import '../../core/supabase/auth_service.dart';
 /// Draft persistence remains local through [LocalProfileRepository].
 class SupabaseProfileRepository implements ProfileRepository {
   const SupabaseProfileRepository();
+
+  static const _bucket = 'profile-photos';
 
   @override
   Future<UserProfileDraft?> loadDraft() async {
@@ -137,6 +140,44 @@ class SupabaseProfileRepository implements ProfileRepository {
           : ProfileStatus.incomplete;
     } catch (_) {
       return ProfileStatus.error;
+    }
+  }
+
+  Future<String> uploadProfilePhoto(String photoId, XFile xfile) async {
+    final user = AuthService.currentUser;
+    if (user == null) throw Exception('No authenticated user');
+
+    final bytes = await xfile.readAsBytes();
+    final name = xfile.name;
+    final extension = name.contains('.')
+        ? name.split('.').last.toLowerCase()
+        : 'jpg';
+    final safeExtension =
+        extension.isEmpty || extension.length > 5 ? 'jpg' : extension;
+    final storagePath =
+        'profiles/${user.id}/photos/$photoId.$safeExtension';
+
+    await Supabase.instance.client.storage
+        .from(_bucket)
+        .uploadBinary(storagePath, bytes);
+
+    return storagePath;
+  }
+
+  Future<void> deleteProfilePhoto(String storagePath) async {
+    await Supabase.instance.client.storage
+        .from(_bucket)
+        .remove([storagePath]);
+  }
+
+  Future<String?> getSignedPhotoUrl(String storagePath) async {
+    try {
+      final result = await Supabase.instance.client.storage
+          .from(_bucket)
+          .createSignedUrl(storagePath, 3600);
+      return result;
+    } catch (_) {
+      return null;
     }
   }
 

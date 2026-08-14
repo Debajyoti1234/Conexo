@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_widgets.dart';
@@ -7,6 +8,7 @@ import '../../core/services/location_service.dart';
 import '../../core/services/permission_manager.dart';
 import '../home_discovery_animations.dart';
 import 'profile_data.dart';
+import 'supabase_profile_repository.dart';
 
 /// Reusable premium primitives for the Profile Creation flow.
 ///
@@ -22,13 +24,16 @@ const _kFieldFill = Color(0x14FFFFFF);
 
 // ── ProfilePhotoViewer ───────────────────────────────────────────────────────
 
-/// Renders a profile photo from either a bundled asset or a local file path.
+/// Renders a profile photo from either a bundled asset, a local file path,
+/// or a Supabase Storage object path.
 ///
-/// Asset paths are displayed with [Image.asset]; all other paths are treated
-/// as local file paths and displayed with [Image.file].
+/// Asset paths are displayed with [Image.asset]; local file paths are displayed
+/// with [Image.file]; Supabase Storage paths are displayed with a signed URL
+/// fetched via [SupabaseProfileRepository.getSignedPhotoUrl].
 class ProfilePhotoViewer extends StatelessWidget {
   const ProfilePhotoViewer({
     required this.path,
+    this.remoteUrl,
     this.fit = BoxFit.cover,
     this.width,
     this.height,
@@ -36,12 +41,21 @@ class ProfilePhotoViewer extends StatelessWidget {
   });
 
   final String path;
+  final String? remoteUrl;
   final BoxFit fit;
   final double? width;
   final double? height;
 
   @override
   Widget build(BuildContext context) {
+    if (remoteUrl != null && remoteUrl!.startsWith('profiles/')) {
+      return _RemotePhotoImage(
+        storagePath: remoteUrl!,
+        fit: fit,
+        width: width,
+        height: height,
+      );
+    }
     if (path.startsWith('assets/')) {
       return Image.asset(
         path,
@@ -50,11 +64,78 @@ class ProfilePhotoViewer extends StatelessWidget {
         height: height,
       );
     }
+    if (kIsWeb && path.startsWith('blob:')) {
+      return Image.network(
+        path,
+        fit: fit,
+        width: width,
+        height: height,
+      );
+    }
+    if (kIsWeb) {
+      return const SizedBox.shrink();
+    }
     return Image.file(
       File(path),
       fit: fit,
       width: width,
       height: height,
+    );
+  }
+}
+
+class _RemotePhotoImage extends StatefulWidget {
+  const _RemotePhotoImage({
+    required this.storagePath,
+    this.fit = BoxFit.cover,
+    this.width,
+    this.height,
+  });
+
+  final String storagePath;
+  final BoxFit fit;
+  final double? width;
+  final double? height;
+
+  @override
+  State<_RemotePhotoImage> createState() => _RemotePhotoImageState();
+}
+
+class _RemotePhotoImageState extends State<_RemotePhotoImage> {
+  String? _signedUrl;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSignedUrl();
+  }
+
+  Future<void> _loadSignedUrl() async {
+    final url = await const SupabaseProfileRepository()
+        .getSignedPhotoUrl(widget.storagePath);
+    if (!mounted) return;
+    setState(() {
+      _signedUrl = url;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const ColoredBox(color: Color(0xFF1A2138));
+    }
+    if (_signedUrl == null) {
+      return const ColoredBox(color: Color(0xFF1A2138));
+    }
+    return Image.network(
+      _signedUrl!,
+      fit: widget.fit,
+      width: widget.width,
+      height: widget.height,
+      errorBuilder: (context, error, stackTrace) =>
+          const ColoredBox(color: Color(0xFF1A2138)),
     );
   }
 }
@@ -89,10 +170,11 @@ class SectionShell extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 21,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
+                    color: kIsWeb ? Colors.white : null,
                   ),
                 ),
               ),
@@ -157,6 +239,7 @@ class PhotoGrid extends StatelessWidget {
     required this.selected,
     required this.onAddPhoto,
     required this.onRemove,
+    this.onReplace,
     this.onReorder,
     super.key,
   });
@@ -166,6 +249,8 @@ class PhotoGrid extends StatelessWidget {
   final VoidCallback onAddPhoto;
 
   final ValueChanged<int> onRemove;
+
+  final void Function(int index)? onReplace;
 
   final void Function(int oldIndex, int newIndex)? onReorder;
 
@@ -178,6 +263,7 @@ class PhotoGrid extends StatelessWidget {
           photo: selected[i],
           index: i,
           onRemove: () => onRemove(i),
+          onReplace: onReplace != null ? () => onReplace!(i) : null,
           onUp: onReorder != null && i > 0
               ? () => onReorder!(i, i - 1)
               : null,
@@ -220,7 +306,9 @@ class _EmptyPhotoSlot extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withValues(alpha: .08),
+            color: kIsWeb
+                ? Colors.white.withValues(alpha: .15)
+                : Colors.white.withValues(alpha: .08),
             width: 1,
           ),
         ),
@@ -241,6 +329,7 @@ class _FilledPhotoSlot extends StatelessWidget {
     required this.photo,
     required this.index,
     required this.onRemove,
+    this.onReplace,
     this.onUp,
     this.onDown,
   });
@@ -248,6 +337,7 @@ class _FilledPhotoSlot extends StatelessWidget {
   final ProfilePhoto photo;
   final int index;
   final VoidCallback onRemove;
+  final VoidCallback? onReplace;
   final VoidCallback? onUp;
   final VoidCallback? onDown;
 
@@ -278,9 +368,10 @@ class _FilledPhotoSlot extends StatelessWidget {
           children: [
             ProfilePhotoViewer(
               path: photo.assetPath,
+              remoteUrl: photo.remoteUrl,
               fit: BoxFit.cover,
             ),
-            if (onUp != null || onDown != null)
+            if (onUp != null || onDown != null || onReplace != null)
               Positioned(
                 left: 0,
                 right: 0,
@@ -300,15 +391,24 @@ class _FilledPhotoSlot extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _SlotIconButton(
-                        icon: Icons.arrow_upward_rounded,
-                        onTap: onUp,
-                      ),
-                      const SizedBox(width: 8),
-                      _SlotIconButton(
-                        icon: Icons.arrow_downward_rounded,
-                        onTap: onDown,
-                      ),
+                      if (onReplace != null)
+                        _SlotIconButton(
+                          icon: Icons.camera_alt_rounded,
+                          onTap: onReplace,
+                        ),
+                      if (onReplace != null && (onUp != null || onDown != null))
+                        const SizedBox(width: 8),
+                      if (onUp != null || onDown != null) ...[
+                        _SlotIconButton(
+                          icon: Icons.arrow_upward_rounded,
+                          onTap: onUp,
+                        ),
+                        const SizedBox(width: 8),
+                        _SlotIconButton(
+                          icon: Icons.arrow_downward_rounded,
+                          onTap: onDown,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -551,11 +651,19 @@ class GlassTextField extends StatelessWidget {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: .1)),
+          borderSide: BorderSide(
+            color: kIsWeb
+                ? Colors.white.withValues(alpha: .16)
+                : Colors.white.withValues(alpha: .1),
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: .1)),
+          borderSide: BorderSide(
+            color: kIsWeb
+                ? Colors.white.withValues(alpha: .16)
+                : Colors.white.withValues(alpha: .1),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -1108,6 +1216,7 @@ class ProfilePreviewCard extends StatelessWidget {
                     if (hero != null)
                       ProfilePhotoViewer(
                         path: hero,
+                        remoteUrl: data.primaryPhotoRemoteUrl,
                         fit: BoxFit.cover,
                       )
                     else
