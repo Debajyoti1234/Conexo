@@ -188,14 +188,6 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
             onVerifyIdentity: _onVerifyIdentity,
           ),
         ),
-        const SizedBox(height: 28),
-        EntranceFade(
-          child: RepaintBoundary(
-            child: DiscoverySection(visibility: _visibility),
-          ),
-        ),
-        const SizedBox(height: 28),
-        const EntranceFade(child: SafetySection()),
       ],
     );
   }

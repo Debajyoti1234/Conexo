@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/supabase/auth_service.dart';
 import '../home_discovery_animations.dart';
 import 'chat_models.dart';
 import 'chat_repository.dart';
@@ -11,7 +12,9 @@ import 'conversation_widgets.dart';
 import 'message_models.dart';
 import 'message_widgets.dart';
 import 'realtime_messages_service.dart';
-import '../../core/supabase/auth_service.dart';
+import '../profile/profile_data.dart';
+import '../profile/public_profile_data.dart';
+import '../profile/public_profile_screen.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({
@@ -223,6 +226,37 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   void _handleMenuAction(String actionId) {
+    if (actionId == 'view_profile') {
+      final c = widget.conversation;
+      final profile = UserProfile(
+        id: c.id,
+        photos: [
+          ProfilePhoto(
+            id: 'chat_${c.id}',
+            assetPath: c.avatarAsset,
+            isPrimary: true,
+          ),
+        ],
+        bio: '',
+        interests: const [],
+        languages: const [],
+        gender: '',
+        location: '',
+        socialLinks: const [],
+        occupation: '',
+        displayName: c.name,
+        verificationStatus: c.isVerified
+            ? VerificationStatus.verified
+            : VerificationStatus.notVerified,
+      );
+      final data = PublicProfileViewData(
+        profile: profile,
+        displayName: c.name,
+        viewerInterests: const [],
+      );
+      Navigator.of(context).push(premiumPublicProfileRoute(data: data));
+      return;
+    }
     debugPrint('Menu action: $actionId');
   }
 

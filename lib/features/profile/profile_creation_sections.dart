@@ -87,7 +87,11 @@ class PhotosSection extends StatefulWidget {
 }
 
 class _PhotosSectionState extends State<PhotosSection> {
-  /// Ensures exactly the first photo carries `isPrimary`.
+  ProfilePhoto? _currentPrimary(List<ProfilePhoto> photos) {
+    if (photos.isEmpty) return null;
+    return photos.firstWhere((p) => p.isPrimary, orElse: () => photos.first);
+  }
+
   List<ProfilePhoto> _normalizePrimary(List<ProfilePhoto> photos) {
     return [
       for (var i = 0; i < photos.length; i++)
@@ -100,6 +104,7 @@ class _PhotosSectionState extends State<PhotosSection> {
   Future<void> _uploadAndAddPhoto(
       XFile xfile, String prefix, BuildContext context) async {
     final currentDraft = widget.draft;
+    final wasEmpty = currentDraft.photos.isEmpty;
     final photoId = '${prefix}_${DateTime.now().millisecondsSinceEpoch}';
     final photo = ProfilePhoto(
       id: photoId,
@@ -108,6 +113,16 @@ class _PhotosSectionState extends State<PhotosSection> {
       uploadStatus: PhotoUploadStatus.uploading,
     );
     widget.onPhotoAdded(photo);
+    if (wasEmpty &&
+        currentDraft.verificationStatus != VerificationStatus.notVerified) {
+      final updated = [...currentDraft.photos, photo];
+      widget.onChanged(
+        currentDraft.copyWith(
+          photos: updated,
+          verificationStatus: VerificationStatus.notVerified,
+        ),
+      );
+    }
     _inFlightUploads.add(photoId);
 
     try {
@@ -249,8 +264,19 @@ class _PhotosSectionState extends State<PhotosSection> {
         onAddPhoto: () => _showPickerDialog(context),
         onRemove: (index) {
           final current = [...widget.draft.photos];
+          final oldPrimary = _currentPrimary(current);
           current.removeAt(index);
-          widget.onChanged(widget.draft.copyWith(photos: _normalizePrimary(current)));
+          final normalized = _normalizePrimary(current);
+          final newPrimary = normalized.first;
+          final newStatus = oldPrimary?.id != newPrimary.id
+              ? VerificationStatus.notVerified
+              : widget.draft.verificationStatus;
+          widget.onChanged(
+            widget.draft.copyWith(
+              photos: normalized,
+              verificationStatus: newStatus,
+            ),
+          );
         },
       ),
     );

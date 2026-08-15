@@ -1,3 +1,9 @@
 {
-  "$schema": "https://app.kilo.ai/config.json"
+  "$schema": "https://app.kilo.ai/config.json",
+  "permission": {
+    "edit": {
+      "lib/features/profile/profile_creation_screen.dart": "allow",
+      "lib/features/profile/profile_creation_widgets.dart": "allow"
+    }
+  }
 }

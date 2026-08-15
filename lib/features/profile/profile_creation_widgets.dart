@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -256,6 +257,16 @@ class PhotoGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (onReorder != null) {
+      return _ReorderablePhotoGrid(
+        photos: selected,
+        onAddPhoto: onAddPhoto,
+        onRemove: onRemove,
+        onReplace: onReplace,
+        onReorder: onReorder!,
+      );
+    }
+
     final slots = <Widget>[];
     for (var i = 0; i < kMaxProfilePhotos; i++) {
       if (i < selected.length) {
@@ -264,12 +275,6 @@ class PhotoGrid extends StatelessWidget {
           index: i,
           onRemove: () => onRemove(i),
           onReplace: onReplace != null ? () => onReplace!(i) : null,
-          onUp: onReorder != null && i > 0
-              ? () => onReorder!(i, i - 1)
-              : null,
-          onDown: onReorder != null && i < selected.length - 1
-              ? () => onReorder!(i, i + 1)
-              : null,
         ));
       } else {
         slots.add(_EmptyPhotoSlot(onTap: onAddPhoto));
@@ -291,8 +296,215 @@ class PhotoGrid extends StatelessWidget {
   }
 }
 
+class _ReorderablePhotoGrid extends StatefulWidget {
+  const _ReorderablePhotoGrid({
+    required this.photos,
+    required this.onAddPhoto,
+    required this.onRemove,
+    this.onReplace,
+    required this.onReorder,
+  });
+
+  final List<ProfilePhoto> photos;
+  final VoidCallback onAddPhoto;
+  final ValueChanged<int> onRemove;
+  final void Function(int index)? onReplace;
+  final void Function(int oldIndex, int newIndex) onReorder;
+
+  @override
+  State<_ReorderablePhotoGrid> createState() => _ReorderablePhotoGridState();
+}
+
+class _ReorderablePhotoGridState extends State<_ReorderablePhotoGrid> {
+  String? _dragPhotoId;
+  String? _targetPhotoId;
+
+  void _onDragStarted(String photoId) {
+    setState(() {
+      _dragPhotoId = photoId;
+      _targetPhotoId = null;
+    });
+  }
+
+  void _onDragEnded() {
+    setState(() {
+      _dragPhotoId = null;
+      _targetPhotoId = null;
+    });
+  }
+
+  void _onDragOver(String targetPhotoId) {
+    if (_targetPhotoId != targetPhotoId) {
+      setState(() => _targetPhotoId = targetPhotoId);
+    }
+  }
+
+  void _onDragLeft() {
+    setState(() => _targetPhotoId = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final slots = <Widget>[];
+    for (var i = 0; i < kMaxProfilePhotos; i++) {
+      if (i < widget.photos.length) {
+        final photo = widget.photos[i];
+        final isDragging = _dragPhotoId == photo.id;
+        final isTarget = _targetPhotoId == photo.id && _dragPhotoId != photo.id;
+        slots.add(_DraggablePhotoSlot(
+          key: ValueKey(photo.id),
+          photo: photo,
+          index: i,
+          onRemove: () => widget.onRemove(i),
+          onReplace: widget.onReplace != null ? () => widget.onReplace!(i) : null,
+          isDragging: isDragging,
+          isTarget: isTarget,
+          onDragStarted: _onDragStarted,
+          onDragEnded: _onDragEnded,
+          onDragMoved: _onDragOver,
+          onDragLeft: _onDragLeft,
+          onReorder: widget.onReorder,
+          photos: widget.photos,
+        ));
+      } else {
+        slots.add(_EmptyPhotoSlot(
+          key: ValueKey('empty_$i'),
+          onTap: widget.onAddPhoto,
+        ));
+      }
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: slots.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 0.78,
+      ),
+      itemBuilder: (context, index) => slots[index],
+    );
+  }
+}
+
+class _DraggablePhotoSlot extends StatelessWidget {
+  const _DraggablePhotoSlot({
+    super.key,
+    required this.photo,
+    required this.index,
+    required this.onRemove,
+    this.onReplace,
+    required this.isDragging,
+    required this.isTarget,
+    required this.onDragStarted,
+    required this.onDragEnded,
+    required this.onDragMoved,
+    required this.onDragLeft,
+    required this.onReorder,
+    required this.photos,
+  });
+
+  final ProfilePhoto photo;
+  final int index;
+  final VoidCallback onRemove;
+  final VoidCallback? onReplace;
+  final bool isDragging;
+  final bool isTarget;
+  final void Function(String) onDragStarted;
+  final VoidCallback onDragEnded;
+  final void Function(String) onDragMoved;
+  final VoidCallback onDragLeft;
+  final void Function(int oldIndex, int newIndex) onReorder;
+  final List<ProfilePhoto> photos;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isDragging) {
+      return _EmptyPhotoSlot(onTap: () {});
+    }
+
+    Widget child = _FilledPhotoSlot(
+      photo: photo,
+      index: index,
+      onRemove: onRemove,
+      onTap: onReplace,
+    );
+
+    return LongPressDraggable<_DragPhotoData>(
+      data: _DragPhotoData(photo: photo, index: index),
+      onDragStarted: () => onDragStarted(photo.id),
+      onDragEnd: (_) => onDragEnded(),
+      feedback: Material(
+        elevation: 12,
+        borderRadius: BorderRadius.circular(16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: ProfilePhotoViewer(
+            path: photo.assetPath,
+            remoteUrl: photo.remoteUrl,
+            fit: BoxFit.cover,
+            width: 120,
+            height: 156,
+          ),
+        ),
+      ),
+      child: DragTarget<_DragPhotoData>(
+        onAcceptWithDetails: (details) {
+          final sourceId = details.data.photo.id;
+          final targetId = photo.id;
+          if (sourceId == targetId) {
+            onDragEnded();
+            return;
+          }
+          final sourceIndex = photos.indexWhere((p) => p.id == sourceId);
+          final targetIndex = photos.indexWhere((p) => p.id == targetId);
+          if (sourceIndex < 0 || targetIndex < 0) {
+            onDragEnded();
+            return;
+          }
+          onReorder(sourceIndex, targetIndex);
+          onDragEnded();
+        },
+        onMove: (_) => onDragMoved(photo.id),
+        onLeave: (_) => onDragLeft(),
+        builder: (context, candidateData, rejectedData) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isTarget ? _kAccent : Colors.transparent,
+                width: 2,
+              ),
+              boxShadow: isTarget
+                  ? [
+                      BoxShadow(
+                        color: _kAccent.withValues(alpha: .55),
+                        blurRadius: 18,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DragPhotoData {
+  const _DragPhotoData({required this.photo, required this.index});
+  final ProfilePhoto photo;
+  final int index;
+}
+
 class _EmptyPhotoSlot extends StatelessWidget {
-  const _EmptyPhotoSlot({required this.onTap});
+  const _EmptyPhotoSlot({super.key, required this.onTap});
 
   final VoidCallback onTap;
 
@@ -330,21 +542,19 @@ class _FilledPhotoSlot extends StatelessWidget {
     required this.index,
     required this.onRemove,
     this.onReplace,
-    this.onUp,
-    this.onDown,
+    this.onTap,
   });
 
   final ProfilePhoto photo;
   final int index;
   final VoidCallback onRemove;
   final VoidCallback? onReplace;
-  final VoidCallback? onUp;
-  final VoidCallback? onDown;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onRemove,
+      onTap: onTap ?? onRemove,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
@@ -371,48 +581,6 @@ class _FilledPhotoSlot extends StatelessWidget {
               remoteUrl: photo.remoteUrl,
               fit: BoxFit.cover,
             ),
-            if (onUp != null || onDown != null || onReplace != null)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: .55),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (onReplace != null)
-                        _SlotIconButton(
-                          icon: Icons.camera_alt_rounded,
-                          onTap: onReplace,
-                        ),
-                      if (onReplace != null && (onUp != null || onDown != null))
-                        const SizedBox(width: 8),
-                      if (onUp != null || onDown != null) ...[
-                        _SlotIconButton(
-                          icon: Icons.arrow_upward_rounded,
-                          onTap: onUp,
-                        ),
-                        const SizedBox(width: 8),
-                        _SlotIconButton(
-                          icon: Icons.arrow_downward_rounded,
-                          onTap: onDown,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
             Positioned(
               top: 6,
               right: 6,
@@ -434,36 +602,6 @@ class _FilledPhotoSlot extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SlotIconButton extends StatelessWidget {
-  const _SlotIconButton({required this.icon, this.onTap});
-
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 28,
-        width: 28,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: enabled
-              ? Colors.white.withValues(alpha: .2)
-              : Colors.white.withValues(alpha: .06),
-        ),
-        child: Icon(
-          icon,
-          size: 16,
-          color: enabled ? Colors.white : Colors.white.withValues(alpha: .3),
         ),
       ),
     );
@@ -592,6 +730,7 @@ class GlassTextField extends StatelessWidget {
     this.suffixIcon,
     this.onSuffixTap,
     this.suffixBusy = false,
+    this.focusNode,
   });
 
   final TextEditingController controller;
@@ -612,11 +751,14 @@ class GlassTextField extends StatelessWidget {
   /// When true, the suffix shows a small spinner instead of the icon.
   final bool suffixBusy;
 
+  final FocusNode? focusNode;
+
   @override
   Widget build(BuildContext context) {
     final hasSuffix = suffixIcon != null || suffixBusy;
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       onChanged: onChanged,
       maxLines: maxLines,
       maxLength: maxLength,
@@ -731,10 +873,10 @@ class LocationDetectField extends StatefulWidget {
   /// Called when the user manually edits the location name.
   final ValueChanged<String> onLocationNameChanged;
 
-  /// Called once per successful GPS detection with the resolved area name
-  /// (may be null) AND the real coordinates. The parent should update the
-  /// draft atomically in a single [copyWith].
-  final void Function(String? areaName, double latitude, double longitude)
+  /// Called when location coordinates are resolved, either from GPS detection
+  /// or from a manual suggestion selection. When the user is typing manually
+  /// without selecting a suggestion, coordinates are cleared by passing null.
+  final void Function(String? areaName, double? latitude, double? longitude)
       onLocationDetected;
 
   final String hint;
@@ -749,6 +891,32 @@ class _LocationDetectFieldState extends State<LocationDetectField> {
   /// After the first detection attempt, tapping the field no longer auto-detects
   /// (so manual typing is never interrupted). Re-detection stays on the GPS icon.
   bool _autoDetectSuppressed = false;
+
+  List<LocationSuggestion> _suggestions = [];
+  bool _searching = false;
+  Timer? _debounceTimer;
+  final FocusNode _focusNode = FocusNode();
+  bool _showSuggestions = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (!_focusNode.hasFocus) {
+      setState(() => _showSuggestions = false);
+    }
+  }
 
   Future<void> _detect() async {
     if (_busy) return;
@@ -771,7 +939,7 @@ class _LocationDetectFieldState extends State<LocationDetectField> {
             offset: name.length,
           );
         }
-        widget.onLocationDetected(name, result.latitude!, result.longitude!);
+        widget.onLocationDetected(name, result.latitude, result.longitude);
         _showSnack(
           name != null && name.isNotEmpty
               ? 'Location detected'
@@ -786,6 +954,42 @@ class _LocationDetectFieldState extends State<LocationDetectField> {
       case LocationOutcome.failed:
         _showSnack("Couldn't get your location. You can type it manually.");
     }
+  }
+
+  void _onTextChanged(String value) {
+    widget.onLocationNameChanged(value);
+    _debounceTimer?.cancel();
+    if (value.trim().isEmpty) {
+      setState(() {
+        _suggestions = [];
+        _showSuggestions = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () async {
+      final results = await LocationService.searchLocations(value);
+      if (!mounted) return;
+      setState(() {
+        _suggestions = results.take(5).toList();
+        _searching = false;
+        _showSuggestions = _suggestions.isNotEmpty && _focusNode.hasFocus;
+      });
+    });
+    widget.onLocationDetected(null, null, null);
+  }
+
+  Future<void> _selectSuggestion(LocationSuggestion suggestion) async {
+    final name = suggestion.displayName;
+    widget.controller.text = name;
+    widget.controller.selection = TextSelection.collapsed(offset: name.length);
+    widget.onLocationNameChanged(name);
+    widget.onLocationDetected(name, suggestion.latitude, suggestion.longitude);
+    setState(() {
+      _showSuggestions = false;
+      _suggestions = [];
+    });
+    _focusNode.unfocus();
   }
 
   void _showSnack(String message) {
@@ -812,19 +1016,117 @@ class _LocationDetectFieldState extends State<LocationDetectField> {
   Widget build(BuildContext context) {
     final canAutoDetect =
         !_autoDetectSuppressed && widget.controller.text.trim().isEmpty && !_busy;
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      // Tapping an empty field is the primary "use current location" gesture
-      // (once only); afterwards we defer to normal editing + the suffix icon.
-      onTap: canAutoDetect ? _detect : null,
-      child: GlassTextField(
-        controller: widget.controller,
-        hint: widget.hint,
-        icon: Icons.location_on_outlined,
-        suffixIcon: Icons.my_location_rounded,
-        suffixBusy: _busy,
-        onSuffixTap: _detect,
-        onChanged: widget.onLocationNameChanged,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: canAutoDetect ? _detect : null,
+          child: GlassTextField(
+            controller: widget.controller,
+            hint: widget.hint,
+            icon: Icons.location_on_outlined,
+            suffixIcon: Icons.my_location_rounded,
+            suffixBusy: _busy,
+            onSuffixTap: _detect,
+            onChanged: _onTextChanged,
+            focusNode: _focusNode,
+          ),
+        ),
+        if (_showSuggestions && _suggestions.isNotEmpty)
+          _SuggestionsPanel(
+            suggestions: _suggestions,
+            searching: _searching,
+            onSelect: _selectSuggestion,
+          ),
+      ],
+    );
+  }
+}
+
+class _SuggestionsPanel extends StatelessWidget {
+  const _SuggestionsPanel({
+    required this.suggestions,
+    required this.searching,
+    required this.onSelect,
+  });
+
+  final List<LocationSuggestion> suggestions;
+  final bool searching;
+  final ValueChanged<LocationSuggestion> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: .1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .35),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: searching ? 1 : suggestions.length,
+          separatorBuilder: (_, _) => Divider(
+            height: 1,
+            color: Colors.white.withValues(alpha: .08),
+          ),
+          itemBuilder: (context, index) {
+            if (searching) {
+              return const SizedBox(
+                height: 56,
+                child: Center(
+                  child: SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF8B5CF6),
+                    ),
+                  ),
+                ),
+              );
+            }
+            final suggestion = suggestions[index];
+            return InkWell(
+              onTap: () => onSelect(suggestion),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.place_outlined,
+                      size: 18,
+                      color: const Color(0xFFB7A5FF),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        suggestion.displayName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFFEAEEF9),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

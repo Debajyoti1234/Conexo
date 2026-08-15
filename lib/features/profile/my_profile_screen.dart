@@ -5,37 +5,29 @@ import '../../core/supabase/auth_service.dart';
 import '../home_discovery_animations.dart';
 import '../login_screen.dart';
 import 'discovery_preferences_screen.dart';
-import 'my_profile_hero.dart';
 import 'privacy_verification_screen.dart';
 import 'profile_data.dart';
 import 'profile_management_screen.dart';
+import 'profile_navigation_mapper.dart';
 import 'profile_repository.dart';
-import 'profile_strength_data.dart';
 import 'profile_strength_screen.dart';
 import 'public_profile_sections.dart';
 import 'safety_screen.dart';
 import 'session_aware_profile_repository.dart';
+import 'supabase_profile_repository.dart';
 
 /// The premium **My Profile** screen — the default destination of the Profile
 /// tab once a profile exists.
 ///
-/// It reuses the existing Public Profile section widgets (About, Interests,
-/// Languages, Details, Social) for a single source of truth, but swaps the
-/// static public hero for a Tinder/Bumble-style [MyProfileHero] photo carousel
-/// and replaces the old management dashboard with a top-right ⋮ overflow menu
-/// that routes into the already-built Profile screens.
-///
-/// It is presentation + navigation only: it loads the finalized [UserProfile]
-/// through the injected [ProfileRepository] and never mutates it. All editing
-/// stays inside Edit Profile (Profile Management).
+/// It renders the canonical Public Profile view inline (same hero, same
+/// sections, same spacing, same alignment) using the current user's
+/// [UserProfile], and overlays the existing 3-dot menu for owner-only actions.
 class MyProfileScreen extends StatefulWidget {
   const MyProfileScreen({
     super.key,
     this.repository = const SessionAwareProfileRepository(),
   });
 
-  /// Injected repository (defaults to local). A future backend repository can
-  /// be supplied without changing this screen.
   final ProfileRepository repository;
 
   @override
@@ -55,13 +47,47 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   Future<void> _load() async {
     final profile = await widget.repository.loadProfile();
     if (!mounted) return;
+
+    UserProfile? resolved = profile;
+    if (resolved != null) {
+      final storagePaths = resolved.photos
+          .where((p) => p.remoteUrl != null && p.remoteUrl!.startsWith('profiles/'))
+          .map((p) => p.remoteUrl!)
+          .toList();
+
+      if (storagePaths.isNotEmpty) {
+        final signedUrls = await const SupabaseProfileRepository()
+            .getSignedPhotoUrls(storagePaths);
+
+        final updatedPhotos = [...resolved.photos];
+        for (var i = 0; i < updatedPhotos.length; i++) {
+          final remoteUrl = updatedPhotos[i].remoteUrl;
+          if (remoteUrl != null && remoteUrl.startsWith('profiles/')) {
+            final idx = storagePaths.indexOf(remoteUrl);
+            if (idx != -1 && signedUrls[idx] != null) {
+              updatedPhotos[i] = updatedPhotos[i].copyWith(remoteUrl: signedUrls[idx]);
+            }
+          }
+        }
+        resolved = resolved.copyWith(photos: updatedPhotos);
+      }
+    }
+
+    if (!mounted) return;
     setState(() {
-      _profile = profile;
+      _profile = resolved;
       _loading = false;
     });
-  }
 
-  // ── Overflow menu actions ─────────────────────────────────────────────────
+    if (resolved != null) {
+      for (final photo in resolved.photos) {
+        final url = photo.remoteUrl;
+        if (url != null && (url.startsWith('http://') || url.startsWith('https://'))) {
+          precacheImage(NetworkImage(url), context);
+        }
+      }
+    }
+  }
 
   Future<void> _openEditProfile() async {
     await Navigator.of(context).push(
@@ -179,8 +205,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
     final profile = _profile;
     if (profile == null) {
-      // Defensive: the Profile tab only opens this screen when a profile
-      // exists, but guard gracefully just in case.
       return const Scaffold(
         backgroundColor: Colors.transparent,
         body: Center(
@@ -192,28 +216,24 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       );
     }
 
-    final strength = computeProfileStrength(profile);
-    final displayName = _deriveDisplayName(profile);
+    final data = mapUserProfileToPublicProfile(profile);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
           ListView(
-            padding: const EdgeInsets.only(bottom: 40),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom + 100,
+            ),
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),
             children: [
               RepaintBoundary(
-                child: MyProfileHero(
-                  profile: profile,
-                  strength: strength,
-                  displayName: displayName,
-                  onTapPhoto: () => _placeholder('Fullscreen photo'),
-                ),
+                child: HeroSection(data: data),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
@@ -224,6 +244,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                     ),
                     _gap(profile.bio.trim().isNotEmpty ||
                         profile.aboutMe.trim().isNotEmpty),
+                    EntranceFade(
+                      child: MutualInterestsSection(mutual: const []),
+                    ),
+                    _gap(false),
                     EntranceFade(
                       child: InterestsProfileSection(
                         interests: profile.interests,
@@ -239,7 +263,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                     EntranceFade(
                       child: OptionalDetailsSection(profile: profile),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     EntranceFade(
                       child: SocialLinksSection(links: profile.socialLinks),
                     ),
@@ -255,22 +279,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   }
 
   Widget _gap(bool precedingVisible) =>
-      precedingVisible ? const SizedBox(height: 24) : const SizedBox.shrink();
-
-  /// [UserProfile] carries no name field, so derive a friendly display name
-  /// from the occupation/location when possible, else a neutral fallback.
-  /// (Presentation-only; never invents persisted data.)
-  String _deriveDisplayName(UserProfile profile) {
-    final occ = profile.occupation.trim();
-    if (occ.isNotEmpty) return occ;
-    final loc = profile.location.trim();
-    if (loc.isNotEmpty) return loc;
-    return 'My Profile';
-  }
+      precedingVisible ? const SizedBox(height: 20) : const SizedBox.shrink();
 }
 
-/// The top-right ⋮ overflow menu, floating over the hero with a comfortable
-/// glass affordance.
 class _OverflowMenuButton extends StatelessWidget {
   const _OverflowMenuButton({required this.onSelected});
 
@@ -335,8 +346,6 @@ class _OverflowMenuButton extends StatelessWidget {
     );
   }
 
-  /// Builds a single overflow-menu item (icon + label), consistently styled
-  /// with generous vertical rhythm for a premium, tappable feel.
   PopupMenuItem<_ProfileMenuAction> _item(
     _ProfileMenuAction value,
     IconData icon,
@@ -367,7 +376,6 @@ class _OverflowMenuButton extends StatelessWidget {
   }
 }
 
-/// The set of actions offered by the overflow menu.
 enum _ProfileMenuAction {
   editProfile,
   privacy,
@@ -379,10 +387,6 @@ enum _ProfileMenuAction {
   logout,
 }
 
-// ── Route ───────────────────────────────────────────────────────────────────
-
-/// Premium route into My Profile — matches Conexo's fade + slide language for
-/// a consistent feel across the Profile module.
 Route<void> premiumMyProfileRoute({ProfileRepository? repository}) {
   return PageRouteBuilder<void>(
     transitionDuration: const Duration(milliseconds: 420),

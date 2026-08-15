@@ -264,46 +264,45 @@ class _ProfileHeroState extends State<ProfileHero> {
                     ),
                   );
                 },
-                child: Column(
-                  key: ValueKey('identity_$_index'),
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Column(
+                    key: ValueKey('identity_$_index'),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                     if (verified) ...[
                       const VerifiedBadge(compact: true),
                       const SizedBox(height: 14),
                     ],
 
-                    Text(
-                      titleLine,
-                      style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.6,
-                        color: Colors.white,
-                      ),
-                    ),
-                    if (widget.data.hasUsername) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.data.formattedUsername,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: _kSoftText,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    _HeroMetaRow(
-                      location: profile.location,
-                      occupation: profile.occupation,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+                     Text(
+                       titleLine,
+                       style: const TextStyle(
+                         fontSize: 32,
+                         fontWeight: FontWeight.w800,
+                         letterSpacing: -0.6,
+                         color: Colors.white,
+                       ),
+                     ),
+                     if (profile.occupation.trim().isNotEmpty) ...[
+                       const SizedBox(height: 10),
+                       Text(
+                         profile.occupation.trim(),
+                         style: const TextStyle(
+                           fontSize: 15,
+                           fontWeight: FontWeight.w600,
+                           color: _kSoftText,
+                           letterSpacing: 0.1,
+                         ),
+                       ),
+                      ],
+                   ],
+                 ),
+               ),
+             ),
+           ),
+         ],
         ),
       ),
     );
@@ -332,21 +331,43 @@ class _HeroPhotoState extends State<_HeroPhoto> {
   @override
   void initState() {
     super.initState();
-    if (widget.remoteUrl != null && widget.remoteUrl!.startsWith('profiles/')) {
+    final url = widget.remoteUrl;
+    if (url != null && url.startsWith('profiles/')) {
       _fetchSignedUrl();
+    } else if (url != null &&
+        (url.startsWith('http://') || url.startsWith('https://'))) {
+      _signedUrl = url;
+      _loadingSignedUrl = false;
     } else {
       _loadingSignedUrl = false;
     }
   }
 
   Future<void> _fetchSignedUrl() async {
-    final url = await const SupabaseProfileRepository()
-        .getSignedPhotoUrl(widget.remoteUrl!);
-    if (!mounted) return;
-    setState(() {
-      _signedUrl = url;
-      _loadingSignedUrl = false;
-    });
+    try {
+      final url = await const SupabaseProfileRepository()
+          .getSignedPhotoUrl(widget.remoteUrl!);
+      if (!mounted) return;
+      setState(() {
+        _signedUrl = url;
+        _loadingSignedUrl = false;
+      });
+    } catch (e) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      try {
+        final url = await const SupabaseProfileRepository()
+            .getSignedPhotoUrl(widget.remoteUrl!);
+        if (!mounted) return;
+        setState(() {
+          _signedUrl = url;
+          _loadingSignedUrl = false;
+        });
+      } catch (e2) {
+        if (!mounted) return;
+        setState(() => _loadingSignedUrl = false);
+      }
+    }
   }
 
   @override
@@ -539,59 +560,6 @@ class _ProgressBars extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _HeroMetaRow extends StatelessWidget {
-  const _HeroMetaRow({required this.location, required this.occupation});
-
-  final String location;
-  final String occupation;
-
-  @override
-  Widget build(BuildContext context) {
-    final chips = <Widget>[
-      if (location.trim().isNotEmpty)
-        _MetaChip(icon: Icons.place_outlined, label: location.trim()),
-      if (occupation.trim().isNotEmpty)
-        _MetaChip(icon: Icons.work_outline_rounded, label: occupation.trim()),
-    ];
-    if (chips.isEmpty) return const SizedBox.shrink();
-    return Wrap(spacing: 8, runSpacing: 8, children: chips);
-  }
-}
-
-class _MetaChip extends StatelessWidget {
-  const _MetaChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .3),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withValues(alpha: .12)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: _kSoftText),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: _kBrightText,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

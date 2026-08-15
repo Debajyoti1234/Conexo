@@ -136,10 +136,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _load() async {
-    final hasProfile = await widget.repository.hasProfile();
+    final profile = await widget.repository.loadProfile();
     if (!mounted) return;
     setState(() {
-      _hasProfile = hasProfile;
+      _hasProfile = profile != null;
       _loading = false;
     });
   }

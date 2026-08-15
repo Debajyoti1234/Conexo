@@ -2,6 +2,7 @@ import '../home_connection_dashboard_data.dart';
 import '../home_discovery_data.dart';
 import 'connections_view_model.dart';
 import 'profile_data.dart';
+import 'profile_validation.dart';
 import 'public_profile_data.dart';
 import 'discovery_data.dart';
 
@@ -182,5 +183,25 @@ PublicProfileViewData mapConnectionUiModelToProfile(ConnectionUiModel model) {
       displayName: model.otherUserName,
       availabilityStatus: model.otherUserAvailabilityStatus ?? 'offline',
     ),
+  );
+}
+
+/// Maps the current user's [UserProfile] to a public profile view model for
+/// the owner's own Profile tab. Never invents or mutates profile data.
+PublicProfileViewData mapUserProfileToPublicProfile(UserProfile profile) {
+  final age = profile.dateOfBirth != null
+      ? ageFromDate(profile.dateOfBirth!)
+      : null;
+  return PublicProfileViewData(
+    profile: profile,
+    displayName: profile.displayName.trim().isNotEmpty
+        ? profile.displayName
+        : (profile.occupation.trim().isNotEmpty
+            ? profile.occupation
+            : (profile.location.trim().isNotEmpty
+                ? profile.location
+                : 'My Profile')),
+    age: age,
+    viewerInterests: const [],
   );
 }

@@ -2,23 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
-import 'privacy_verification_screen.dart';
-import 'profile_creation_widgets.dart' show ProfilePreviewCard;
 import 'profile_data.dart';
 import 'profile_management_sections.dart';
 import 'profile_management_widgets.dart';
 import 'profile_repository.dart';
-import 'profile_strength_screen.dart';
-import 'public_profile_data.dart';
-import 'public_profile_screen.dart';
 import 'session_aware_profile_repository.dart';
 import 'supabase_profile_repository.dart';
 import '../../core/services/permission_manager.dart';
 import 'package:image_picker/image_picker.dart';
-
-/// Neutral UI fallback name for the shared Public Profile Viewer. This is a
-/// presentation-only placeholder — never persisted, never treated as user data.
-const String kDefaultProfileDisplayName = 'Conexo Member';
 
 
 /// The premium Profile Management flow (Phase 4.2).
@@ -181,7 +172,13 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
 
     final updated = [...draftSnapshot.photos];
     updated[index] = replacement;
-    setState(() => _draft = draftSnapshot.copyWith(photos: updated));
+    final newStatus = old.isPrimary
+        ? VerificationStatus.notVerified
+        : draftSnapshot.verificationStatus;
+    setState(() => _draft = draftSnapshot.copyWith(
+          photos: updated,
+          verificationStatus: newStatus,
+        ));
     _inFlightUploads.add(photoId);
 
     try {
@@ -398,88 +395,9 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
           draft: d,
           onChanged: _onDraftChanged,
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 26),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Live preview',
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.3,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'This is how others will see you.',
-                style: TextStyle(fontSize: 13.5, color: Color(0xFFB9C3DC)),
-              ),
-              const SizedBox(height: 14),
-              RepaintBoundary(
-                child: ProfilePreviewCard(data: d.toPreviewData()),
-              ),
-            ],
-          ),
-        ),
-        _buildManageTiles(),
       ],
     );
   }
-
-  /// Navigation tiles connecting Profile Management to the existing
-  /// Privacy & Verification, Profile Strength, and Public Profile screens.
-  /// Reuses the established premium routes — no alternate navigation paths.
-  Widget _buildManageTiles() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-      child: Column(
-        children: [
-          _ManageNavTile(
-            icon: Icons.verified_user_outlined,
-            title: 'Privacy & Verification',
-            subtitle: 'Control visibility and get verified',
-            onTap: () => Navigator.of(context).push(
-              premiumPrivacyVerificationRoute(repository: widget.repository),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _ManageNavTile(
-            icon: Icons.insights_rounded,
-            title: 'Profile Strength',
-            subtitle: 'See your score and improve it',
-            onTap: () => Navigator.of(context).push(
-              premiumProfileStrengthRoute(repository: widget.repository),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _ManageNavTile(
-            icon: Icons.remove_red_eye_outlined,
-            title: 'Public Profile',
-            subtitle: 'Preview how others see you',
-            onTap: _openPublicProfile,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Opens the shared Public Profile Viewer using the current profile data.
-  /// The [displayName] is a neutral UI fallback ([kDefaultProfileDisplayName])
-  /// — never derived from or persisted as user data.
-  void _openPublicProfile() {
-    final profile = UserProfile.fromDraft(_draft, id: _profileId);
-    Navigator.of(context).push(
-      premiumPublicProfileRoute(
-        data: PublicProfileViewData(
-          profile: profile,
-          displayName: kDefaultProfileDisplayName,
-        ),
-      ),
-    );
-  }
-
 
   Widget _header() {
     return Padding(
@@ -513,93 +431,6 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Navigation tile (reuses the Conexo dark-glass language) ─────────────────
-
-class _ManageNavTile extends StatelessWidget {
-  const _ManageNavTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF182039),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: .08)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: .18),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                height: 44,
-                width: 44,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6).withValues(alpha: .16),
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(
-                    color: const Color(0xFF8B5CF6).withValues(alpha: .22),
-                  ),
-                ),
-                child: Icon(icon, size: 21, color: const Color(0xFFB7A5FF)),
-              ),
-              const SizedBox(width: 14),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: Color(0xFFB9C3DC),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF8592B4),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

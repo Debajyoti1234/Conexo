@@ -98,6 +98,12 @@ class OptionalDetailsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = <OptionalInfoRow>[
+      if (profile.location.trim().isNotEmpty)
+        OptionalInfoRow(
+          icon: Icons.place_outlined,
+          label: 'Location',
+          value: profile.location.trim(),
+        ),
       if (profile.education.trim().isNotEmpty)
         OptionalInfoRow(
           icon: Icons.school_outlined,

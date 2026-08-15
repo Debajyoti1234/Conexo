@@ -181,6 +181,21 @@ class SupabaseProfileRepository implements ProfileRepository {
     }
   }
 
+  Future<List<String?>> getSignedPhotoUrls(List<String> storagePaths) async {
+    final results = <String?>[];
+    for (final path in storagePaths) {
+      try {
+        final result = await Supabase.instance.client.storage
+            .from(_bucket)
+            .createSignedUrl(path, 3600);
+        results.add(result);
+      } catch (_) {
+        results.add(null);
+      }
+    }
+    return results;
+  }
+
   Map<String, dynamic> _snakeToCamel(Map<String, dynamic> snake) {
     final result = <String, dynamic>{};
     for (final entry in snake.entries) {

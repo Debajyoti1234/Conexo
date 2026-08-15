@@ -187,4 +187,40 @@ abstract final class LocationService {
     }
     return null;
   }
+
+  /// Searches for locations matching [query] using forward geocoding.
+  ///
+  /// Returns up to 5 suggestions with display names and coordinates.
+  /// Returns an empty list if the query is empty or the search fails.
+  static Future<List<LocationSuggestion>> searchLocations(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
+    try {
+      final locations = await Geocoding().locationFromAddress(trimmed);
+      return locations
+          .take(5)
+          .map((loc) => LocationSuggestion(
+                displayName: trimmed,
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+              ))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
 }
+
+/// A clean location suggestion returned by forward-geocoding search.
+class LocationSuggestion {
+  const LocationSuggestion({
+    required this.displayName,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  final String displayName;
+  final double latitude;
+  final double longitude;
+}
+
