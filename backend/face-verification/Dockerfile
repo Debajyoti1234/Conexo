@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     curl \
     g++ \
+    patchelf \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -17,6 +18,9 @@ WORKDIR /app
 # Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Fix ONNX Runtime executable-stack requirement for Railway compatibility
+RUN find /usr/local/lib/python* -name 'onnxruntime*.so' -exec patchelf --remove-execstack {} +
 
 # Copy application code
 COPY app/ ./app/
