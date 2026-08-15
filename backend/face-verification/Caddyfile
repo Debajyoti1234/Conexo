@@ -1,0 +1,28 @@
+# Caddyfile — Production reverse proxy for Conexo Face Verification
+#
+# Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
+# Replace {your-domain.example.com} below with your real production domain.
+#
+# This file is consumed by the Caddy service in docker-compose.yml.
+# It terminates HTTPS and proxies all requests to the FastAPI backend
+# on the internal Docker network (port 8000).
+
+{
+    # Global options — Caddy manages TLS automatically.
+    # Logs to stdout for container/log-aggregator collection.
+}
+
+https://{your-domain.example.com} {
+    reverse_proxy face-verification:8000
+
+    encode gzip
+
+    # Pass through standard headers to the backend
+    header_up Host {http.reverse_proxy.host}
+    header_up X-Forwarded-Proto https
+    header_up X-Forwarded-For {remote}
+
+    log {
+        output stdout
+    }
+}
