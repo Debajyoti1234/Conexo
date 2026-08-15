@@ -2,11 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
+import '../../core/supabase/auth_service.dart';
+import 'face_verification_client.dart';
 import 'privacy_verification_sections.dart';
 import 'privacy_verification_widgets.dart';
 import 'profile_data.dart';
 import 'profile_repository.dart';
+import 'selfie_capture_screen.dart';
 import 'session_aware_profile_repository.dart';
+import 'verification_dialogs.dart';
 
 /// The premium Privacy & Verification module (Phase 4.3).
 ///
@@ -52,6 +56,9 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
   bool _notFound = false;
   bool _saving = false;
   bool _saved = false;
+  bool _verifying = false;
+
+  final FaceVerificationClient _verificationClient = const FaceVerificationClient();
 
   @override
   void initState() {
@@ -113,12 +120,127 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
     Navigator.of(context).maybePop();
   }
 
-  void _onVerifyIdentity() {
-    ComingSoonDialog.show(
-      context,
-      title: 'Verify Identity',
-      message: 'Selfie verification will be available in a future update.',
+  Future<void> _onVerifyIdentity() async {
+    if (_verifying) return;
+
+    final profile = _profile;
+    if (profile == null) {
+      if (!mounted) return;
+      await showVerificationErrorDialog(
+        context,
+        'Profile not found. Please complete your profile first.',
+      );
+      return;
+    }
+
+    if (profile.primaryPhoto == null) {
+      if (!mounted) return;
+      await showVerificationErrorDialog(
+        context,
+        'Please add a profile photo before verification.',
+      );
+      return;
+    }
+
+    final result = await Navigator.of(context).push<SelfieCaptureResult>(
+      MaterialPageRoute(builder: (_) => const SelfieCaptureScreen()),
     );
+
+    if (!mounted || result == null || result.bytes == null) {
+      return;
+    }
+
+    final bytes = result.bytes!;
+    if (bytes.isEmpty) return;
+
+    final session = AuthService.currentSession;
+    final accessToken = session?.accessToken;
+    if (accessToken == null || accessToken.isEmpty) {
+      if (!mounted) return;
+      await showVerificationErrorDialog(
+        context,
+        'Your session expired. Please sign in again.',
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _verifying = true);
+    await showVerificationLoadingDialog(context);
+
+    try {
+      final verificationResult = await _verificationClient.verifyFace(
+        selfieBytes: bytes,
+        accessToken: accessToken,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // close loading
+
+      final refreshed = await widget.repository.loadProfile();
+      if (!mounted) return;
+
+      if (refreshed != null) {
+        setState(() {
+          _profile = refreshed;
+          _verificationStatus = refreshed.verificationStatus;
+        });
+      }
+
+      if (verificationResult.match) {
+        await showVerificationSuccessDialog(context);
+      } else {
+        final message = _mapVerificationMessage(verificationResult.reason);
+        await showVerificationErrorDialog(context, message);
+      }
+    } on FaceVerificationException catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      await showVerificationErrorDialog(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      await showVerificationErrorDialog(
+        context,
+        'Verification is temporarily unavailable. Please try again later.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _verifying = false);
+      }
+    }
+  }
+
+  String _mapVerificationMessage(String reason) {
+    switch (reason) {
+      case 'no_face':
+        return 'No face detected. Please try again with your face clearly visible.';
+      case 'multiple_faces':
+        return 'Only one face should be visible. Please try again.';
+      case 'low_similarity':
+        return 'We couldn\'t match your selfie with your profile photo. Please try again.';
+      case 'no_primary_photo':
+        return 'Please add a profile photo before verification.';
+      case 'invalid_primary_photo':
+        return 'Your profile photo couldn\'t be processed. Please update it.';
+      case 'file_too_large':
+        return 'Photo is too large. Please use a photo under 5 MB.';
+      case 'invalid_file_type':
+        return 'Please use a JPEG, PNG, or WebP photo.';
+      case 'profile_not_found':
+        return 'Profile not found. Please complete your profile first.';
+      case 'storage_failure':
+        return 'Unable to access your profile photo. Please try again later.';
+      case 'primary_photo_embedding_failed':
+        return 'Your profile photo couldn\'t be processed. Please update it.';
+      case 'rate_limited':
+        return 'You\'ve reached the verification attempt limit. Please try again later.';
+      case 'session_expired':
+        return 'Your session expired. Please sign in again.';
+      case 'internal_error':
+      default:
+        return 'Verification is temporarily unavailable. Please try again later.';
+    }
   }
 
   @override
@@ -186,6 +308,7 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
           child: VerificationSection(
             status: _verificationStatus,
             onVerifyIdentity: _onVerifyIdentity,
+            verifying: _verifying,
           ),
         ),
       ],

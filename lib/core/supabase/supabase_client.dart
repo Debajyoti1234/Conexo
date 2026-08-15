@@ -11,6 +11,10 @@ abstract final class SupabaseClientConfig {
     'SUPABASE_PUBLISHABLE_KEY',
   );
 
+  static const String faceVerificationApiUrl = String.fromEnvironment(
+    'FACE_VERIFICATION_API_URL',
+  );
+
   static SupabaseClient get client => Supabase.instance.client;
 
   static bool _initialized = false;

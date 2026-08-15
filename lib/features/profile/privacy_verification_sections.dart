@@ -86,11 +86,13 @@ class VerificationSection extends StatelessWidget {
   const VerificationSection({
     required this.status,
     required this.onVerifyIdentity,
+    this.verifying = false,
     super.key,
   });
 
   final VerificationStatus status;
   final VoidCallback onVerifyIdentity;
+  final bool verifying;
 
   @override
   Widget build(BuildContext context) {
@@ -114,10 +116,13 @@ class VerificationSection extends StatelessWidget {
 
         if (showVerifyAction) ...[
           const SizedBox(height: 14),
-          PrimaryActionButton(
-            label: 'Verify Identity',
-            icon: Icons.verified_rounded,
-            onTap: onVerifyIdentity,
+          AbsorbPointer(
+            absorbing: verifying,
+            child: PrimaryActionButton(
+              label: verifying ? 'Verifying...' : 'Verify Identity',
+              icon: verifying ? Icons.hourglass_top_rounded : Icons.verified_rounded,
+              onTap: onVerifyIdentity,
+            ),
           ),
         ],
 
