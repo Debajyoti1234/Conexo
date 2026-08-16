@@ -44,11 +44,13 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
     });
 
     try {
+      print('[SelfieCapture] step=capture-start platform=${kIsWeb ? "web" : "mobile"}');
       final picker = ImagePicker();
       final xfile = await picker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.front,
       );
+      print('[SelfieCapture] step=picker-result xfile=${xfile != null} name=${xfile?.name ?? "null"}');
 
       if (!mounted) return;
       if (xfile == null) {
@@ -57,6 +59,7 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
       }
 
       final bytes = await xfile.readAsBytes();
+      print('[SelfieCapture] step=bytes-read length=${bytes.length}');
       if (!mounted) return;
 
       final extension = xfile.name.contains('.')
@@ -73,6 +76,7 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
 
       const maxSize = 5 * 1024 * 1024;
       if (bytes.length > maxSize) {
+        print('[SelfieCapture] step=validation-failed reason=file_too_large');
         if (!mounted) return;
         Navigator.of(context).pop(
           const SelfieCaptureResult.error('file_too_large'),
@@ -80,8 +84,10 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
         return;
       }
 
+      print('[SelfieCapture] step=pop-success bytes=${bytes.length}');
       Navigator.of(context).pop(SelfieCaptureResult.success(bytes));
-    } catch (_) {
+    } catch (e) {
+      print('[SelfieCapture] step=capture-error error=$e');
       if (!mounted) return;
       Navigator.of(context).pop(
         const SelfieCaptureResult.error('capture_failed'),

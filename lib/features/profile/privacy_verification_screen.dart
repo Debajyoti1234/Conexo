@@ -121,10 +121,14 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
   }
 
   Future<void> _onVerifyIdentity() async {
-    if (_verifying) return;
+    if (_verifying) {
+      print('[PrivacyVerification] step=verify-blocked already-verifying');
+      return;
+    }
 
     final profile = _profile;
     if (profile == null) {
+      print('[PrivacyVerification] step=profile-null');
       if (!mounted) return;
       await showVerificationErrorDialog(
         context,
@@ -134,6 +138,7 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
     }
 
     if (profile.primaryPhoto == null) {
+      print('[PrivacyVerification] step=no-primary-photo');
       if (!mounted) return;
       await showVerificationErrorDialog(
         context,
@@ -142,9 +147,11 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
       return;
     }
 
+    print('[PrivacyVerification] step=selfie-capture-start');
     final result = await Navigator.of(context).push<SelfieCaptureResult>(
       MaterialPageRoute(builder: (_) => const SelfieCaptureScreen()),
     );
+    print('[PrivacyVerification] step=selfie-capture-complete result=${result != null ? (result.bytes != null ? "success" : "error:${result.reason}") : "cancelled"}');
 
     if (!mounted || result == null || result.bytes == null) {
       return;
@@ -155,6 +162,7 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
 
     final session = AuthService.currentSession;
     final accessToken = session?.accessToken;
+    print('[PrivacyVerification] step=token-check tokenPresent=${accessToken != null && accessToken.isNotEmpty}');
     if (accessToken == null || accessToken.isEmpty) {
       if (!mounted) return;
       await showVerificationErrorDialog(
@@ -167,12 +175,15 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
     if (!mounted) return;
     setState(() => _verifying = true);
     await showVerificationLoadingDialog(context);
+    print('[PrivacyVerification] step=loading-shown');
 
     try {
+      print('[PrivacyVerification] step=client-call-start bytes=${bytes.length}');
       final verificationResult = await _verificationClient.verifyFace(
         selfieBytes: bytes,
         accessToken: accessToken,
       );
+      print('[PrivacyVerification] step=client-call-complete match=${verificationResult.match} reason=${verificationResult.reason}');
 
       if (!mounted) return;
       Navigator.of(context).pop(); // close loading
@@ -194,10 +205,12 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
         await showVerificationErrorDialog(context, message);
       }
     } on FaceVerificationException catch (e) {
+      print('[PrivacyVerification] step=client-error message=${e.message}');
       if (!mounted) return;
       Navigator.of(context).pop();
       await showVerificationErrorDialog(context, e.message);
-    } catch (_) {
+    } catch (e) {
+      print('[PrivacyVerification] step=unexpected-error error=$e');
       if (!mounted) return;
       Navigator.of(context).pop();
       await showVerificationErrorDialog(

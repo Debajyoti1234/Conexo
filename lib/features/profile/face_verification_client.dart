@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/supabase/supabase_client.dart';
@@ -41,6 +41,7 @@ class FaceVerificationClient {
     required String accessToken,
   }) async {
     final baseUrl = SupabaseClientConfig.faceVerificationApiUrl;
+    print('[FaceVerification] step=verify-start platform=${kIsWeb ? "web" : "mobile"} baseUrlEmpty=${baseUrl.isEmpty}');
     if (baseUrl.isEmpty) {
       throw const FaceVerificationException(
         'Verification is temporarily unavailable. Please try again later.',
@@ -48,7 +49,9 @@ class FaceVerificationClient {
     }
 
     final uri = Uri.parse('$baseUrl/api/v1/verify-face');
+    print('[FaceVerification] step=api-url-resolved host=${uri.host} path=${uri.path}');
     final request = http.MultipartRequest('POST', uri);
+    print('[FaceVerification] step=multipart-created');
 
     request.headers.addAll({
       'Authorization': 'Bearer $accessToken',
@@ -61,13 +64,16 @@ class FaceVerificationClient {
         filename: 'selfie.jpg',
       ),
     );
+    print('[FaceVerification] step=file-attached bytes=${selfieBytes.length}');
 
+    print('[FaceVerification] step=send-start');
     final streamed = await request.send().timeout(
       const Duration(seconds: 30),
       onTimeout: () => throw const FaceVerificationException(
         'Verification is temporarily unavailable. Please try again later.',
       ),
     );
+    print('[FaceVerification] step=send-complete status=${streamed.statusCode}');
 
     final status = streamed.statusCode;
     final body = await streamed.stream.bytesToString().timeout(
@@ -76,6 +82,7 @@ class FaceVerificationClient {
         'Verification is temporarily unavailable. Please try again later.',
       ),
     );
+    print('[FaceVerification] step=response-read-complete bytes=${body.length} status=$status');
 
     if (status == 204) {
       return const VerificationResult(
