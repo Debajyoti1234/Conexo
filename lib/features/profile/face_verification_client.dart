@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+// ignore: depend_on_referenced_packages
+import 'package:http_parser/http_parser.dart';
 
 import '../../core/supabase/supabase_client.dart';
 
@@ -62,6 +64,7 @@ class FaceVerificationClient {
         'selfie',
         selfieBytes,
         filename: 'selfie.jpg',
+        contentType: _detectImageContentType(selfieBytes),
       ),
     );
     print('[FaceVerification] step=file-attached bytes=${selfieBytes.length}');
@@ -105,7 +108,18 @@ class FaceVerificationClient {
       return VerificationResult.fromJson(json);
     }
 
-    final reason = json['reason'] as String? ?? 'internal_error';
+    String reason;
+    final detail = json['detail'];
+    if (detail is Map<String, dynamic>) {
+      reason = detail['reason'] as String? ?? 'internal_error';
+    } else {
+      reason = json['reason'] as String? ?? 'internal_error';
+    }
+
+    if (status == 400) {
+      print('[FaceVerification] step=error-response status=400 reason=$reason');
+    }
+
     return VerificationResult(
       match: false,
       reason: _mapClientError(status, reason),
@@ -160,4 +174,24 @@ class FaceVerificationClient {
         return 'internal_error';
     }
   }
+}
+
+MediaType? _detectImageContentType(Uint8List bytes) {
+  if (bytes.length >= 2) {
+    if (bytes[0] == 0xFF && bytes[1] == 0xD8) {
+      return MediaType('image', 'jpeg');
+    }
+  }
+  if (bytes.length >= 4) {
+    if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+      return MediaType('image', 'png');
+    }
+  }
+  if (bytes.length >= 12) {
+    if (bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
+        bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) {
+      return MediaType('image', 'webp');
+    }
+  }
+  return null;
 }
