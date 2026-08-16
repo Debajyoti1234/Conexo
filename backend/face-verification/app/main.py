@@ -69,11 +69,11 @@ async def verify_face_endpoint(
             },
         )
 
-    logger.info(
-        "Verification upload filename=%s content_type=%s bytes=%d",
-        selfie.filename,
-        content_type,
-        len(selfie_bytes),
+    print(
+        f"Verification upload filename={selfie.filename} "
+        f"content_type={content_type} "
+        f"bytes={len(selfie_bytes)}",
+        flush=True,
     )
 
     try:
