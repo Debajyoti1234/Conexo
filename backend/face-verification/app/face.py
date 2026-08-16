@@ -16,7 +16,7 @@ def _get_face_analysis() -> FaceAnalysis:
         with _LOCK:
             if _FACE_ANALYSIS is None:
                 app = FaceAnalysis(
-                    name="buffalo_l",
+                    name="buffalo_s",
                     root="/home/appuser/.insightface",
                     providers=["CPUExecutionProvider"],
                     allowed_modules=["detection", "recognition"],
