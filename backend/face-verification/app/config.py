@@ -33,7 +33,7 @@ class Settings(BaseSettings):
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
             ]
-        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+        return [_normalize_origin(origin.strip()) for origin in raw.split(",") if origin.strip()]
 
 
 _settings: Settings | None = None
@@ -44,3 +44,10 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
     return _settings
+
+
+def _normalize_origin(origin: str) -> str:
+    origin = origin.strip()
+    if not origin.startswith(("http://", "https://")):
+        return f"https://{origin}"
+    return origin
