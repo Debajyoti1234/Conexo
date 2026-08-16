@@ -69,6 +69,13 @@ async def verify_face_endpoint(
             },
         )
 
+    logger.info(
+        "Verification upload filename=%s content_type=%s bytes=%d",
+        selfie.filename,
+        content_type,
+        len(selfie_bytes),
+    )
+
     try:
         result = await asyncio.wait_for(
             asyncio.to_thread(verify_face, selfie_bytes, content_type, str(current_user_id)),
