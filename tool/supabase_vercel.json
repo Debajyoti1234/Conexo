@@ -1,7 +1,7 @@
 {
   "SUPABASE_URL": "https://wlfitdzhvfhuqgxwreed.supabase.co",
   "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_wOqD0TUeyMU-j2-IECf6bA_8Xtl-C0M",
-  "FACE_VERIFICATION_API_URL": "https://api.conexo-face-verification.example.com",
+  "FACE_VERIFICATION_API_URL": "https://conexo-production-de49.up.railway.app",
   "GOOGLE_SERVER_CLIENT_ID": "733658775964-6jhgr3esv1qr2t6p5fqbmpolte2kobeg.apps.googleusercontent.com",
   "GOOGLE_WEB_CLIENT_ID": "733658775964-6jhgr3esv1qr2t6p5fqbmpolte2kobeg.apps.googleusercontent.com",
   "WEB_OAUTH_REDIRECT_URL": "https://conexo-seven.vercel.app/"
