@@ -174,7 +174,8 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
 
     if (!mounted) return;
     setState(() => _verifying = true);
-    await showVerificationLoadingDialog(context);
+    print('[PrivacyVerification] step=before-loading-dialog');
+    showVerificationLoadingDialog(context);
     print('[PrivacyVerification] step=loading-shown');
 
     try {
