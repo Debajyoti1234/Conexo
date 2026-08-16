@@ -20,7 +20,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Fix ONNX Runtime executable-stack requirement for Railway compatibility
-RUN find /usr/local/lib/python* -name 'onnxruntime*.so' -exec patchelf --remove-execstack {} +
+RUN find /usr/local/lib/python* -name '*onnxruntime*.so' -exec patchelf --clear-execstack {} +
 
 # Copy application code
 COPY app/ ./app/
