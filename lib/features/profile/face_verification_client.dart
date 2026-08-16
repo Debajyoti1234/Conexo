@@ -70,7 +70,12 @@ class FaceVerificationClient {
     );
 
     final status = streamed.statusCode;
-    final body = await streamed.stream.bytesToString();
+    final body = await streamed.stream.bytesToString().timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw const FaceVerificationException(
+        'Verification is temporarily unavailable. Please try again later.',
+      ),
+    );
 
     if (status == 204) {
       return const VerificationResult(
