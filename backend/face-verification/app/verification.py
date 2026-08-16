@@ -10,6 +10,7 @@ from supabase import create_client
 from .auth import get_current_user_id
 from .config import get_settings
 from .face import get_face_embedding
+from .image_utils import normalize_image
 from .matching import cosine_similarity, get_threshold, is_match
 from .rate_limiter import check_rate_limit
 from .storage import _get_supabase_client, _BUCKET, get_profile, resolve_primary_photo, validate_storage_path, download_primary_photo
@@ -75,7 +76,14 @@ def verify_face(selfie_bytes: bytes, content_type: str | None, user_id: str) -> 
             },
         )
 
-    allowed_types = {"image/jpeg", "image/png", "image/webp"}
+    allowed_types = {
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+        "image/heic",
+        "image/heif",
+    }
     if content_type and content_type not in allowed_types:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -86,7 +94,19 @@ def verify_face(selfie_bytes: bytes, content_type: str | None, user_id: str) -> 
             },
         )
 
-    selfie_result = get_face_embedding(selfie_bytes)
+    try:
+        normalized_bytes = normalize_image(selfie_bytes, content_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "match": False,
+                "threshold": threshold,
+                "reason": "invalid_file_type",
+            },
+        )
+
+    selfie_result = get_face_embedding(normalized_bytes)
     if not selfie_result.success:
         reason = selfie_result.reason or "invalid_image"
         if reason == "invalid_image":

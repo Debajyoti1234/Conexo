@@ -90,6 +90,53 @@ def test_verify_face_invalid_image(client: TestClient):
         app.dependency_overrides.clear()
 
 
+def test_verify_face_jpg_content_type(client: TestClient):
+    app.dependency_overrides[get_current_user_id] = lambda: UUID("00000000-0000-0000-0000-000000000000")
+    try:
+        response = client.post(
+            "/api/v1/verify-face",
+            files={"selfie": ("test.jpg", b"fake-image", "image/jpg")},
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"]["reason"] == "invalid_image"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_verify_face_heic_content_type(client: TestClient):
+    app.dependency_overrides[get_current_user_id] = lambda: UUID("00000000-0000-0000-0000-000000000000")
+    try:
+        heic_bytes = b"\x00" * 12 + b"ftypheic" + b"\x00" * 100
+        mock_profile = {
+            "id": "00000000-0000-0000-0000-000000000000",
+            "photos": [
+                {
+                    "id": "photo-1",
+                    "isPrimary": True,
+                    "remoteUrl": "profiles/00000000-0000-0000-0000-000000000000/photo-1.jpg",
+                }
+            ],
+        }
+        with patch("app.verification.normalize_image", return_value=b"jpeg-bytes") as mock_norm, \
+             patch("app.verification.get_face_embedding", side_effect=[
+                 MagicMock(success=True, embedding=b"embedding1"),
+                 MagicMock(success=True, embedding=b"embedding2"),
+             ]), \
+             patch("app.verification.get_profile", return_value=mock_profile), \
+             patch("app.verification.download_primary_photo", return_value=b"primary-bytes"), \
+             patch("app.verification.cosine_similarity", return_value=0.85), \
+             patch("app.verification.is_match", return_value=True), \
+             patch("app.verification._update_verification_status"):
+            response = client.post(
+                "/api/v1/verify-face",
+                files={"selfie": ("test.heic", heic_bytes, "image/heic")},
+            )
+            mock_norm.assert_called_once()
+            assert response.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_verify_face_function_success():
     mock_profile = {
         "id": "user-1",

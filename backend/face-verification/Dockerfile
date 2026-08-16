@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     g++ \
     patchelf \
+    libheif1 \
+    libheif-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
