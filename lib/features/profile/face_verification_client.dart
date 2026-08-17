@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../../core/supabase/supabase_client.dart';
+import '../../core/services/image_normalizer.dart';
 
 class FaceVerificationException implements Exception {
   const FaceVerificationException(this.message);
@@ -59,15 +60,21 @@ class FaceVerificationClient {
       'Authorization': 'Bearer $accessToken',
     });
 
+    final normalized = await ConexoImageNormalizer.normalize(selfieBytes);
+    print(
+      '[FaceVerification] step=normalized original=${selfieBytes.length} '
+      'normalized=${normalized.bytes.length}',
+    );
+
     request.files.add(
       http.MultipartFile.fromBytes(
         'selfie',
-        selfieBytes,
+        normalized.bytes,
         filename: 'selfie.jpg',
-        contentType: _detectImageContentType(selfieBytes),
+        contentType: MediaType('image', 'jpeg'),
       ),
     );
-    print('[FaceVerification] step=file-attached bytes=${selfieBytes.length}');
+    print('[FaceVerification] step=file-attached bytes=${normalized.bytes.length}');
 
     print('[FaceVerification] step=send-start');
     final streamed = await request.send().timeout(
@@ -174,24 +181,4 @@ class FaceVerificationClient {
         return 'internal_error';
     }
   }
-}
-
-MediaType? _detectImageContentType(Uint8List bytes) {
-  if (bytes.length >= 2) {
-    if (bytes[0] == 0xFF && bytes[1] == 0xD8) {
-      return MediaType('image', 'jpeg');
-    }
-  }
-  if (bytes.length >= 4) {
-    if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
-      return MediaType('image', 'png');
-    }
-  }
-  if (bytes.length >= 12) {
-    if (bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
-        bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) {
-      return MediaType('image', 'webp');
-    }
-  }
-  return null;
 }

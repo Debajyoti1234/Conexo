@@ -5,6 +5,7 @@ import './profile_repository.dart';
 import './profile_data.dart';
 import './profile_validation.dart';
 import '../../core/supabase/auth_service.dart';
+import '../../core/services/image_normalizer.dart';
 
 /// Supabase implementation of [ProfileRepository].
 ///
@@ -148,18 +149,18 @@ class SupabaseProfileRepository implements ProfileRepository {
     if (user == null) throw Exception('No authenticated user');
 
     final bytes = await xfile.readAsBytes();
-    final name = xfile.name;
-    final extension = name.contains('.')
-        ? name.split('.').last.toLowerCase()
-        : 'jpg';
-    final safeExtension =
-        extension.isEmpty || extension.length > 5 ? 'jpg' : extension;
-    final storagePath =
-        'profiles/${user.id}/photos/$photoId.$safeExtension';
+    final normalized = await ConexoImageNormalizer.normalize(bytes);
+    final storagePath = 'profiles/${user.id}/photos/$photoId.jpg';
 
     await Supabase.instance.client.storage
         .from(_bucket)
-        .uploadBinary(storagePath, bytes);
+        .uploadBinary(
+          storagePath,
+          normalized.bytes,
+          fileOptions: const FileOptions(
+            contentType: 'image/jpeg',
+          ),
+        );
 
     return storagePath;
   }

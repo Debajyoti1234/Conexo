@@ -221,6 +221,14 @@ def verify_face(selfie_bytes: bytes, content_type: str | None, user_id: str) -> 
 
     match = is_match(similarity, threshold)
 
+    print(
+        f"[Verification] user={user_id} "
+        f"selfie_bytes={len(selfie_bytes)} primary_bytes={len(primary_bytes)} "
+        f"similarity={similarity:.4f} threshold={threshold:.2f} "
+        f"match={match} reason={'match' if match else 'low_similarity'}",
+        flush=True,
+    )
+
     try:
         _update_verification_status(user_id, match)
     except RuntimeError:

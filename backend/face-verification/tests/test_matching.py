@@ -40,14 +40,14 @@ def test_no_nan_or_inf():
 
 
 def test_threshold_boundary():
-    assert is_match(0.6, 0.6) is True
-    assert is_match(0.6000001, 0.6) is True
-    assert is_match(0.5999999, 0.6) is False
+    assert is_match(0.4, 0.4) is True
+    assert is_match(0.4000001, 0.4) is True
+    assert is_match(0.3999999, 0.4) is False
 
 
 def test_below_threshold():
-    assert is_match(0.4, 0.6) is False
+    assert is_match(0.3, 0.4) is False
 
 
 def test_above_threshold():
-    assert is_match(0.8, 0.6) is True
+    assert is_match(0.8, 0.4) is True

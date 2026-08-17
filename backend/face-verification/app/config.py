@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     SUPABASE_URL: str
     SUPABASE_SERVICE_ROLE_KEY: str
-    VERIFICATION_THRESHOLD: float = Field(default=0.6, ge=0.0, le=1.0)
+    VERIFICATION_THRESHOLD: float = Field(default=0.4, ge=0.0, le=1.0)
     MAX_SELFIE_SIZE_MB: int = Field(default=5, gt=0)
     RATE_LIMIT_WINDOW_SECONDS: int = Field(default=3600, gt=0)
     RATE_LIMIT_MAX_ATTEMPTS: int = Field(default=5, gt=0)

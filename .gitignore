@@ -46,3 +46,5 @@ app.*.map.json
 # Local Supabase development credentials
 /tool/supabase_dev.json
 node_modules/
+.vercel
+.env*

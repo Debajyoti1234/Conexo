@@ -24,7 +24,7 @@ void main() {
     test('fromJson parses match true', () {
       final result = VerificationResult.fromJson({
         'match': true,
-        'threshold': 0.6,
+        'threshold': 0.4,
         'reason': 'match',
         'similarity': 0.85,
       });
@@ -43,7 +43,7 @@ void main() {
 
   group('Selfie validation', () {
     test('invalid extensions are not in allowed set', () {
-      const allowed = <String>{'jpg', 'jpeg', 'png', 'webp'};
+      const allowed = <String>{'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'};
       expect(allowed.contains('bmp'), isFalse);
       expect(allowed.contains('gif'), isFalse);
     });

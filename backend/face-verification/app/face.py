@@ -62,6 +62,28 @@ def detect_single_face(image: np.ndarray) -> tuple[np.ndarray | None, str | None
     app = _get_face_analysis()
     faces = app.get(image)
 
+    print(
+        f"[FaceDetection] image_shape=({image.shape[0]}x{image.shape[1]}) "
+        f"num_faces={len(faces)}",
+        flush=True,
+    )
+    for i, face in enumerate(faces):
+        bbox = face.get("bbox")
+        det_score = face.get("det_score")
+        if bbox is not None and len(bbox) == 4:
+            x1, y1, x2, y2 = bbox
+            w = max(0.0, x2 - x1)
+            h = max(0.0, y2 - y1)
+            area = w * h
+            img_area = max(1.0, image.shape[0] * image.shape[1])
+            area_ratio = area / img_area
+            print(
+                f"[FaceDetection] face_{i} bbox=({x1:.0f},{y1:.0f},{x2:.0f},{y2:.0f}) "
+                f"size=({w:.0f}x{h:.0f}) area_ratio={area_ratio:.3f} "
+                f"det_score={det_score:.3f}",
+                flush=True,
+            )
+
     if len(faces) == 0:
         return None, "no_face"
     if len(faces) > 1:

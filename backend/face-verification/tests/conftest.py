@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 os.environ.setdefault("SUPABASE_URL", "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-role-key")
-os.environ.setdefault("VERIFICATION_THRESHOLD", "0.6")
+os.environ.setdefault("VERIFICATION_THRESHOLD", "0.4")
 os.environ.setdefault("MAX_SELFIE_SIZE_MB", "5")
 os.environ.setdefault("RATE_LIMIT_WINDOW_SECONDS", "3600")
 os.environ.setdefault("RATE_LIMIT_MAX_ATTEMPTS", "5")

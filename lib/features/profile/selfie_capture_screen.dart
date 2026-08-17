@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/services/image_normalizer.dart';
 import '../../core/services/permission_manager.dart';
 
 class SelfieCaptureScreen extends StatefulWidget {
@@ -65,8 +66,9 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
       final extension = xfile.name.contains('.')
           ? xfile.name.split('.').last.toLowerCase()
           : '';
-      final allowed = <String>{'jpg', 'jpeg', 'png', 'webp'};
+      final allowed = <String>{'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'};
       if (extension.isNotEmpty && !allowed.contains(extension)) {
+        print('[SelfieCapture] step=validation-failed reason=invalid_file_type extension=$extension');
         if (!mounted) return;
         Navigator.of(context).pop(
           const SelfieCaptureResult.error('invalid_file_type'),
@@ -74,8 +76,14 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
         return;
       }
 
+      final normalized = await ConexoImageNormalizer.normalize(bytes);
+      print(
+        '[SelfieCapture] step=normalized original=${bytes.length} '
+        'normalized=${normalized.bytes.length}',
+      );
+
       const maxSize = 5 * 1024 * 1024;
-      if (bytes.length > maxSize) {
+      if (normalized.bytes.length > maxSize) {
         print('[SelfieCapture] step=validation-failed reason=file_too_large');
         if (!mounted) return;
         Navigator.of(context).pop(
@@ -84,8 +92,8 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
         return;
       }
 
-      print('[SelfieCapture] step=pop-success bytes=${bytes.length}');
-      Navigator.of(context).pop(SelfieCaptureResult.success(bytes));
+      print('[SelfieCapture] step=pop-success bytes=${normalized.bytes.length}');
+      Navigator.of(context).pop(SelfieCaptureResult.success(normalized.bytes));
     } catch (e) {
       print('[SelfieCapture] step=capture-error error=$e');
       if (!mounted) return;

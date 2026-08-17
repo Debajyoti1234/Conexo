@@ -38,6 +38,9 @@ dependencies:
   # Image picking
   image_picker: ^1.1.2
 
+  # Image normalization (JPEG canonical format for uploads/verification)
+  flutter_image_compress: ^2.0.0
+
   # HTTP client for backend integration
   http: ^1.2.2
 
@@ -63,5 +66,4 @@ flutter:
     - assets/icons/
     - assets/logo/
     - assets/animations/
-
 
