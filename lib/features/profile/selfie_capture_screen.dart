@@ -59,7 +59,23 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
         return;
       }
 
+      if (kDebugMode) {
+        // Temporary diagnostic trace for the iOS Safari selfie transport.
+        // Captures the ORIGINAL browser/camera representation so it can be
+        // compared against what is finally sent in the multipart request.
+        // ignore: avoid_print
+        print('[FaceVerificationWebTrace] step=source-file-received');
+        // ignore: avoid_print
+        print('[FaceVerificationWebTrace] step=source-filename value=${xfile.name}');
+        // ignore: avoid_print
+        print('[FaceVerificationWebTrace] step=source-mime value=${xfile.mimeType}');
+      }
+
       final bytes = await xfile.readAsBytes();
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('[FaceVerificationWebTrace] step=source-byte-length value=${bytes.length}');
+      }
       print('[SelfieCapture] step=bytes-read length=${bytes.length}');
       if (!mounted) return;
 
