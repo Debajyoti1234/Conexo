@@ -11,6 +11,8 @@ import 'profile_repository.dart';
 import 'selfie_capture_screen.dart';
 import 'session_aware_profile_repository.dart';
 import 'verification_dialogs.dart';
+import 'verification/verification_guidance_screen.dart';
+import 'verification/verification_theme.dart';
 
 /// The premium Privacy & Verification module (Phase 4.3).
 ///
@@ -120,15 +122,16 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
     Navigator.of(context).maybePop();
   }
 
+  /// Controlled fallback switch. The premium three-angle flow is used by
+  /// default; set this to `true` to restore the proven single-photo
+  /// verification (kept fully intact) without any other change.
+  bool get _useSinglePhotoFallback => false;
+
   Future<void> _onVerifyIdentity() async {
-    if (_verifying) {
-      print('[PrivacyVerification] step=verify-blocked already-verifying');
-      return;
-    }
+    if (_verifying) return;
 
     final profile = _profile;
     if (profile == null) {
-      print('[PrivacyVerification] step=profile-null');
       if (!mounted) return;
       await showVerificationErrorDialog(
         context,
@@ -138,7 +141,6 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
     }
 
     if (profile.primaryPhoto == null) {
-      print('[PrivacyVerification] step=no-primary-photo');
       if (!mounted) return;
       await showVerificationErrorDialog(
         context,
@@ -147,11 +149,35 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
       return;
     }
 
-    print('[PrivacyVerification] step=selfie-capture-start');
+    if (_useSinglePhotoFallback) {
+      await _verifyWithSinglePhoto(profile);
+      return;
+    }
+
+    // Premium three-angle verification flow. It manages capture, upload and its
+    // own success/failed states; the backend updates verification_status.
+    await Navigator.of(context).push<bool>(
+      verifyFadeSlideRoute(const VerificationGuidanceScreen()),
+    );
+    if (!mounted) return;
+
+    final refreshed = await widget.repository.loadProfile();
+    if (!mounted) return;
+    if (refreshed != null) {
+      setState(() {
+        _profile = refreshed;
+        _verificationStatus = refreshed.verificationStatus;
+      });
+    }
+  }
+
+  /// The proven single-photo verification path, preserved as a controlled
+  /// fallback (see [_useSinglePhotoFallback]). Uses the same transport and the
+  /// existing `/api/v1/verify-face` endpoint.
+  Future<void> _verifyWithSinglePhoto(UserProfile profile) async {
     final result = await Navigator.of(context).push<SelfieCaptureResult>(
       MaterialPageRoute(builder: (_) => const SelfieCaptureScreen()),
     );
-    print('[PrivacyVerification] step=selfie-capture-complete result=${result != null ? (result.bytes != null ? "success" : "error:${result.reason}") : "cancelled"}');
 
     if (!mounted || result == null || result.bytes == null) {
       return;
@@ -162,7 +188,6 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
 
     final session = AuthService.currentSession;
     final accessToken = session?.accessToken;
-    print('[PrivacyVerification] step=token-check tokenPresent=${accessToken != null && accessToken.isNotEmpty}');
     if (accessToken == null || accessToken.isEmpty) {
       if (!mounted) return;
       await showVerificationErrorDialog(
@@ -174,17 +199,13 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
 
     if (!mounted) return;
     setState(() => _verifying = true);
-    print('[PrivacyVerification] step=before-loading-dialog');
     showVerificationLoadingDialog(context);
-    print('[PrivacyVerification] step=loading-shown');
 
     try {
-      print('[PrivacyVerification] step=client-call-start bytes=${bytes.length}');
       final verificationResult = await _verificationClient.verifyFace(
         selfieBytes: bytes,
         accessToken: accessToken,
       );
-      print('[PrivacyVerification] step=client-call-complete match=${verificationResult.match} reason=${verificationResult.reason}');
 
       if (!mounted) return;
       Navigator.of(context).pop(); // close loading
@@ -206,12 +227,10 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
         await showVerificationErrorDialog(context, message);
       }
     } on FaceVerificationException catch (e) {
-      print('[PrivacyVerification] step=client-error message=${e.message}');
       if (!mounted) return;
       Navigator.of(context).pop();
       await showVerificationErrorDialog(context, e.message);
     } catch (e) {
-      print('[PrivacyVerification] step=unexpected-error error=$e');
       if (!mounted) return;
       Navigator.of(context).pop();
       await showVerificationErrorDialog(

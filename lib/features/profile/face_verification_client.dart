@@ -21,11 +21,17 @@ class VerificationResult {
     required this.match,
     required this.reason,
     this.similarity,
+    this.angle,
   });
 
   final bool match;
   final String reason;
   final double? similarity;
+
+  /// For multi-angle failures only: which angle (front/left/right) triggered
+  /// the error, when the backend reports one. Null for the single-photo path
+  /// and for successful multi results.
+  final String? angle;
 
   factory VerificationResult.fromJson(Map<String, dynamic> json) {
     return VerificationResult(
@@ -166,6 +172,147 @@ class FaceVerificationClient {
     return VerificationResult(
       match: false,
       reason: _mapClientError(status, reason),
+    );
+  }
+
+  /// Builds the exact multipart request used by [verifyFaceMulti].
+  ///
+  /// Single source of truth for the multi-angle wire contract: field names
+  /// `selfie_front` / `selfie_left` / `selfie_right`, `<field>.jpg` filenames,
+  /// and an explicit `Content-Type: image/jpeg` on every part. Inputs must
+  /// already be canonicalized JPEG bytes.
+  @visibleForTesting
+  static http.MultipartRequest buildMultiAngleRequest({
+    required Uri uri,
+    required String accessToken,
+    required Uint8List frontJpeg,
+    required Uint8List leftJpeg,
+    required Uint8List rightJpeg,
+  }) {
+    final parts = <String, Uint8List>{
+      'selfie_front': frontJpeg,
+      'selfie_left': leftJpeg,
+      'selfie_right': rightJpeg,
+    };
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Authorization'] = 'Bearer $accessToken';
+    for (final entry in parts.entries) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          entry.key,
+          entry.value,
+          filename: '${entry.key}.jpg',
+          contentType: MediaType('image', 'jpeg'),
+        ),
+      );
+    }
+    return request;
+  }
+
+  /// Multi-angle verification. Sends three JPEG parts (front/left/right) in a
+  /// single [http.MultipartRequest] to the additive
+  /// `/api/v1/verify-face-multi` endpoint.
+  ///
+  /// This uses the identical proven transport as [verifyFace] — only the number
+  /// of multipart parts differs. Each part is canonicalized to JPEG and carries
+  /// an explicit `Content-Type: image/jpeg`, so Railway receives real JPEGs on
+  /// every platform including iOS Safari (via `window.fetch`). It never falls
+  /// back to `dart:html`/FormData.
+  Future<VerificationResult> verifyFaceMulti({
+    required Uint8List frontBytes,
+    required Uint8List leftBytes,
+    required Uint8List rightBytes,
+    required String accessToken,
+  }) async {
+    _trace('multi-verification-start platform=${kIsWeb ? "web" : "mobile"}');
+
+    final baseUrl = SupabaseClientConfig.faceVerificationApiUrl;
+    if (baseUrl.isEmpty) {
+      throw const FaceVerificationException(
+        'Verification is temporarily unavailable. Please try again later.',
+      );
+    }
+
+    final uri = Uri.parse('$baseUrl/api/v1/verify-face-multi');
+
+    // Canonicalize each angle to JPEG, then build the request through the
+    // shared builder so the multipart contract (field names, filenames,
+    // image/jpeg content type) has a single, test-covered source of truth.
+    final front = await ConexoImageNormalizer.normalize(frontBytes);
+    final left = await ConexoImageNormalizer.normalize(leftBytes);
+    final right = await ConexoImageNormalizer.normalize(rightBytes);
+
+    final request = buildMultiAngleRequest(
+      uri: uri,
+      accessToken: accessToken,
+      frontJpeg: front.bytes,
+      leftJpeg: left.bytes,
+      rightJpeg: right.bytes,
+    );
+    for (final part in request.files) {
+      _trace(
+        'multi-part field=${part.field} filename=${part.filename} '
+        'content-type=${part.contentType} bytes=${part.length}',
+      );
+    }
+
+    final http.StreamedResponse streamed;
+    try {
+      _trace('multi-send-start parts=${request.files.length}');
+      streamed = await request.send().timeout(
+        const Duration(seconds: 45),
+        onTimeout: () => throw const FaceVerificationException(
+          'Verification is temporarily unavailable. Please try again later.',
+        ),
+      );
+    } on FaceVerificationException {
+      rethrow;
+    } catch (e) {
+      _trace('multi-send-exception error=$e');
+      throw const FaceVerificationException(
+        'Verification is temporarily unavailable. Please try again later.',
+      );
+    }
+
+    final status = streamed.statusCode;
+    final body = await streamed.stream.bytesToString().timeout(
+      const Duration(seconds: 45),
+      onTimeout: () => throw const FaceVerificationException(
+        'Verification is temporarily unavailable. Please try again later.',
+      ),
+    );
+    _trace('multi-response-status value=$status');
+    _trace('multi-response-body value=$body');
+
+    if (status == 204) {
+      return const VerificationResult(match: false, reason: 'internal_error');
+    }
+
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(body) as Map<String, dynamic>;
+    } on FormatException {
+      return const VerificationResult(match: false, reason: 'internal_error');
+    }
+
+    if (status == 200) {
+      return VerificationResult.fromJson(json);
+    }
+
+    String reason;
+    String? angle;
+    final detail = json['detail'];
+    if (detail is Map<String, dynamic>) {
+      reason = detail['reason'] as String? ?? 'internal_error';
+      angle = detail['angle'] as String?;
+    } else {
+      reason = json['reason'] as String? ?? 'internal_error';
+    }
+
+    return VerificationResult(
+      match: false,
+      reason: _mapClientError(status, reason),
+      angle: angle,
     );
   }
 

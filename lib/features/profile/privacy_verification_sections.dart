@@ -131,9 +131,9 @@ class VerificationSection extends StatelessWidget {
         // Verification information.
         const InfoNote(
           icon: Icons.info_outline_rounded,
-          text: 'Selfie verification is a future feature. When available, '
-              'you will take a quick selfie that is matched against your '
-              'photos. No verification data is collected in this version.',
+          text: 'Verify your identity with three quick selfies (front, left '
+              'and right). Your photos are used only to confirm it\'s you and '
+              'are never shared.',
         ),
       ],
     );

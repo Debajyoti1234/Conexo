@@ -41,6 +41,9 @@ dependencies:
   # Image normalization (JPEG canonical format for uploads/verification)
   flutter_image_compress: ^2.0.0
 
+  # Lightweight vector icons for the verification flow (pure-Dart, no native plugin)
+  flutter_svg: ^2.0.17
+
   # HTTP client for backend integration
   http: ^1.2.2
 
@@ -66,4 +69,5 @@ flutter:
     - assets/icons/
     - assets/logo/
     - assets/animations/
+    - assets/verification/
 
