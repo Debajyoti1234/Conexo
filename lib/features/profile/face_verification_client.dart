@@ -67,7 +67,8 @@ class FaceVerificationClient {
     required Uint8List selfieBytes,
     required String accessToken,
   }) async {
-    _trace('verification-start platform=${kIsWeb ? "web" : "mobile"}');
+    _trace('request-start');
+    _trace('platform=${kIsWeb ? "web" : "mobile"}');
 
     final baseUrl = SupabaseClientConfig.faceVerificationApiUrl;
     if (baseUrl.isEmpty) {
@@ -77,16 +78,15 @@ class FaceVerificationClient {
     }
 
     final uri = Uri.parse('$baseUrl/api/v1/verify-face');
-    _trace('source-byte-length value=${selfieBytes.length}');
+    _trace('endpoint=$uri');
+    _trace('source-byte-length=${selfieBytes.length}');
 
-    // Canonicalize to JPEG bytes so the transmitted image is always a real
-    // JPEG regardless of what the browser/camera produced.
     final normalized = await ConexoImageNormalizer.normalize(selfieBytes);
     _trace(
       'normalized original=${selfieBytes.length} normalized=${normalized.bytes.length}',
     );
-    _trace('normalized-filename value=selfie.jpg');
-    _trace('normalized-mime value=${normalized.contentType}');
+    _trace('normalized-filename=selfie.jpg');
+    _trace('normalized-mime=${normalized.contentType}');
 
     final request = http.MultipartRequest('POST', uri);
     _trace('multipart-created');
@@ -95,9 +95,6 @@ class FaceVerificationClient {
       'Authorization': 'Bearer $accessToken',
     });
 
-    // The per-part Content-Type below is written into the multipart body by
-    // package:http and sent verbatim on every platform (including iOS Safari
-    // via window.fetch). This is what makes Railway see image/jpeg.
     final filePart = http.MultipartFile.fromBytes(
       'selfie',
       normalized.bytes,
@@ -106,9 +103,10 @@ class FaceVerificationClient {
     );
     request.files.add(filePart);
     _trace('multipart-file-created');
-    _trace('multipart-file-content-type value=${filePart.contentType}');
-    _trace('multipart-file-filename value=${filePart.filename}');
+    _trace('multipart-file-content-type=${filePart.contentType}');
+    _trace('multipart-file-filename=${filePart.filename}');
     _trace('request-created host=${uri.host} path=${uri.path}');
+    _trace('multipart-finalized');
 
     final http.StreamedResponse streamed;
     try {
@@ -122,13 +120,13 @@ class FaceVerificationClient {
     } on FaceVerificationException {
       rethrow;
     } catch (e) {
-      // Client-side / CORS / network failure BEFORE a response is received.
       _trace('send-exception error=$e');
       throw const FaceVerificationException(
         'Verification is temporarily unavailable. Please try again later.',
       );
     }
-    _trace('send-complete status=${streamed.statusCode}');
+    _trace('send-success');
+    _trace('http-status=${streamed.statusCode}');
 
     final status = streamed.statusCode;
     final body = await streamed.stream.bytesToString().timeout(
@@ -137,8 +135,8 @@ class FaceVerificationClient {
         'Verification is temporarily unavailable. Please try again later.',
       ),
     );
-    _trace('response-status value=$status');
-    _trace('response-body value=$body');
+    _trace('response-status=$status');
+    _trace('response-body-length=${body.length}');
 
     if (status == 204) {
       return const VerificationResult(
@@ -224,7 +222,8 @@ class FaceVerificationClient {
     required Uint8List rightBytes,
     required String accessToken,
   }) async {
-    _trace('multi-verification-start platform=${kIsWeb ? "web" : "mobile"}');
+    _trace('request-start');
+    _trace('platform=${kIsWeb ? "web" : "mobile"}');
 
     final baseUrl = SupabaseClientConfig.faceVerificationApiUrl;
     if (baseUrl.isEmpty) {
@@ -234,13 +233,18 @@ class FaceVerificationClient {
     }
 
     final uri = Uri.parse('$baseUrl/api/v1/verify-face-multi');
+    _trace('endpoint=$uri');
 
-    // Canonicalize each angle to JPEG, then build the request through the
-    // shared builder so the multipart contract (field names, filenames,
-    // image/jpeg content type) has a single, test-covered source of truth.
     final front = await ConexoImageNormalizer.normalize(frontBytes);
     final left = await ConexoImageNormalizer.normalize(leftBytes);
     final right = await ConexoImageNormalizer.normalize(rightBytes);
+
+    _trace('front-byte-length=${front.bytes.length}');
+    _trace('left-byte-length=${left.bytes.length}');
+    _trace('right-byte-length=${right.bytes.length}');
+    _trace('front-content-type=image/jpeg');
+    _trace('left-content-type=image/jpeg');
+    _trace('right-content-type=image/jpeg');
 
     final request = buildMultiAngleRequest(
       uri: uri,
@@ -249,16 +253,11 @@ class FaceVerificationClient {
       leftJpeg: left.bytes,
       rightJpeg: right.bytes,
     );
-    for (final part in request.files) {
-      _trace(
-        'multi-part field=${part.field} filename=${part.filename} '
-        'content-type=${part.contentType} bytes=${part.length}',
-      );
-    }
+    _trace('multipart-finalized');
 
     final http.StreamedResponse streamed;
     try {
-      _trace('multi-send-start parts=${request.files.length}');
+      _trace('send-start');
       streamed = await request.send().timeout(
         const Duration(seconds: 45),
         onTimeout: () => throw const FaceVerificationException(
@@ -268,11 +267,13 @@ class FaceVerificationClient {
     } on FaceVerificationException {
       rethrow;
     } catch (e) {
-      _trace('multi-send-exception error=$e');
+      _trace('send-exception error=$e');
       throw const FaceVerificationException(
         'Verification is temporarily unavailable. Please try again later.',
       );
     }
+    _trace('send-success');
+    _trace('http-status=${streamed.statusCode}');
 
     final status = streamed.statusCode;
     final body = await streamed.stream.bytesToString().timeout(
@@ -281,8 +282,6 @@ class FaceVerificationClient {
         'Verification is temporarily unavailable. Please try again later.',
       ),
     );
-    _trace('multi-response-status value=$status');
-    _trace('multi-response-body value=$body');
 
     if (status == 204) {
       return const VerificationResult(match: false, reason: 'internal_error');
@@ -322,7 +321,7 @@ class FaceVerificationClient {
   void _trace(String message) {
     if (kDebugMode) {
       // ignore: avoid_print
-      print('[FaceVerificationWebTrace] step=$message');
+      print('[FaceVerificationWebTrace] $message');
     }
   }
 
