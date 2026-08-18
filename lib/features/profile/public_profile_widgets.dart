@@ -23,6 +23,7 @@ const _kAccent2 = Color(0xFF587BE2);
 const _kSoftText = Color(0xFFB9C3DC);
 const _kBrightText = Color(0xFFEAEEF9);
 const _kVerified = Color(0xFF47D7A5);
+const _kPending = Color(0xFFF0C25A);
 
 // ── PublicProfileHeader ─────────────────────────────────────────────────────
 
@@ -106,6 +107,107 @@ class VerifiedBadge extends StatelessWidget {
   }
 }
 
+// ── Owner header badges (privacy + verification) ────────────────────────────
+
+/// Compact privacy indicator for the owner header only: globe for public, lock
+/// for private. Tappable shortcut into Privacy & Verification.
+class _OwnerPrivacyBadge extends StatelessWidget {
+  const _OwnerPrivacyBadge({required this.visibility, this.onTap});
+
+  final ProfileVisibility visibility;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPublic = visibility == ProfileVisibility.public;
+    final icon = isPublic ? Icons.public_rounded : Icons.lock_rounded;
+    final label = isPublic ? 'Public' : 'Private';
+    return Tooltip(
+      message: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Semantics(
+          button: onTap != null,
+          label: label,
+          child: Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: .3),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: .28)),
+            ),
+            child: Icon(icon, size: 15, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact verification status pill for the owner header only: Verified /
+/// Pending / Verify. Reuses the established badge visual language (translucent
+/// color fill + border + icon + label). Tappable shortcut into Privacy &
+/// Verification.
+class _OwnerVerificationBadge extends StatelessWidget {
+  const _OwnerVerificationBadge({required this.status, this.onTap});
+
+  final VerificationStatus status;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final (color, icon, label) = switch (status) {
+      VerificationStatus.verified => (
+          _kVerified,
+          Icons.verified_rounded,
+          'Verified',
+        ),
+      VerificationStatus.pending => (
+          _kPending,
+          Icons.hourglass_top_rounded,
+          'Pending',
+        ),
+      VerificationStatus.notVerified => (
+          _kAccent,
+          Icons.shield_outlined,
+          'Verify',
+        ),
+    };
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Semantics(
+        button: onTap != null,
+        label: label,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .18),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: color.withValues(alpha: .6)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── ProfileHero ─────────────────────────────────────────────────────────────
 
 /// A large, immersive hero with swipeable photo gallery: all photos from the
@@ -120,9 +222,21 @@ class ProfileHero extends StatefulWidget {
   const ProfileHero({
     required this.data,
     super.key,
+    this.owner = false,
+    this.onOpenPrivacyVerification,
   });
 
   final PublicProfileViewData data;
+
+  /// When true, this is the signed-in user's own profile header: it renders the
+  /// tappable privacy + verification status cluster beside the name/age.
+  /// Defaults to false so every existing (non-owner/public) consumer renders
+  /// exactly as before.
+  final bool owner;
+
+  /// Owner-only shortcut invoked when the privacy or verification badge is
+  /// tapped. Wired by the owner screen to open Privacy & Verification.
+  final VoidCallback? onOpenPrivacyVerification;
 
   @override
   State<ProfileHero> createState() => _ProfileHeroState();
@@ -271,20 +385,53 @@ class _ProfileHeroState extends State<ProfileHero> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                    if (verified) ...[
-                      const VerifiedBadge(compact: true),
-                      const SizedBox(height: 14),
+                    if (widget.owner)
+                      // Owner header: Name, Age → Privacy → Verification, all on
+                      // one line. The name flexes/ellipsizes so the badges never
+                      // overflow. Non-owner profiles are unaffected.
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              titleLine,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.6,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          _OwnerPrivacyBadge(
+                            visibility: profile.profileVisibility,
+                            onTap: widget.onOpenPrivacyVerification,
+                          ),
+                          const SizedBox(width: 8),
+                          _OwnerVerificationBadge(
+                            status: profile.verificationStatus,
+                            onTap: widget.onOpenPrivacyVerification,
+                          ),
+                        ],
+                      )
+                    else ...[
+                      if (verified) ...[
+                        const VerifiedBadge(compact: true),
+                        const SizedBox(height: 14),
+                      ],
+                      Text(
+                        titleLine,
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.6,
+                          color: Colors.white,
+                        ),
+                      ),
                     ],
-
-                     Text(
-                       titleLine,
-                       style: const TextStyle(
-                         fontSize: 32,
-                         fontWeight: FontWeight.w800,
-                         letterSpacing: -0.6,
-                         color: Colors.white,
-                       ),
-                     ),
                      if (profile.occupation.trim().isNotEmpty) ...[
                        const SizedBox(height: 10),
                        Text(
@@ -299,7 +446,7 @@ class _ProfileHeroState extends State<ProfileHero> {
                       ],
                    ],
                  ),
-               ),
+                ),
              ),
            ),
          ],

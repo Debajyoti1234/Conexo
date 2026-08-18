@@ -384,28 +384,36 @@ class _ProcessingView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
-      child: Column(
-        children: [
-          const Spacer(),
-          const VerifyingIndicator(size: 104),
-          const SizedBox(height: 30),
-          const Text(
-            'All set!',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: VerifyColors.text,
+      // Force the processing content to the full available width (minus the
+      // existing 24px side padding). Without this, the Column receives loose
+      // width from the AnimatedSwitcher's centered Stack and collapses to its
+      // widest text line (~70%), leaving ~30% blank. Height is unchanged.
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          children: [
+            const Spacer(),
+            const VerifyingIndicator(size: 104),
+            const SizedBox(height: 30),
+            const Text(
+              'All set!',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+                color: VerifyColors.text,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            "We're reviewing your photos.\nThis may take a few seconds — please\ndon't close the app.",
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, height: 1.5, color: VerifyColors.soft),
-          ),
-          const Spacer(),
-        ],
+            const SizedBox(height: 10),
+            const Text(
+              "We're reviewing your photos.\nThis may take a few seconds — please\ndon't close the app.",
+              textAlign: TextAlign.center,
+              style:
+                  TextStyle(fontSize: 14, height: 1.5, color: VerifyColors.soft),
+            ),
+            const Spacer(),
+          ],
+        ),
       ),
     );
   }

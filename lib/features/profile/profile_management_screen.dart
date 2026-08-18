@@ -172,13 +172,9 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
 
     final updated = [...draftSnapshot.photos];
     updated[index] = replacement;
-    final newStatus = old.isPrimary
-        ? VerificationStatus.notVerified
-        : draftSnapshot.verificationStatus;
-    setState(() => _draft = draftSnapshot.copyWith(
-          photos: updated,
-          verificationStatus: newStatus,
-        ));
+    // Photo handlers only mutate photos; the authoritative verification
+    // decision is made once in _save() from the photo-id set.
+    setState(() => _draft = draftSnapshot.copyWith(photos: updated));
     _inFlightUploads.add(photoId);
 
     try {
@@ -216,7 +212,20 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
 
     setState(() => _saving = true);
     await Future<void>.delayed(const Duration(milliseconds: 500));
-    final profile = UserProfile.fromDraft(_draft, id: _profileId);
+
+    // Single authoritative verification decision. Verification validity depends
+    // on photo CONTENT (the set of photo ids), not order. Reordering the exact
+    // same photos preserves the loaded status; adding, removing, or replacing a
+    // photo changes the id set and clears verification to notVerified. The
+    // individual photo handlers never mutate verification status — this is the
+    // one and only decision point, using the loaded profile as the baseline.
+    final photoSetChanged =
+        verifiedPhotoSetChanged(_original.photos, _draft.photos);
+    final effectiveStatus = photoSetChanged
+        ? VerificationStatus.notVerified
+        : _original.verificationStatus;
+    final savedDraft = _draft.copyWith(verificationStatus: effectiveStatus);
+    final profile = UserProfile.fromDraft(savedDraft, id: _profileId);
     try {
       await widget.repository.saveProfile(profile);
     } catch (_) {
@@ -262,7 +271,8 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
     if (!mounted) return false;
 
     setState(() {
-      _original = _draft;
+      _original = savedDraft;
+      _draft = savedDraft;
       _saving = false;
       _saved = true;
     });

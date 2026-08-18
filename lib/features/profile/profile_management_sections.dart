@@ -79,34 +79,21 @@ class ManagePhotosSection extends StatelessWidget {
   final ValueChanged<ProfilePhoto> onPhotoAdded;
   final void Function(String photoId, {String? remoteUrl, PhotoUploadStatus? uploadStatus}) onPhotoUploadUpdated;
 
-  ProfilePhoto? _currentPrimary(List<ProfilePhoto> photos) {
-    if (photos.isEmpty) return null;
-    return photos.firstWhere((p) => p.isPrimary, orElse: () => photos.first);
-  }
-
   void _remove(int index) {
     final current = [...draft.photos];
-    final oldPrimary = _currentPrimary(current);
     current.removeAt(index);
     final normalized = _normalizePrimary(current);
-    final newPrimary = normalized.first;
-    final newStatus = oldPrimary?.id != newPrimary.id
-        ? VerificationStatus.notVerified
-        : draft.verificationStatus;
-    onChanged(draft.copyWith(photos: normalized, verificationStatus: newStatus));
+    // Only mutate photos here; _save() decides verification from the id set.
+    onChanged(draft.copyWith(photos: normalized));
   }
 
   void _reorder(int oldIndex, int newIndex) {
     final current = [...draft.photos];
-    final oldPrimary = _currentPrimary(current);
     final item = current.removeAt(oldIndex);
     current.insert(newIndex, item);
     final normalized = _normalizePrimary(current);
-    final newPrimary = normalized.first;
-    final newStatus = oldPrimary?.id != newPrimary.id
-        ? VerificationStatus.notVerified
-        : draft.verificationStatus;
-    onChanged(draft.copyWith(photos: normalized, verificationStatus: newStatus));
+    // Reorder never changes the photo id set, so verification is untouched.
+    onChanged(draft.copyWith(photos: normalized));
   }
 
   /// Enforces exactly one primary photo: after any reorder/delete the first
@@ -122,7 +109,6 @@ class ManagePhotosSection extends StatelessWidget {
   Future<void> _uploadAndAddPhoto(
       XFile xfile, String prefix, BuildContext context) async {
     final currentDraft = draft;
-    final wasEmpty = currentDraft.photos.isEmpty;
     final photoId = '${prefix}_${DateTime.now().millisecondsSinceEpoch}';
     final photo = ProfilePhoto(
       id: photoId,
@@ -130,17 +116,8 @@ class ManagePhotosSection extends StatelessWidget {
       isPrimary: currentDraft.photos.isEmpty,
       uploadStatus: PhotoUploadStatus.uploading,
     );
+    // Only append the photo; _save() decides verification from the id set.
     onPhotoAdded(photo);
-    if (wasEmpty &&
-        currentDraft.verificationStatus != VerificationStatus.notVerified) {
-      final updated = [...currentDraft.photos, photo];
-      onChanged(
-        currentDraft.copyWith(
-          photos: updated,
-          verificationStatus: VerificationStatus.notVerified,
-        ),
-      );
-    }
 
     try {
       final storagePath = await const SupabaseProfileRepository()

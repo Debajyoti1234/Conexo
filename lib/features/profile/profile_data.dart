@@ -819,6 +819,24 @@ bool profileDraftEquals(UserProfileDraft a, UserProfileDraft b) {
       _socialLinksEqual(a.socialLinks, b.socialLinks);
 }
 
+/// Whether the *set* of photo identities changed between [before] and [after],
+/// ignoring order.
+///
+/// Verification validity depends on photo CONTENT, not ordering: reordering the
+/// exact same photos leaves the id set unchanged (returns `false`), while adding,
+/// removing, or replacing a photo changes the id set (returns `true`). Uses the
+/// stable [ProfilePhoto.id] — new/replaced photos always receive a fresh id, so
+/// a replace registers as one id removed + one id added.
+bool verifiedPhotoSetChanged(
+  List<ProfilePhoto> before,
+  List<ProfilePhoto> after,
+) {
+  final beforeIds = {for (final p in before) p.id};
+  final afterIds = {for (final p in after) p.id};
+  return beforeIds.length != afterIds.length ||
+      !beforeIds.containsAll(afterIds);
+}
+
 bool _photosEqual(List<ProfilePhoto> a, List<ProfilePhoto> b) {
   if (a.length != b.length) return false;
   for (var i = 0; i < a.length; i++) {

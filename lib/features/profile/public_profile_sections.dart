@@ -16,13 +16,31 @@ import 'public_profile_widgets.dart';
 
 /// The large immersive hero (photo + identity + badges).
 class HeroSection extends StatelessWidget {
-  const HeroSection({required this.data, super.key});
+  const HeroSection({
+    required this.data,
+    super.key,
+    this.owner = false,
+    this.onOpenPrivacyVerification,
+  });
 
   final PublicProfileViewData data;
 
+  /// Owner-only: renders the tappable privacy + verification status cluster
+  /// beside the name/age. Defaults preserve the existing non-owner (public)
+  /// rendering exactly.
+  final bool owner;
+
+  /// Owner-only shortcut invoked when the privacy or verification badge is
+  /// tapped (wired to open Privacy & Verification).
+  final VoidCallback? onOpenPrivacyVerification;
+
   @override
   Widget build(BuildContext context) {
-    return ProfileHero(data: data);
+    return ProfileHero(
+      data: data,
+      owner: owner,
+      onOpenPrivacyVerification: onOpenPrivacyVerification,
+    );
   }
 }
 

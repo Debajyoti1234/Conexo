@@ -231,7 +231,11 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             ),
             children: [
               RepaintBoundary(
-                child: HeroSection(data: data),
+                child: HeroSection(
+                  data: data,
+                  owner: true,
+                  onOpenPrivacyVerification: _openPrivacy,
+                ),
               ),
               const SizedBox(height: 20),
               Padding(
