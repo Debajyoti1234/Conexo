@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../app/router/app_router.dart';
 import '../home_discovery_animations.dart';
 import 'profile_repository.dart';
+import 'blocked_users_screen.dart';
+import 'contact_support_screen.dart';
+import 'report_problem_screen.dart';
+import 'safety_tips_screen.dart';
 
-/// A simple, UI-only Safety hub for the Profile module.
-///
-/// It surfaces the common safety actions users expect from a premium social
-/// app — Report a Problem, Blocked Users, Safety Tips, and Contact Support.
-/// Every item is presentational (no backend, no persistence); taps show a
-/// lightweight placeholder so the flow feels complete without wiring services.
 class SafetyScreen extends StatelessWidget {
   const SafetyScreen({super.key});
 
@@ -52,7 +51,7 @@ class SafetyScreen extends StatelessWidget {
                 iconColor: const Color(0xFFE36D9D),
                 title: 'Report a Problem',
                 subtitle: 'Tell us about inappropriate behavior or content.',
-                onTap: () => _showPlaceholder(context, 'Report a Problem'),
+                onTap: () => _openReportProblem(context),
               ),
             ),
             const SizedBox(height: 12),
@@ -62,7 +61,7 @@ class SafetyScreen extends StatelessWidget {
                 iconColor: const Color(0xFFF2B34B),
                 title: 'Blocked Users',
                 subtitle: 'Review and manage people you have blocked.',
-                onTap: () => _showPlaceholder(context, 'Blocked Users'),
+                onTap: () => _openBlockedUsers(context),
               ),
             ),
             const SizedBox(height: 12),
@@ -72,7 +71,7 @@ class SafetyScreen extends StatelessWidget {
                 iconColor: const Color(0xFF47D7A5),
                 title: 'Safety Tips',
                 subtitle: 'Advice for meeting new people safely.',
-                onTap: () => _showPlaceholder(context, 'Safety Tips'),
+                onTap: () => _openSafetyTips(context),
               ),
             ),
             const SizedBox(height: 12),
@@ -82,7 +81,7 @@ class SafetyScreen extends StatelessWidget {
                 iconColor: const Color(0xFF22BFE0),
                 title: 'Contact Support',
                 subtitle: 'Get help from the Conexo team.',
-                onTap: () => _showPlaceholder(context, 'Contact Support'),
+                onTap: () => _openContactSupport(context),
               ),
             ),
           ],
@@ -91,12 +90,27 @@ class SafetyScreen extends StatelessWidget {
     );
   }
 
-  void _showPlaceholder(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — coming soon'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  void _openReportProblem(BuildContext context) {
+    Navigator.of(context).push(
+      AppRouter.premiumProfileRoute(const ReportProblemScreen()),
+    );
+  }
+
+  void _openBlockedUsers(BuildContext context) {
+    Navigator.of(context).push(
+      AppRouter.premiumProfileRoute(const BlockedUsersScreen()),
+    );
+  }
+
+  void _openSafetyTips(BuildContext context) {
+    Navigator.of(context).push(
+      AppRouter.premiumProfileRoute(const SafetyTipsScreen()),
+    );
+  }
+
+  void _openContactSupport(BuildContext context) {
+    Navigator.of(context).push(
+      AppRouter.premiumProfileRoute(const ContactSupportScreen()),
     );
   }
 }
@@ -177,32 +191,8 @@ class _SafetyTile extends StatelessWidget {
   }
 }
 
-/// Premium route into the Safety hub — matches Conexo's fade + slide language.
-///
-/// Accepts an optional [repository] for signature parity with the other
-/// Profile routes (unused here since the screen is UI-only).
+/// Premium route into the Safety hub — delegates to the shared Profile
+/// transition so every Profile sub-screen feels identical.
 Route<void> premiumSafetyRoute({ProfileRepository? repository}) {
-  return PageRouteBuilder<void>(
-    transitionDuration: const Duration(milliseconds: 420),
-    reverseTransitionDuration: const Duration(milliseconds: 320),
-    pageBuilder: (context, animation, secondaryAnimation) =>
-        const SafetyScreen(),
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInOutCubic,
-      );
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.04),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
-      );
-    },
-  );
+  return AppRouter.premiumProfileRoute(const SafetyScreen());
 }

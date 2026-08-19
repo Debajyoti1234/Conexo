@@ -72,8 +72,15 @@ class AuthService {
 }
 
     try {
+      _gtrace(
+        'android authenticate-start '
+        'serverClientIdSet=${const String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID').isNotEmpty}',
+      );
       final account = await _googleSignIn.authenticate();
+      _gtrace('authenticate-ok email=${account.email} id=${account.id}');
+
       final idToken = account.authentication.idToken;
+      _gtrace('idToken present=${idToken != null} length=${idToken?.length ?? 0}');
       if (idToken == null) {
         throw const AuthFailure('Unable to obtain Google credentials');
       }
@@ -87,15 +94,22 @@ class AuthService {
       } catch (_) {
         // accessToken is optional for Supabase signInWithIdToken
       }
+      _gtrace('accessToken present=${accessToken != null}');
 
+      _gtrace('supabase signInWithIdToken-start');
       final response = await _client.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
         accessToken: accessToken,
       );
+      _gtrace(
+        'supabase-result session=${response.session != null} '
+        'user=${response.user?.id}',
+      );
 
       return response;
     } on GoogleSignInException catch (e) {
+      _gtrace('GoogleSignInException code=${e.code} description=${e.description}');
       if (e.code == GoogleSignInExceptionCode.canceled ||
           e.code == GoogleSignInExceptionCode.interrupted ||
           e.code == GoogleSignInExceptionCode.uiUnavailable) {
@@ -103,9 +117,23 @@ class AuthService {
       }
       throw AuthFailure(e.description ?? 'Google sign-in failed');
     } on AuthException catch (error) {
+      _gtrace('AuthException status=${error.statusCode} message=${error.message}');
       throw _mapAuthException(error);
-    } catch (_) {
+    } catch (e) {
+      _gtrace('unexpected ${e.runtimeType}: $e');
       throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
+  /// DEBUG-only tracing for the Google auth boundaries.
+  ///
+  /// Behavior-neutral: emits nothing in release builds (guarded by
+  /// [kDebugMode]) and never alters control flow. Temporary diagnostics to
+  /// pinpoint exactly where Android Google sign-in stops completing; safe to
+  /// remove once confirmed.
+  static void _gtrace(String message) {
+    if (kDebugMode) {
+      debugPrint('[GoogleAuthTrace] $message');
     }
   }
 

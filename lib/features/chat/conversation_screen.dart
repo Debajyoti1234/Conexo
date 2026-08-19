@@ -15,6 +15,8 @@ import 'realtime_messages_service.dart';
 import '../profile/profile_data.dart';
 import '../profile/public_profile_data.dart';
 import '../profile/public_profile_screen.dart';
+import '../profile/report_problem_screen.dart';
+import '../profile/safety_repository.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({
@@ -40,6 +42,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   StreamSubscription<ChatMessageEvent>? _realtimeSubscription;
   SharedPreferences? _prefs;
   String _draftText = '';
+  bool _isBlocked = false;
 
   String get _draftKey => 'chat_draft_${widget.conversation.id}';
 
@@ -51,6 +54,15 @@ class _ConversationScreenState extends State<ConversationScreen> {
         widget.conversation.type == ConversationType.private) {
       _startRealtime();
     }
+    _checkBlockStatus();
+  }
+
+  Future<void> _checkBlockStatus() async {
+    final otherId = widget.conversation.otherUserId;
+    if (otherId == null) return;
+    final result = await const SafetyRepository().isBlocked(otherId);
+    if (!mounted) return;
+    setState(() => _isBlocked = result.value ?? false);
   }
 
   @override
@@ -257,7 +269,94 @@ class _ConversationScreenState extends State<ConversationScreen> {
       Navigator.of(context).push(premiumPublicProfileRoute(data: data));
       return;
     }
+
+    if (actionId == 'block') {
+      final otherId = widget.conversation.otherUserId;
+      if (otherId == null) return;
+      _showBlockDialog(otherId);
+      return;
+    }
+
+    if (actionId == 'report') {
+      final otherId = widget.conversation.otherUserId;
+      if (otherId == null) return;
+      _openReport(otherId);
+      return;
+    }
+
     debugPrint('Menu action: $actionId');
+  }
+
+  Future<void> _showBlockDialog(String otherId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF141B2E),
+        title: const Text('Block User', style: TextStyle(color: Color(0xFFEAEEF9))),
+        content: Text(
+          'Block ${widget.conversation.name}? You will no longer see each other in People or chat.',
+          style: const TextStyle(color: Color(0xFFB9C3DC)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8B5CF6)),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    final result = await const SafetyRepository().blockUser(otherId);
+    if (!mounted) return;
+
+    if (result.isSuccess) {
+      setState(() => _isBlocked = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${widget.conversation.name} has been blocked'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error ?? 'Failed to block user')),
+      );
+    }
+  }
+
+  Future<void> _openReport(String otherId) async {
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 420),
+        reverseTransitionDuration: const Duration(milliseconds: 320),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            ReportProblemScreen(reportedUserId: otherId),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInOutCubic,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -281,33 +380,35 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   message: _error!,
                   onRetry: _load,
                 )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: _messages.isEmpty
-                          ? _EmptyThread(name: c.name)
-                          : _MessageList(
-                              messages: _messages,
-                              conversation: c,
-                              group: _group,
-                            ),
+              : _isBlocked
+                  ? _BlockedState(name: c.name)
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: _messages.isEmpty
+                              ? _EmptyThread(name: c.name)
+                              : _MessageList(
+                                  messages: _messages,
+                                  conversation: c,
+                                  group: _group,
+                                ),
+                        ),
+                        AnimatedPadding(
+                          duration: const Duration(milliseconds: 240),
+                          curve: Curves.easeOutCubic,
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.of(context).viewInsets.bottom,
+                          ),
+                          child: MessageComposer(
+                            initialText: _draftText,
+                            onDraftChanged: _onDraftChanged,
+                            onSend: widget.chatRepository != null
+                                ? _sendMessage
+                                : null,
+                          ),
+                        ),
+                      ],
                     ),
-                    AnimatedPadding(
-                      duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOutCubic,
-                      padding: EdgeInsets.only(
-                        bottom: MediaQuery.of(context).viewInsets.bottom,
-                      ),
-                      child: MessageComposer(
-                        initialText: _draftText,
-                        onDraftChanged: _onDraftChanged,
-                        onSend: widget.chatRepository != null
-                            ? _sendMessage
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
     );
   }
 
@@ -476,6 +577,65 @@ class _ErrorState extends StatelessWidget {
             label: const Text('Retry'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BlockedState extends StatelessWidget {
+  const _BlockedState({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 72, horizontal: 28),
+        child: Column(
+          children: [
+            Container(
+              height: 58,
+              width: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFE36D9D).withValues(alpha: .12),
+              ),
+              child: const Icon(
+                Icons.block_rounded,
+                size: 27,
+                color: Color(0xFFE36D9D),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'This user is blocked',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You have blocked $name. Unblock them from Safety to resume messaging.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: Color(0xFFB9C3DC),
+              ),
+            ),
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: const Text('Back to Safety'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF8B5CF6),
+                side: const BorderSide(color: Color(0xFF8B5CF6)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

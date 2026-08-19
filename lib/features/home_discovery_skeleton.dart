@@ -1,12 +1,14 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'home_discovery_animations.dart';
 
 /// Premium skeleton shown briefly while a profile is being revealed.
 ///
-/// Mirrors the real [ImmersiveProfileView] layout: hero gradient, avatar
-/// placeholder, two badge placeholders, and an information panel made of
-/// shimmering blocks.
+/// Mirrors the real [ImmersiveProfileView] layout: full-bleed hero gradient,
+/// badge placeholders, identity block, floating control placeholders, and
+/// an information panel made of shimmering blocks.
 class ProfileSkeleton extends StatelessWidget {
   const ProfileSkeleton({super.key});
 
@@ -14,39 +16,68 @@ class ProfileSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final panelHeight = constraints.maxHeight * 0.46;
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(30),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              const _SkeletonHero(),
-              Positioned(
-                top: 18,
-                left: 18,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    _SkeletonBadge(width: 92),
-                    SizedBox(height: 10),
-                    _SkeletonBadge(width: 118),
-                  ],
+        return Column(
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const _SkeletonHero(),
+                  const IgnorePointer(child: _SkeletonScrim()),
+                  Positioned(
+                    top: 18,
+                    left: 18,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        _SkeletonBadge(width: 92),
+                        SizedBox(height: 10),
+                        _SkeletonBadge(width: 118),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    top: 18,
+                    right: 18,
+                    child: const _SkeletonBadge(width: 150),
+                  ),
+                  Positioned(
+                    left: 22,
+                    right: 22,
+                    bottom: 108,
+                    child: const _SkeletonIdentity(),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 14,
+                    child: _SkeletonControls(),
+                  ),
+                ],
+              ),
+            ),
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141C31).withValues(alpha: .82),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+                    border: Border(
+                      top: BorderSide(color: Colors.white.withValues(alpha: .1)),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(24, 18, 24, 120),
+                  child: Column(
+                    children: const [
+                      _SkeletonPanel(),
+                    ],
+                  ),
                 ),
               ),
-              Positioned(
-                top: 18,
-                right: 18,
-                child: const _SkeletonBadge(width: 150),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: panelHeight,
-                child: const _SkeletonPanel(),
-              ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
@@ -96,6 +127,29 @@ class _SkeletonHero extends StatelessWidget {
   }
 }
 
+class _SkeletonScrim extends StatelessWidget {
+  const _SkeletonScrim();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0x66000000),
+            Color(0x00000000),
+            Color(0x33000000),
+            Color(0xE60A0F1F),
+          ],
+          stops: [0.0, 0.32, 0.62, 1.0],
+        ),
+      ),
+    );
+  }
+}
+
 class _SkeletonBadge extends StatelessWidget {
   const _SkeletonBadge({required this.width});
 
@@ -117,64 +171,89 @@ class _SkeletonBadge extends StatelessWidget {
   }
 }
 
+class _SkeletonIdentity extends StatelessWidget {
+  const _SkeletonIdentity();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          SkeletonLine(width: 180, height: 32),
+          SizedBox(height: 10),
+          SkeletonLine(width: 110, height: 14),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkeletonControls extends StatelessWidget {
+  const _SkeletonControls();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _SkeletonCircle(size: 58),
+        const SizedBox(width: 34),
+        _SkeletonCircle(size: 82),
+        const SizedBox(width: 34),
+        _SkeletonCircle(size: 58),
+      ],
+    );
+  }
+}
+
+class _SkeletonCircle extends StatelessWidget {
+  const _SkeletonCircle({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer(
+      child: Container(
+        height: size,
+        width: size,
+        decoration: BoxDecoration(
+          color: const Color(0xFF232C47),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
 class _SkeletonPanel extends StatelessWidget {
   const _SkeletonPanel();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF172039).withValues(alpha: .94),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .34),
-            blurRadius: 26,
-            offset: const Offset(0, -6),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          const SizedBox(height: 10),
-          Container(
-            width: 42,
-            height: 4,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .22),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          Expanded(
-            child: Shimmer(
-              child: ListView(
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(22, 20, 22, 28),
-                children: const [
-                  SkeletonLine(width: 180, height: 30),
-                  SizedBox(height: 12),
-                  SkeletonLine(width: 110, height: 13),
-                  SizedBox(height: 30),
-                  SkeletonLine(width: 90, height: 15),
-                  SizedBox(height: 12),
-                  SkeletonLine(width: double.infinity, height: 13),
-                  SizedBox(height: 8),
-                  SkeletonLine(width: 220, height: 13),
-                  SizedBox(height: 28),
-                  SkeletonLine(width: 90, height: 15),
-                  SizedBox(height: 12),
-                  _SkeletonChipRow(),
-                  SizedBox(height: 28),
-                  SkeletonLine(width: 90, height: 15),
-                  SizedBox(height: 12),
-                  SkeletonLine(width: double.infinity, height: 40),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 28),
+      children: const [
+        SkeletonLine(width: 180, height: 30),
+        SizedBox(height: 12),
+        SkeletonLine(width: 110, height: 13),
+        SizedBox(height: 30),
+        SkeletonLine(width: 90, height: 15),
+        SizedBox(height: 12),
+        SkeletonLine(width: double.infinity, height: 13),
+        SizedBox(height: 8),
+        SkeletonLine(width: 220, height: 13),
+        SizedBox(height: 28),
+        SkeletonLine(width: 90, height: 15),
+        SizedBox(height: 12),
+        _SkeletonChipRow(),
+        SizedBox(height: 28),
+        SkeletonLine(width: 90, height: 15),
+        SizedBox(height: 12),
+        SkeletonLine(width: double.infinity, height: 40),
+      ],
     );
   }
 }

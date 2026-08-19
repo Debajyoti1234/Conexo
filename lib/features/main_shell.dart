@@ -212,12 +212,12 @@ class FloatingNavDock extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
+        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
         child: RepaintBoundary(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(30),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
               child: Container(
                 height: 68,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -225,19 +225,19 @@ class FloatingNavDock extends StatelessWidget {
                   color: const Color(0xFF141B2E).withValues(alpha: .62),
                   borderRadius: BorderRadius.circular(30),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: .10),
+                    color: Colors.white.withValues(alpha: .12),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: .42),
-                      blurRadius: 30,
-                      offset: const Offset(0, 14),
+                      color: Colors.black.withValues(alpha: .48),
+                      blurRadius: 34,
+                      offset: const Offset(0, 16),
                     ),
                     BoxShadow(
-                      color: _accent.withValues(alpha: .10),
-                      blurRadius: 26,
-                      offset: const Offset(0, 6),
+                      color: _accent.withValues(alpha: .14),
+                      blurRadius: 28,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
@@ -250,7 +250,6 @@ class FloatingNavDock extends StatelessWidget {
                         item: _items[i],
                         selected: i == selectedIndex,
                         accent: _accent,
-                        // Only the Profile tab (last item) can show an avatar.
                         avatar: i == _items.length - 1 ? profileImage : null,
                         onTap: () => onSelected(i),
                       ),

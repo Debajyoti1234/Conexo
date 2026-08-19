@@ -72,3 +72,31 @@ bool hasSharedInterests(
   return normalizedViewer.any(normalizedCandidate.contains);
 }
 
+/// Whether a candidate [age] satisfies the current user's saved age-range
+/// discovery preference (`discovery_min_age` / `discovery_max_age`).
+///
+/// Null boundaries mean "no restriction" for that side, so:
+///   • both null  → no age filtering
+///   • min only   → age must be >= min
+///   • max only   → age must be <= max
+///
+/// An invalid range (min > max, which the Discovery Preferences UI prevents via
+/// clamping) is treated as "no age restriction" rather than hiding everyone.
+bool ageWithinDiscoveryPreference(int age, int? minAge, int? maxAge) {
+  if (minAge != null && maxAge != null && minAge > maxAge) return true;
+  if (minAge != null && age < minAge) return false;
+  if (maxAge != null && age > maxAge) return false;
+  return true;
+}
+
+/// Whether a candidate at [distanceMeters] satisfies the current user's saved
+/// distance discovery preference (`discovery_distance_km`).
+///
+/// A null [maxDistanceKm] represents the "Any" option and applies no distance
+/// restriction. The comparison is inclusive of the boundary.
+bool distanceWithinDiscoveryPreference(double distanceMeters, int? maxDistanceKm) {
+  if (maxDistanceKm == null) return true;
+  return distanceMeters <= maxDistanceKm * 1000;
+}
+
+

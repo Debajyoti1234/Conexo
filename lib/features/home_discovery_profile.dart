@@ -15,18 +15,22 @@ class ImmersiveProfileView extends StatefulWidget {
     required this.counterLabel,
     required this.connection,
     required this.connecting,
+    required this.connectionError,
     required this.onConnect,
     required this.onProfileTap,
-    this.connectionError,
+    required this.onPrevious,
+    required this.onNext,
   });
 
   final DiscoveryProfile profile;
   final String counterLabel;
   final Connection? connection;
   final bool connecting;
+  final String? connectionError;
   final VoidCallback onConnect;
   final VoidCallback onProfileTap;
-  final String? connectionError;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
 
   @override
   State<ImmersiveProfileView> createState() => _ImmersiveProfileViewState();
@@ -55,12 +59,18 @@ class _ImmersiveProfileViewState extends State<ImmersiveProfileView> {
             counterLabel: widget.counterLabel,
             connection: widget.connection,
             connecting: widget.connecting,
+            connectionError: widget.connectionError,
             onConnect: widget.onConnect,
             onTap: widget.onProfileTap,
+            onPrevious: widget.onPrevious,
+            onNext: widget.onNext,
           ),
         ),
         SliverToBoxAdapter(
           child: _DetailsSection(profile: widget.profile),
+        ),
+        const SliverToBoxAdapter(
+          child: SizedBox(height: 120),
         ),
       ],
     );
@@ -73,76 +83,94 @@ class _HeroSection extends StatelessWidget {
     required this.counterLabel,
     required this.connection,
     required this.connecting,
+    required this.connectionError,
     required this.onConnect,
     required this.onTap,
+    required this.onPrevious,
+    required this.onNext,
   });
 
   final DiscoveryProfile profile;
   final String counterLabel;
   final Connection? connection;
   final bool connecting;
+  final String? connectionError;
   final VoidCallback onConnect;
   final VoidCallback onTap;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
 
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final heroHeight = media.size.height - media.padding.top - 150;
+    final heroHeight = media.size.height - media.padding.top - 140;
     return SizedBox(
-      height: heroHeight.clamp(420.0, 900.0),
-      child: GestureDetector(
-        onTap: onTap,
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _PhotoGallery(
+      height: heroHeight.clamp(460.0, 900.0),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              onTap: onTap,
+              child: _PhotoGallery(
                 key: ValueKey<String>('gallery_${profile.name}'),
                 profile: profile,
               ),
-              const IgnorePointer(child: _HeroScrim()),
-              Positioned(
-                top: 18,
-                left: 18,
-                child: IgnorePointer(child: _BadgeColumn(profile: profile)),
-              ),
-              Positioned(
-                top: 18,
-                right: 18,
-                child: IgnorePointer(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 340),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(scale: animation, child: child),
-                    ),
-                    child: HeroBadge(
-                      key: ValueKey<String>(counterLabel),
-                      icon: Icons.location_on_rounded,
-                      label: counterLabel,
-                      color: const Color(0xFFFF4D8D),
-                    ),
+            ),
+            const IgnorePointer(child: _HeroScrim()),
+            Positioned(
+              top: 18,
+              left: 18,
+              child: IgnorePointer(child: _BadgeColumn(profile: profile)),
+            ),
+            Positioned(
+              top: 18,
+              right: 18,
+              child: IgnorePointer(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 340),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(scale: animation, child: child),
+                  ),
+                  child: HeroBadge(
+                    key: ValueKey<String>(counterLabel),
+                    icon: Icons.location_on_rounded,
+                    label: counterLabel,
+                    color: const Color(0xFFFF4D8D),
                   ),
                 ),
               ),
-              Positioned(
-                left: 22,
-                right: 22,
-                bottom: 26,
-                child: IgnorePointer(
-                  child: _IdentityBlock(
-                    profile: profile,
-                    connection: connection,
-                    connecting: connecting,
-                    onConnect: onConnect,
-                  ),
+            ),
+            Positioned(
+              left: 22,
+              right: 22,
+              bottom: 100,
+              child: IgnorePointer(
+                child: _IdentityBlock(
+                  profile: profile,
+                  connection: connection,
+                  connecting: connecting,
+                  onConnect: onConnect,
                 ),
               ),
-            ],
-          ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 14,
+              child: DiscoveryControls(
+                connection: connection,
+                connecting: connecting,
+                onPrevious: onPrevious,
+                onNext: onNext,
+                onConnect: onConnect,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -709,7 +737,7 @@ class _DetailsSection extends StatelessWidget {
                 top: BorderSide(color: Colors.white.withValues(alpha: .1)),
               ),
             ),
-            padding: const EdgeInsets.fromLTRB(24, 18, 24, 150),
+            padding: const EdgeInsets.fromLTRB(24, 18, 24, 40),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: _buildSections(),

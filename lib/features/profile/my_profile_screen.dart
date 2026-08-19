@@ -4,7 +4,9 @@ import '../../app/router/app_router.dart';
 import '../../core/supabase/auth_service.dart';
 import '../home_discovery_animations.dart';
 import '../login_screen.dart';
+import 'about_conexo_screen.dart';
 import 'discovery_preferences_screen.dart';
+import 'help_support_screen.dart';
 import 'privacy_verification_screen.dart';
 import 'profile_data.dart';
 import 'profile_management_screen.dart';
@@ -123,21 +125,15 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     );
   }
 
-  void _openHelpAndSupport() => _placeholder('Help & Support');
+  void _openHelpAndSupport() {
+    Navigator.of(context).push(
+      premiumHelpSupportRoute(),
+    );
+  }
 
   void _openAbout() {
-    showAboutDialog(
-      context: context,
-      applicationName: 'Conexo',
-      applicationVersion: '1.0.0',
-      applicationLegalese: '© Conexo',
-      children: const [
-        SizedBox(height: 12),
-        Text(
-          'Conexo helps you make small plans and meet people who share your '
-          'rhythm.',
-        ),
-      ],
+    Navigator.of(context).push(
+      premiumAboutConexoRoute(),
     );
   }
 
@@ -160,15 +156,6 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         const SnackBar(content: Text('Network error. Please try again.')),
       );
     }
-  }
-
-  void _placeholder(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label — coming soon'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   void _onMenuSelected(_ProfileMenuAction action) {
@@ -392,28 +379,17 @@ enum _ProfileMenuAction {
 }
 
 Route<void> premiumMyProfileRoute({ProfileRepository? repository}) {
-  return PageRouteBuilder<void>(
-    transitionDuration: const Duration(milliseconds: 420),
-    reverseTransitionDuration: const Duration(milliseconds: 320),
-    pageBuilder: (context, animation, secondaryAnimation) => MyProfileScreen(
+  return AppRouter.premiumProfileRoute(
+    MyProfileScreen(
       repository: repository ?? const SessionAwareProfileRepository(),
     ),
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInOutCubic,
-      );
-      return FadeTransition(
-        opacity: curved,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0, 0.04),
-            end: Offset.zero,
-          ).animate(curved),
-          child: child,
-        ),
-      );
-    },
   );
+}
+
+Route<void> premiumHelpSupportRoute() {
+  return AppRouter.premiumProfileRoute(const HelpSupportScreen());
+}
+
+Route<void> premiumAboutConexoRoute() {
+  return AppRouter.premiumProfileRoute(const AboutConexoScreen());
 }

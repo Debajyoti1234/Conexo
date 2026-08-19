@@ -20,7 +20,7 @@ class DiscoveryRepository {
       final viewerProfile = await Supabase.instance.client
           .from('profiles')
           .select(
-              'gender, latitude, longitude, interests, display_name, availability_status')
+              'gender, latitude, longitude, interests, display_name, availability_status, discovery_distance_km, discovery_min_age, discovery_max_age')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -36,6 +36,14 @@ class DiscoveryRepository {
       final (viewerLat, viewerLng) = viewerCoords;
       final viewerInterests = _normalizeInterests(
           (viewerProfile['interests'] as List?)?.cast<String>());
+
+      // Phase 9.1B: the current user's saved Discovery Preferences, loaded once
+      // per query. Null values mean "no restriction" and leave the existing
+      // discovery behavior unchanged.
+      final viewerMaxDistanceKm =
+          (viewerProfile['discovery_distance_km'] as num?)?.toInt();
+      final viewerMinAge = (viewerProfile['discovery_min_age'] as num?)?.toInt();
+      final viewerMaxAge = (viewerProfile['discovery_max_age'] as num?)?.toInt();
 
       final candidateIds = <String>[];
       final candidateRows = <Map<String, dynamic>>[];
@@ -83,7 +91,21 @@ class DiscoveryRepository {
 
         if (maxDistanceMeters != null && distance > maxDistanceMeters) continue;
 
+        // Phase 9.1B: apply the current user's saved distance preference
+        // (discovery_distance_km). Null / "Any" applies no restriction.
+        if (!distanceWithinDiscoveryPreference(distance, viewerMaxDistanceKm)) {
+          continue;
+        }
+
         final base = DiscoveryProfile.fromJson(row);
+
+        // Phase 9.1B: apply the current user's saved age-range preference
+        // (discovery_min_age / discovery_max_age). Reuses the existing
+        // DOB-based age via DiscoveryProfile.age. Null boundaries do not filter.
+        if (!ageWithinDiscoveryPreference(base.age, viewerMinAge, viewerMaxAge)) {
+          continue;
+        }
+
         final candidateInterests = _normalizeInterests(base.interests);
         final sharedCount = viewerInterests
             .where((i) => candidateInterests.contains(i))
@@ -249,23 +271,45 @@ Set<String> _normalizeInterests(List<String>? interests) {
   };
 }
 
-Future<Set<String>> _loadConsumedProfileIds(String userId) async {
-  try {
-    final data = await Supabase.instance.client
-        .from('connections')
-        .select('requester_id, recipient_id')
-        .or('requester_id.eq.$userId,recipient_id.eq.$userId')
-        .inFilter('status', ['pending', 'accepted']);
+  Future<Set<String>> _loadConsumedProfileIds(String userId) async {
+    try {
+      final data = await Supabase.instance.client
+          .from('connections')
+          .select('requester_id, recipient_id')
+          .or('requester_id.eq.$userId,recipient_id.eq.$userId')
+          .inFilter('status', ['pending', 'accepted']);
 
-    final consumed = <String>{};
-    for (final row in data) {
-      final requesterId = row['requester_id'] as String;
-      final recipientId = row['recipient_id'] as String;
-      final otherId = requesterId == userId ? recipientId : requesterId;
-      consumed.add(otherId);
+      final consumed = <String>{};
+      for (final row in data) {
+        final requesterId = row['requester_id'] as String;
+        final recipientId = row['recipient_id'] as String;
+        final otherId = requesterId == userId ? recipientId : requesterId;
+        consumed.add(otherId);
+      }
+
+      final blocked = await _loadBlockedProfileIds(userId);
+      consumed.addAll(blocked);
+
+      return consumed;
+    } catch (_) {
+      return const {};
     }
-    return consumed;
-  } catch (_) {
-    return const {};
   }
-}
+
+  Future<Set<String>> _loadBlockedProfileIds(String userId) async {
+    try {
+      final data = await Supabase.instance.client
+          .from('blocked_users')
+          .select('blocked_user_id')
+          .eq('blocker_user_id', userId);
+
+      final blocked = <String>{};
+      for (final row in data) {
+        final blockedId = row['blocked_user_id'] as String?;
+        if (blockedId != null) blocked.add(blockedId);
+      }
+      return blocked;
+    } catch (_) {
+      return const {};
+    }
+  }

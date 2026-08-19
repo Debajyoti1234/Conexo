@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'chat_models.dart';
 import 'chat_repository.dart';
@@ -174,9 +175,28 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
     final plans = await _repository.loadPlanConversations();
     if (!mounted) return;
 
+    final currentUser = AuthService.currentUser;
+    final blockedIds = <String>{};
+    if (currentUser != null) {
+      try {
+        final blocked = await Supabase.instance.client
+            .from('blocked_users')
+            .select('blocked_user_id')
+            .eq('blocker_user_id', currentUser.id);
+        for (final row in blocked) {
+          final id = row['blocked_user_id'] as String?;
+          if (id != null) blockedIds.add(id);
+        }
+      } catch (_) {
+        // ignore block load failure — show all connections
+      }
+    }
+
+    final filtered = accepted.where((m) => !blockedIds.contains(m.otherUserId)).toList();
+
     _latestMessageTimes.clear();
     final connectionPreviews = <ConversationPreview>[];
-    for (final m in accepted) {
+    for (final m in filtered) {
       String lastMessage = '';
       String timestamp = '';
 
@@ -209,6 +229,7 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
           unreadCount: unreadCount,
           isPinned: _pinnedConnectionIds.contains(m.connectionId),
           isVerified: m.isVerified,
+          otherUserId: m.otherUserId,
         ));
       } else {
         connectionPreviews.add(ConversationPreview(
@@ -223,6 +244,7 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
           unreadCount: 0,
           isPinned: _pinnedConnectionIds.contains(m.connectionId),
           isVerified: m.isVerified,
+          otherUserId: m.otherUserId,
         ));
       }
     }

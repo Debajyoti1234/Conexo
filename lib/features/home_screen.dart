@@ -186,121 +186,120 @@ class _HomeScreenState extends State<HomeScreen> {
         ? 'Nearby'
         : 'Nearby • ${safeIndex + 1} / ${profiles.length}';
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-        child: Column(
-          children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: Align(
-                key: ValueKey<int>(DateTime.now().hour),
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _greeting(),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 34,
-              child: GestureDetector(
-                onLongPress: () => _showFilters(context),
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _discoveryFilters.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final filter = _discoveryFilters[index];
-                    return _DiscoveryFilterChip(
-                      key: ValueKey<String>('filter_$filter'),
-                      label: filter,
-                      selected: _selectedFilter == filter,
-                      onTap: () => _selectFilter(filter),
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 420),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) {
-                      final fade = CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeOutCubic,
-                      );
-                      return FadeTransition(
-                        opacity: fade,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: Offset(_direction * 0.12, 0),
-                            end: Offset.zero,
-                          ).animate(fade),
-                          child: ScaleTransition(
-                            scale: Tween<double>(begin: .985, end: 1).animate(
-                              fade,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: Align(
+                          key: ValueKey<int>(DateTime.now().hour),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            _greeting(),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
                             ),
-                            child: child,
                           ),
                         ),
-                      );
-                    },
-                    child: _loading
-                        ? const ProfileSkeleton(
-                            key: ValueKey<String>('skeleton'),
-                          )
-                        : _fetchError && _profiles.isEmpty
-                        ? _DiscoveryErrorState(
-                            key: const ValueKey<String>('error'),
-                            onRetry: _loadProfiles,
-                          )
-                        : profile == null
-                        ? _DiscoveryEmptyState(
-                            key: const ValueKey<String>('empty'),
-                            filter: _selectedFilter,
-                            onReset: () => _selectFilter('All'),
-                          )
-                        : ImmersiveProfileView(
-                            key: ValueKey<String>('${profile.name}_$safeIndex'),
-                            profile: profile,
-                            counterLabel: counterLabel,
-                            connection: _connections[profile.id],
-                            connecting: _connecting[profile.id] ?? false,
-                            connectionError: _connectionError,
-                            onConnect: () => _sendRequest(profile.id),
-                            onProfileTap: () => _openProfile(profile),
-                          ),
-                  ),
-                  if (profile != null && _connecting[profile.id] == true)
-                    Center(
-                      child: HeartBurst(
-                        key: ValueKey<String>('heart-burst-${profile.id}'),
-                        onCompleted: () => _onConnectCompleted(profile.id),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _filterSummary(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: .6),
+                          letterSpacing: .1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _FloatingFilterButton(
+                  onTap: () => _showFilters(context),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 420),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    final fade = CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    );
+                    return FadeTransition(
+                      opacity: fade,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: Offset(_direction * 0.12, 0),
+                          end: Offset.zero,
+                        ).animate(fade),
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: .985, end: 1).animate(
+                            fade,
+                          ),
+                          child: child,
+                        ),
+                      ),
+                    );
+                  },
+                  child: _loading
+                      ? const ProfileSkeleton(
+                          key: ValueKey<String>('skeleton'),
+                        )
+                      : _fetchError && _profiles.isEmpty
+                      ? _DiscoveryErrorState(
+                          key: const ValueKey<String>('error'),
+                          onRetry: _loadProfiles,
+                        )
+                      : profile == null
+                      ? _DiscoveryEmptyState(
+                          key: const ValueKey<String>('empty'),
+                          filter: _selectedFilter,
+                          onReset: () => _selectFilter('All'),
+                        )
+                      : ImmersiveProfileView(
+                          key: ValueKey<String>('${profile.name}_$safeIndex'),
+                          profile: profile,
+                          counterLabel: counterLabel,
+                          connection: _connections[profile.id],
+                          connecting: _connecting[profile.id] ?? false,
+                          connectionError: _connectionError,
+                          onConnect: () => _sendRequest(profile.id),
+                          onProfileTap: () => _openProfile(profile),
+                          onPrevious: () => _move(-1),
+                          onNext: () => _move(1),
+                        ),
+                ),
+                if (profile != null && _connecting[profile.id] == true)
+                  Center(
+                    child: HeartBurst(
+                      key: ValueKey<String>('heart-burst-${profile.id}'),
+                      onCompleted: () => _onConnectCompleted(profile.id),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
-            const SizedBox(height: 14),
-            DiscoveryControls(
-              connection: _connections[profile?.id],
-              connecting: _connecting[profile?.id] ?? false,
-              onPrevious: () => _move(-1),
-              onNext: () => _move(1),
-              onConnect: () => _sendRequest(profile!.id),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -311,6 +310,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (hour < 12) return 'Good Morning ☀️';
     if (hour < 17) return 'Good Afternoon 🌤';
     return 'Good Evening 🌙';
+  }
+
+  String _filterSummary() {
+    final filter = _selectedFilter;
+    if (filter == 'All') return 'All nearby';
+    return filter;
   }
 
   void _showFilters(BuildContext context) {
@@ -446,19 +451,6 @@ DiscoverySortMode? _sortModeFromLabel(String label) {
   }
 }
 
-const _discoveryFilters = <String>[
-  'All',
-  'Nearby',
-  'Coffee',
-  'Walk',
-  'Music',
-  'Study',
-  'Verified',
-  'Available Now',
-  'New',
-  'Shared Interests',
-];
-
 const _kDiscoveryFilterKeywords = <String, List<String>>{
   'Coffee': ['coffee', 'cafe', 'espresso', 'chai', 'tea'],
   'Walk': ['walk', 'walking', 'hiking', 'trek', 'running', 'run', 'jog'],
@@ -519,6 +511,36 @@ bool _profileMatchesKeywords(DiscoveryProfile profile, List<String> keywords) {
     if (haystack.contains(k)) return true;
   }
   return false;
+}
+
+class _FloatingFilterButton extends StatelessWidget {
+  const _FloatingFilterButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: .16)),
+          ),
+          child: Icon(
+            Icons.tune_rounded,
+            size: 20,
+            color: Colors.white.withValues(alpha: .9),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _DiscoveryEmptyState extends StatelessWidget {
@@ -773,52 +795,6 @@ class _ErrorStateRetryButton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DiscoveryFilterChip extends StatelessWidget {
-  const _DiscoveryFilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    super.key,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => AnimatedContainer(
-    duration: const Duration(milliseconds: 240),
-    decoration: BoxDecoration(
-      color: selected
-          ? const Color(0xFF7C3AED)
-          : Colors.white.withValues(alpha: .08),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(
-        color: Colors.white.withValues(alpha: selected ? .0 : .12),
-      ),
-    ),
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
-          child: Center(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 

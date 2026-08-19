@@ -98,6 +98,9 @@ class SupabaseProfileRepository implements ProfileRepository {
       'profile_completed': profileCompleted,
       'display_name': profile.displayName,
       'availability_status': profile.availabilityStatus,
+      'discovery_distance_km': profile.discoveryDistanceKm,
+      'discovery_min_age': profile.discoveryMinAge,
+      'discovery_max_age': profile.discoveryMaxAge,
     };
 
     await Supabase.instance.client
@@ -233,6 +236,15 @@ class SupabaseProfileRepository implements ProfileRepository {
           break;
         case 'availability_status':
           result['availabilityStatus'] = value;
+          break;
+        case 'discovery_distance_km':
+          result['discoveryDistanceKm'] = value;
+          break;
+        case 'discovery_min_age':
+          result['discoveryMinAge'] = value;
+          break;
+        case 'discovery_max_age':
+          result['discoveryMaxAge'] = value;
           break;
         default:
           result[key] = value;

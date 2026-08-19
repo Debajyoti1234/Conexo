@@ -17,6 +17,11 @@ class ConnectionRepository {
         return const ConnectionResult.failure('Cannot connect with yourself');
       }
 
+      final blocked = await _isBlocked(user.id, recipientId);
+      if (blocked) {
+        return const ConnectionResult.failure('Cannot connect with this user');
+      }
+
       final now = DateTime.now().toIso8601String();
       final data = await Supabase.instance.client
           .from('connections')
@@ -202,6 +207,19 @@ class ConnectionRepository {
       return ConnectionResult.success(connections);
     } catch (e) {
       return ConnectionResult.failure('Network error. Please try again.');
+    }
+  }
+
+  Future<bool> _isBlocked(String userId1, String userId2) async {
+    try {
+      final result = await Supabase.instance.client
+          .from('blocked_users')
+          .select('id')
+          .or('and(blocker_user_id.eq.$userId1,blocked_user_id.eq.$userId2),and(blocker_user_id.eq.$userId2,blocked_user_id.eq.$userId1)')
+          .maybeSingle();
+      return result != null;
+    } catch (_) {
+      return false;
     }
   }
 }

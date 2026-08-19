@@ -270,6 +270,14 @@ class ProfilePreviewData {
   final List<String> favoriteActivities;
 }
 
+/// Sentinel used by [UserProfileDraft.copyWith] and [UserProfile.copyWith] to
+/// distinguish "not provided" from "explicitly set to null" for nullable
+/// discovery-preference fields.
+class _CopyWithUnspecified {
+  const _CopyWithUnspecified();
+  static const _CopyWithUnspecified instance = _CopyWithUnspecified();
+}
+
 // ── UserProfileDraft ────────────────────────────────────────────────────────
 
 /// The immutable, editable draft used throughout the creation flow.
@@ -304,6 +312,9 @@ class UserProfileDraft {
     this.updatedAt,
     this.displayName = '',
     this.availabilityStatus = 'offline',
+    this.discoveryDistanceKm,
+    this.discoveryMinAge,
+    this.discoveryMaxAge,
   });
 
   // Required
@@ -340,6 +351,15 @@ class UserProfileDraft {
   final DateTime? updatedAt;
   final String displayName;
   final String availabilityStatus;
+
+  /// Maximum discovery distance in kilometres. Null means no limit / unset.
+  final int? discoveryDistanceKm;
+
+  /// Minimum age for People/Discovery results. Null means unset.
+  final int? discoveryMinAge;
+
+  /// Maximum age for People/Discovery results. Null means unset.
+  final int? discoveryMaxAge;
 
   /// The primary photo (first `isPrimary`, else the first photo, else null).
   ProfilePhoto? get primaryPhoto {
@@ -417,6 +437,9 @@ class UserProfileDraft {
     DateTime? updatedAt,
     String? displayName,
     String? availabilityStatus,
+    Object? discoveryDistanceKm = _CopyWithUnspecified.instance,
+    Object? discoveryMinAge = _CopyWithUnspecified.instance,
+    Object? discoveryMaxAge = _CopyWithUnspecified.instance,
   }) {
     return UserProfileDraft(
       photos: photos ?? this.photos,
@@ -443,6 +466,15 @@ class UserProfileDraft {
       updatedAt: updatedAt ?? this.updatedAt,
       displayName: displayName ?? this.displayName,
       availabilityStatus: availabilityStatus ?? this.availabilityStatus,
+      discoveryDistanceKm: discoveryDistanceKm is _CopyWithUnspecified
+          ? this.discoveryDistanceKm
+          : discoveryDistanceKm as int?,
+      discoveryMinAge: discoveryMinAge is _CopyWithUnspecified
+          ? this.discoveryMinAge
+          : discoveryMinAge as int?,
+      discoveryMaxAge: discoveryMaxAge is _CopyWithUnspecified
+          ? this.discoveryMaxAge
+          : discoveryMaxAge as int?,
     );
   }
 
@@ -471,6 +503,9 @@ class UserProfileDraft {
         'updatedAt': updatedAt?.toIso8601String(),
         'displayName': displayName,
         'availabilityStatus': availabilityStatus,
+        'discoveryDistanceKm': discoveryDistanceKm,
+        'discoveryMinAge': discoveryMinAge,
+        'discoveryMaxAge': discoveryMaxAge,
       };
 
   /// Builds an editable draft from an existing finalized [profile].
@@ -503,6 +538,9 @@ class UserProfileDraft {
       updatedAt: profile.updatedAt,
       displayName: profile.displayName,
       availabilityStatus: profile.availabilityStatus,
+      discoveryDistanceKm: profile.discoveryDistanceKm,
+      discoveryMinAge: profile.discoveryMinAge,
+      discoveryMaxAge: profile.discoveryMaxAge,
     );
   }
 
@@ -538,6 +576,9 @@ class UserProfileDraft {
       updatedAt: _parseDate(json['updatedAt']),
       displayName: json['displayName'] as String? ?? '',
       availabilityStatus: json['availabilityStatus'] as String? ?? 'offline',
+      discoveryDistanceKm: json['discoveryDistanceKm'] as int?,
+      discoveryMinAge: json['discoveryMinAge'] as int?,
+      discoveryMaxAge: json['discoveryMaxAge'] as int?,
     );
   }
 }
@@ -572,6 +613,9 @@ class UserProfile {
     this.updatedAt,
     this.displayName = '',
     this.availabilityStatus = 'offline',
+    this.discoveryDistanceKm,
+    this.discoveryMinAge,
+    this.discoveryMaxAge,
   });
 
   final String id;
@@ -604,6 +648,15 @@ class UserProfile {
   final DateTime? updatedAt;
   final String displayName;
   final String availabilityStatus;
+
+  /// Maximum discovery distance in kilometres. Null means no limit / unset.
+  final int? discoveryDistanceKm;
+
+  /// Minimum age for People/Discovery results. Null means unset.
+  final int? discoveryMinAge;
+
+  /// Maximum age for People/Discovery results. Null means unset.
+  final int? discoveryMaxAge;
 
   ProfilePhoto? get primaryPhoto {
     if (photos.isEmpty) return null;
@@ -665,6 +718,9 @@ class UserProfile {
       updatedAt: now,
       displayName: draft.displayName,
       availabilityStatus: draft.availabilityStatus,
+      discoveryDistanceKm: draft.discoveryDistanceKm,
+      discoveryMinAge: draft.discoveryMinAge,
+      discoveryMaxAge: draft.discoveryMaxAge,
     );
   }
 
@@ -694,6 +750,9 @@ class UserProfile {
     DateTime? updatedAt,
     String? displayName,
     String? availabilityStatus,
+    Object? discoveryDistanceKm = _CopyWithUnspecified.instance,
+    Object? discoveryMinAge = _CopyWithUnspecified.instance,
+    Object? discoveryMaxAge = _CopyWithUnspecified.instance,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -721,6 +780,15 @@ class UserProfile {
       updatedAt: updatedAt ?? this.updatedAt,
       displayName: displayName ?? this.displayName,
       availabilityStatus: availabilityStatus ?? this.availabilityStatus,
+      discoveryDistanceKm: discoveryDistanceKm is _CopyWithUnspecified
+          ? this.discoveryDistanceKm
+          : discoveryDistanceKm as int?,
+      discoveryMinAge: discoveryMinAge is _CopyWithUnspecified
+          ? this.discoveryMinAge
+          : discoveryMinAge as int?,
+      discoveryMaxAge: discoveryMaxAge is _CopyWithUnspecified
+          ? this.discoveryMaxAge
+          : discoveryMaxAge as int?,
     );
   }
 
@@ -750,6 +818,9 @@ class UserProfile {
         'updatedAt': updatedAt?.toIso8601String(),
         'displayName': displayName,
         'availabilityStatus': availabilityStatus,
+        'discoveryDistanceKm': discoveryDistanceKm,
+        'discoveryMinAge': discoveryMinAge,
+        'discoveryMaxAge': discoveryMaxAge,
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -785,6 +856,9 @@ class UserProfile {
       updatedAt: _parseDate(json['updatedAt']),
       displayName: json['displayName'] as String? ?? '',
       availabilityStatus: json['availabilityStatus'] as String? ?? 'offline',
+      discoveryDistanceKm: json['discoveryDistanceKm'] as int?,
+      discoveryMinAge: json['discoveryMinAge'] as int?,
+      discoveryMaxAge: json['discoveryMaxAge'] as int?,
     );
   }
 }
