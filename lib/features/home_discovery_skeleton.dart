@@ -16,46 +16,32 @@ class ProfileSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final screenHeight = MediaQuery.sizeOf(context).height;
+        final identityTop = screenHeight * 0.70;
+        final controlsTop = screenHeight * 0.76;
         return Column(
           children: [
-            Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const _SkeletonHero(),
-                  const IgnorePointer(child: _SkeletonScrim()),
-                  Positioned(
-                    top: 18,
-                    left: 18,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        _SkeletonBadge(width: 92),
-                        SizedBox(height: 10),
-                        _SkeletonBadge(width: 118),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    top: 18,
-                    right: 18,
-                    child: const _SkeletonBadge(width: 150),
-                  ),
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                const _SkeletonHero(),
+                const IgnorePointer(child: _SkeletonScrim()),
                   Positioned(
                     left: 22,
                     right: 22,
-                    bottom: 108,
+                    top: identityTop,
                     child: const _SkeletonIdentity(),
                   ),
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: 14,
+                    top: controlsTop,
                     child: _SkeletonControls(),
                   ),
-                ],
-              ),
+              ],
             ),
+          ),
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
               child: BackdropFilter(
@@ -144,27 +130,6 @@ class _SkeletonScrim extends StatelessWidget {
             Color(0xE60A0F1F),
           ],
           stops: [0.0, 0.32, 0.62, 1.0],
-        ),
-      ),
-    );
-  }
-}
-
-class _SkeletonBadge extends StatelessWidget {
-  const _SkeletonBadge({required this.width});
-
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return Shimmer(
-      child: Container(
-        height: 32,
-        width: width,
-        decoration: BoxDecoration(
-          color: const Color(0xFF232C47),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: .06)),
         ),
       ),
     );

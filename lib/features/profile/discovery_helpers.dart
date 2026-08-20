@@ -37,7 +37,7 @@ Set<String> eligibleTargetGenders(String? viewerGender) {
       return const {'Man'};
     case 'non-binary':
     case 'prefer not to say':
-      return const {'Man', 'Woman'};
+      return const {'Man', 'Woman', 'Non-binary', 'Prefer not to say'};
     default:
       return const {'Man', 'Woman'};
   }

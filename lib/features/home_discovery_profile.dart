@@ -1,36 +1,40 @@
+import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/supabase/auth_service.dart';
 import 'home_discovery_animations.dart';
+import 'home_discovery_cache.dart';
 import 'profile/connection_data.dart';
 import 'profile/discovery_data.dart';
+import 'profile/profile_data.dart';
+import 'profile/supabase_profile_repository.dart';
+
+const _kAccent = Color(0xFF8B5CF6);
+const _kAccent2 = Color(0xFF587BE2);
 
 class ImmersiveProfileView extends StatefulWidget {
   const ImmersiveProfileView({
     required super.key,
     required this.profile,
-    required this.counterLabel,
     required this.connection,
     required this.connecting,
-    required this.connectionError,
     required this.onConnect,
-    required this.onProfileTap,
     required this.onPrevious,
     required this.onNext,
+    required this.onRefresh,
   });
 
   final DiscoveryProfile profile;
-  final String counterLabel;
   final Connection? connection;
   final bool connecting;
-  final String? connectionError;
   final VoidCallback onConnect;
-  final VoidCallback onProfileTap;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
+  final Future<void> Function() onRefresh;
 
   @override
   State<ImmersiveProfileView> createState() => _ImmersiveProfileViewState();
@@ -47,108 +51,81 @@ class _ImmersiveProfileViewState extends State<ImmersiveProfileView> {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      controller: _scrollController,
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      slivers: [
-        SliverToBoxAdapter(
-          child: _HeroSection(
-            profile: widget.profile,
-            counterLabel: widget.counterLabel,
-            connection: widget.connection,
-            connecting: widget.connecting,
-            connectionError: widget.connectionError,
-            onConnect: widget.onConnect,
-            onTap: widget.onProfileTap,
-            onPrevious: widget.onPrevious,
-            onNext: widget.onNext,
+    return RefreshIndicator(
+      onRefresh: widget.onRefresh,
+      // Push the indicator below the floating greeting/filter pill.
+      displacement: 96,
+      color: const Color(0xFFB7A5FF),
+      backgroundColor: const Color(0xFF141C31),
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: _HeroSection(
+              profile: widget.profile,
+              connection: widget.connection,
+              connecting: widget.connecting,
+              onConnect: widget.onConnect,
+              onProfilePrevious: widget.onPrevious,
+              onProfileNext: widget.onNext,
+            ),
           ),
-        ),
-        SliverToBoxAdapter(
-          child: _DetailsSection(profile: widget.profile),
-        ),
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 120),
-        ),
-      ],
+          // Elegant gap so the hero and information read as two distinct
+          // premium glass surfaces rather than one continuous card.
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          SliverToBoxAdapter(child: _DetailsSection(profile: widget.profile)),
+          const SliverToBoxAdapter(child: SizedBox(height: 200)),
+        ],
+      ),
     );
   }
 }
 
+/// The hero photo section. Renders the centered, sharp photo with atmospheric
+/// black scrim and the identity block below.
 class _HeroSection extends StatelessWidget {
   const _HeroSection({
     required this.profile,
-    required this.counterLabel,
     required this.connection,
     required this.connecting,
-    required this.connectionError,
     required this.onConnect,
-    required this.onTap,
-    required this.onPrevious,
-    required this.onNext,
+    required this.onProfilePrevious,
+    required this.onProfileNext,
   });
 
   final DiscoveryProfile profile;
-  final String counterLabel;
   final Connection? connection;
   final bool connecting;
-  final String? connectionError;
   final VoidCallback onConnect;
-  final VoidCallback onTap;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
+  final VoidCallback onProfilePrevious;
+  final VoidCallback onProfileNext;
 
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final heroHeight = media.size.height - media.padding.top - 140;
+    final heroHeight = media.size.height - media.padding.top;
+    final screenHeight = media.size.height;
+    final identityTop = screenHeight * 0.70;
     return SizedBox(
-      height: heroHeight.clamp(460.0, 900.0),
+      height: heroHeight.clamp(480.0, 1000.0),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            GestureDetector(
-              onTap: onTap,
-              child: _PhotoGallery(
-                key: ValueKey<String>('gallery_${profile.name}'),
-                profile: profile,
-              ),
-            ),
-            const IgnorePointer(child: _HeroScrim()),
-            Positioned(
-              top: 18,
-              left: 18,
-              child: IgnorePointer(child: _BadgeColumn(profile: profile)),
-            ),
-            Positioned(
-              top: 18,
-              right: 18,
-              child: IgnorePointer(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 340),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(scale: animation, child: child),
-                  ),
-                  child: HeroBadge(
-                    key: ValueKey<String>(counterLabel),
-                    icon: Icons.location_on_rounded,
-                    label: counterLabel,
-                    color: const Color(0xFFFF4D8D),
-                  ),
-                ),
-              ),
+            _PhotoGallery(
+              key: ValueKey<String>('gallery_${profile.name}'),
+              profile: profile,
+              onProfilePrevious: onProfilePrevious,
+              onProfileNext: onProfileNext,
             ),
             Positioned(
               left: 22,
               right: 22,
-              bottom: 100,
+              top: identityTop,
               child: IgnorePointer(
                 child: _IdentityBlock(
                   profile: profile,
@@ -156,18 +133,6 @@ class _HeroSection extends StatelessWidget {
                   connecting: connecting,
                   onConnect: onConnect,
                 ),
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 14,
-              child: DiscoveryControls(
-                connection: connection,
-                connecting: connecting,
-                onPrevious: onPrevious,
-                onNext: onNext,
-                onConnect: onConnect,
               ),
             ),
           ],
@@ -180,10 +145,14 @@ class _HeroSection extends StatelessWidget {
 class _PhotoGallery extends StatefulWidget {
   const _PhotoGallery({
     required this.profile,
+    required this.onProfilePrevious,
+    required this.onProfileNext,
     super.key,
   });
 
   final DiscoveryProfile profile;
+  final VoidCallback onProfilePrevious;
+  final VoidCallback onProfileNext;
 
   @override
   State<_PhotoGallery> createState() => _PhotoGalleryState();
@@ -193,11 +162,37 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
   late final PageController _controller;
   int _photoIndex = 0;
 
-  List<String> get _photos {
-    final assets = [for (final p in widget.profile.photos) p.assetPath];
-    if (assets.isEmpty) return [];
-    if (assets.length > 1) return assets;
-    return [assets.first, assets.first, assets.first];
+  double _dragStartX = 0;
+  double _dragLastX = 0;
+
+  static const double _kSwipeDistanceThreshold = 48;
+  static const double _kSwipeVelocityThreshold = 350;
+
+  void _handleProfileSwipe(DragEndDetails details) {
+    final dx = _dragLastX - _dragStartX;
+    if (dx.abs() >= _kSwipeDistanceThreshold) {
+      if (dx < 0) {
+        widget.onProfilePrevious();
+      } else {
+        widget.onProfileNext();
+      }
+      return;
+    }
+    final vx = details.velocity.pixelsPerSecond.dx;
+    if (vx.abs() >= _kSwipeVelocityThreshold) {
+      if (vx < 0) {
+        widget.onProfilePrevious();
+      } else {
+        widget.onProfileNext();
+      }
+    }
+  }
+
+  List<ProfilePhoto> get _photos {
+    final photos = widget.profile.photos;
+    if (photos.isEmpty) return const [];
+    if (photos.length > 1) return photos;
+    return [photos.first, photos.first, photos.first];
   }
 
   @override
@@ -245,85 +240,287 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
       return _FallbackPortrait(profile: widget.profile);
     }
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        PageView.builder(
-          controller: _controller,
-          itemCount: count,
-          onPageChanged: (i) => setState(() => _photoIndex = i),
-          itemBuilder: (context, i) => _HeroPhoto(
-            key: ValueKey('photo_${widget.profile.name}_$i'),
-            assetPath: photos[i],
-            profile: widget.profile,
-          ),
-        ),
-        if (count > 1)
-          Positioned.fill(
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 40,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () => _goToPhoto(_photoIndex - 1),
-                    child: Container(color: Colors.transparent),
-                  ),
-                ),
-                const Spacer(flex: 20),
-                Expanded(
-                  flex: 40,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () => _goToPhoto(_photoIndex + 1),
-                    child: Container(color: Colors.transparent),
-                  ),
-                ),
-              ],
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: (details) {
+        _dragStartX = details.globalPosition.dx;
+        _dragLastX = details.globalPosition.dx;
+      },
+      onHorizontalDragUpdate: (details) {
+        _dragLastX = details.globalPosition.dx;
+      },
+      onHorizontalDragEnd: _handleProfileSwipe,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PageView.builder(
+            controller: _controller,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: count,
+            onPageChanged: (i) => setState(() => _photoIndex = i),
+            itemBuilder: (context, i) => _HeroPhoto(
+              key: ValueKey('photo_${widget.profile.name}_$i'),
+              photo: photos[i],
+              profile: widget.profile,
             ),
           ),
-        if (count > 1)
-          Positioned(
-            top: 12,
-            left: 18,
-            right: 18,
-            child: _FloatingProgressBars(count: count, activeIndex: _photoIndex),
-          ),
-      ],
+          if (count > 1)
+            Positioned.fill(
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 40,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () => _goToPhoto(_photoIndex - 1),
+                      child: Container(color: Colors.transparent),
+                    ),
+                  ),
+                  const Spacer(flex: 20),
+                  Expanded(
+                    flex: 40,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () => _goToPhoto(_photoIndex + 1),
+                      child: Container(color: Colors.transparent),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (count > 1)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 66,
+              left: 20,
+              right: 20,
+              child: _FloatingProgressBars(
+                count: count,
+                activeIndex: _photoIndex,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
-class _HeroPhoto extends StatelessWidget {
-  const _HeroPhoto({
-    required this.assetPath,
-    required this.profile,
-    super.key,
-  });
+class _HeroPhoto extends StatefulWidget {
+  const _HeroPhoto({required this.photo, required this.profile, super.key});
 
-  final String assetPath;
+  final ProfilePhoto photo;
   final DiscoveryProfile profile;
 
   @override
-  Widget build(BuildContext context) {
-    if (assetPath.trim().isEmpty) {
-      return _FallbackPortrait(profile: profile);
+  State<_HeroPhoto> createState() => _HeroPhotoState();
+}
+
+class _HeroPhotoState extends State<_HeroPhoto> {
+  String? _signedUrl;
+  bool _loadingSignedUrl = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final url = widget.photo.remoteUrl;
+    if (kDebugMode) {
+      debugPrint(
+        '[DiscoveryPhoto] name=${widget.profile.name} '
+        'remoteUrl=${url ?? "null"} assetPath=${widget.photo.assetPath.isEmpty ? "empty" : widget.photo.assetPath}',
+      );
     }
-    return Image.asset(
-      assetPath,
-      fit: BoxFit.cover,
-      gaplessPlayback: true,
-      errorBuilder: (context, error, stackTrace) =>
-          _FallbackPortrait(profile: profile),
+    if (url != null && url.startsWith('profiles/')) {
+      final cached = DiscoveryPhotoCache.getSignedUrl(url);
+      if (cached != null) {
+        _signedUrl = cached;
+        _loadingSignedUrl = false;
+      } else {
+        _fetchSignedUrl();
+      }
+    } else if (url != null &&
+        (url.startsWith('http://') || url.startsWith('https://'))) {
+      _signedUrl = url;
+      _loadingSignedUrl = false;
+    } else {
+      _loadingSignedUrl = false;
+    }
+  }
+
+  Future<void> _fetchSignedUrl() async {
+    try {
+      final remoteUrl = widget.photo.remoteUrl!;
+      final url = await const SupabaseProfileRepository().getSignedPhotoUrl(
+        remoteUrl,
+      );
+      if (!mounted) return;
+
+      if (url != null && url.isNotEmpty) {
+        DiscoveryPhotoCache.setSignedUrl(remoteUrl, url);
+      }
+
+      setState(() {
+        _signedUrl = url;
+        _loadingSignedUrl = false;
+      });
+    } catch (e) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      try {
+        final remoteUrl = widget.photo.remoteUrl!;
+        final url = await const SupabaseProfileRepository().getSignedPhotoUrl(
+          remoteUrl,
+        );
+        if (!mounted) return;
+
+        if (url != null && url.isNotEmpty) {
+          DiscoveryPhotoCache.setSignedUrl(remoteUrl, url);
+        }
+
+        setState(() {
+          _signedUrl = url;
+          _loadingSignedUrl = false;
+        });
+      } catch (e2) {
+        if (!mounted) return;
+        setState(() => _loadingSignedUrl = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget child;
+    if (_signedUrl != null) {
+      child = Image.network(
+        _signedUrl!,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          if (kDebugMode) {
+            debugPrint(
+              '[DiscoveryPhoto] network image FAILED for ${widget.profile.name} error=$error',
+            );
+          }
+          return const _HeroPlaceholder();
+        },
+      );
+    } else if (_loadingSignedUrl) {
+      child = const _HeroPlaceholder();
+    } else if (widget.photo.remoteUrl != null &&
+        widget.photo.remoteUrl!.startsWith('profiles/')) {
+      child = const _HeroPlaceholder();
+    } else if (widget.photo.assetPath.trim().isEmpty) {
+      child = const _HeroPlaceholder();
+    } else if (widget.photo.assetPath.startsWith('assets/')) {
+      child = Image.asset(
+        widget.photo.assetPath,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => const _HeroPlaceholder(),
+      );
+    } else if (kIsWeb && widget.photo.assetPath.startsWith('blob:')) {
+      child = Image.network(
+        widget.photo.assetPath,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => const _HeroPlaceholder(),
+      );
+    } else if (kIsWeb) {
+      child = const _HeroPlaceholder();
+    } else {
+      child = Image.file(
+        File(widget.photo.assetPath),
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        frameBuilder: (context, image, frame, wasSyncLoaded) {
+          if (wasSyncLoaded) return image;
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              const _HeroPlaceholder(),
+              AnimatedOpacity(
+                opacity: frame == null ? 0 : 1,
+                duration: const Duration(milliseconds: 520),
+                curve: Curves.easeOut,
+                child: image,
+              ),
+            ],
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => const _HeroPlaceholder(),
+      );
+    }
+
+    return child;
+  }
+}
+
+class _HeroPlaceholder extends StatelessWidget {
+  const _HeroPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_kAccent, _kAccent2],
+        ),
+      ),
+      child: Center(
+        child: Icon(Icons.person_rounded, size: 96, color: Colors.white24),
+      ),
     );
   }
 }
 
 class _FloatingProgressBars extends StatelessWidget {
-  const _FloatingProgressBars({
-    required this.count,
-    required this.activeIndex,
-  });
+  const _FloatingProgressBars({required this.count, required this.activeIndex});
 
   final int count;
   final int activeIndex;
@@ -363,8 +560,7 @@ class _FloatingProgressBars extends StatelessWidget {
                           boxShadow: i == activeIndex
                               ? [
                                   BoxShadow(
-                                    color:
-                                        Colors.white.withValues(alpha: .3),
+                                    color: Colors.white.withValues(alpha: .3),
                                     blurRadius: 4,
                                   ),
                                 ]
@@ -424,10 +620,7 @@ class _FallbackPortrait extends StatelessWidget {
             gradient: RadialGradient(
               center: const Alignment(-0.4, -0.55),
               radius: 1.1,
-              colors: [
-                Colors.white.withValues(alpha: .28),
-                Colors.transparent,
-              ],
+              colors: [Colors.white.withValues(alpha: .28), Colors.transparent],
               stops: const [0.0, 0.7],
             ),
           ),
@@ -448,29 +641,6 @@ class _FallbackPortrait extends StatelessWidget {
   }
 }
 
-class _HeroScrim extends StatelessWidget {
-  const _HeroScrim();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0x66000000),
-            Color(0x00000000),
-            Color(0x33000000),
-            Color(0xE60A0F1F),
-          ],
-          stops: [0.0, 0.32, 0.62, 1.0],
-        ),
-      ),
-    );
-  }
-}
-
 class _IdentityBlock extends StatelessWidget {
   const _IdentityBlock({
     required this.profile,
@@ -484,51 +654,180 @@ class _IdentityBlock extends StatelessWidget {
   final bool connecting;
   final VoidCallback onConnect;
 
+  bool get _isActiveNow => profile.availabilityStatus == 'available_now';
+
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final distance = profile.distanceMeters != null
+        ? profile.formattedDistance
+        : null;
+    final occupation = profile.occupation?.trim() ?? '';
+
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${profile.name}, ${profile.age}',
-          style: const TextStyle(
-            fontSize: 40,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.8,
-            height: 1.0,
-            color: Colors.white,
-            shadows: [
-              Shadow(color: Color(0x99000000), blurRadius: 18),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
+        if (_isActiveNow) ...[
+          const _ActiveNowBadge(),
+          const SizedBox(height: 12),
+        ],
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.near_me_rounded,
-              size: 17,
-              color: Color(0xFFEAEEF9),
+            Flexible(
+              child: Text(
+                profile.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.8,
+                  color: Colors.white,
+                  shadows: [Shadow(color: Color(0x99000000), blurRadius: 18)],
+                ),
+              ),
             ),
-            const SizedBox(width: 6),
+            if (profile.verified) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.verified_rounded,
+                size: 24,
+                color: const Color(0xFF3B9EFF),
+                shadows: [Shadow(color: Color(0x99000000), blurRadius: 10)],
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
             Text(
-              profile.formattedDistance,
+              '${profile.age}',
               style: const TextStyle(
-                color: Color(0xFFEAEEF9),
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 letterSpacing: .1,
+                color: Color(0xFFEAEEF9),
                 shadows: [Shadow(color: Color(0x99000000), blurRadius: 12)],
               ),
             ),
+            if (distance != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                '·',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFEAEEF9).withValues(alpha: .7),
+                  letterSpacing: .1,
+                  shadows: [Shadow(color: Color(0x99000000), blurRadius: 12)],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                distance,
+                style: const TextStyle(
+                  color: Color(0xFFEAEEF9),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: .1,
+                  shadows: [Shadow(color: Color(0x99000000), blurRadius: 12)],
+                ),
+              ),
+            ],
           ],
         ),
+        if (occupation.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            occupation,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFEAEEF9),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              letterSpacing: .2,
+              shadows: [Shadow(color: Color(0x99000000), blurRadius: 10)],
+            ),
+          ),
+        ],
         _ConnectStatus(
           connection: connection,
           connecting: connecting,
           onConnect: onConnect,
         ),
       ],
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF141C31).withValues(alpha: .78),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white.withValues(alpha: .12)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .30),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: const Color(0xFF7C3AED).withValues(alpha: .12),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+          child: content,
+        ),
+      ),
+    );
+  }
+}
+
+/// A compact "Active now" presence pill shown above the name on the hero.
+class _ActiveNowBadge extends StatelessWidget {
+  const _ActiveNowBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .38),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: .14)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Color(0xFF47D7A5),
+              boxShadow: [BoxShadow(color: Color(0xFF47D7A5), blurRadius: 6)],
+            ),
+          ),
+          const SizedBox(width: 7),
+          const Text(
+            'Active now',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -548,10 +847,12 @@ class _ConnectStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = switch (connection?.status) {
       ConnectionStatus.accepted => ('Connected', const Color(0xFF47D7A5)),
-      ConnectionStatus.pending when connection != null =>
-        (connection!.requesterId == AuthService.currentUser?.id
+      ConnectionStatus.pending when connection != null => (
+        connection!.requesterId == AuthService.currentUser?.id
             ? 'Pending'
-            : 'Incoming request', const Color(0xFF22D3EE)),
+            : 'Incoming request',
+        const Color(0xFF22D3EE),
+      ),
       null when connecting => ('Sending request...', const Color(0xFFFFC24D)),
       null => null,
       ConnectionStatus.pending => ('Pending', const Color(0xFF22D3EE)),
@@ -582,139 +883,6 @@ class _ConnectStatus extends StatelessWidget {
   }
 }
 
-class _BadgeColumn extends StatelessWidget {
-  const _BadgeColumn({required this.profile});
-
-  final DiscoveryProfile profile;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (profile.verified) ...[
-          const _PulsingBadge(
-            icon: Icons.verified_rounded,
-            label: 'Verified',
-            color: Color(0xFF22D3EE),
-          ),
-          const SizedBox(height: 10),
-        ],
-      ],
-    );
-  }
-}
-
-class HeroBadge extends StatelessWidget {
-  const HeroBadge({
-    required this.icon,
-    required this.label,
-    required this.color,
-    super.key,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .42),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: .16)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PulsingBadge extends StatefulWidget {
-  const _PulsingBadge({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  State<_PulsingBadge> createState() => _PulsingBadgeState();
-}
-
-class _PulsingBadgeState extends State<_PulsingBadge>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
-  late final Animation<double> _glow;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    )..repeat(reverse: true);
-    final curve = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
-    _scale = Tween<double>(begin: 1.0, end: 1.06).animate(curve);
-    _glow = Tween<double>(begin: 0.0, end: 0.45).animate(curve);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _scale.value,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.color.withValues(alpha: _glow.value),
-                  blurRadius: 18,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-            child: child,
-          ),
-        );
-      },
-      child: HeroBadge(
-        icon: widget.icon,
-        label: widget.label,
-        color: widget.color,
-      ),
-    );
-  }
-}
-
 class _DetailsSection extends StatelessWidget {
   const _DetailsSection({required this.profile});
 
@@ -722,22 +890,19 @@ class _DetailsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: const Offset(0, -26),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        borderRadius: BorderRadius.circular(28),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
           child: Container(
             decoration: BoxDecoration(
               color: const Color(0xFF141C31).withValues(alpha: .82),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(30)),
-              border: Border(
-                top: BorderSide(color: Colors.white.withValues(alpha: .1)),
-              ),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.white.withValues(alpha: .10)),
             ),
-            padding: const EdgeInsets.fromLTRB(24, 18, 24, 40),
+            padding: const EdgeInsets.fromLTRB(22, 14, 22, 30),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: _buildSections(),
@@ -760,17 +925,6 @@ class _DetailsSection extends StatelessWidget {
           ),
         ),
       ),
-      const SizedBox(height: 22),
-      Text(
-        profile.bio,
-        style: const TextStyle(
-          fontSize: 18,
-          height: 1.4,
-          fontWeight: FontWeight.w600,
-          letterSpacing: .1,
-          color: Color(0xFFEAEEF9),
-        ),
-      ),
     ];
 
     void addChipSection(String title, IconData icon, List<String> values) {
@@ -783,7 +937,7 @@ class _DetailsSection extends StatelessWidget {
     }
 
     void addTextSection(String title, IconData icon, String value) {
-      if (value.isEmpty) return;
+      if (value.trim().isEmpty) return;
       sections.add(
         _RevealSection(
           child: _TextSection(title: title, icon: icon, value: value),
@@ -791,15 +945,32 @@ class _DetailsSection extends StatelessWidget {
       );
     }
 
-    addChipSection('Interests', Icons.interests_rounded, profile.interests);
-    addTextSection('Bio', Icons.auto_stories_rounded, profile.bio);
-    addTextSection('City', Icons.location_city_rounded, profile.location);
+    addTextSection('About me', Icons.person_outline_rounded, profile.bio);
+    addChipSection('Interests', Icons.auto_awesome_rounded, profile.interests);
+    addChipSection('Languages', Icons.translate_rounded, profile.languages);
+    addTextSection('Location', Icons.location_city_rounded, profile.location);
     addTextSection(
       'Occupation',
       Icons.work_outline_rounded,
       profile.occupation ?? '',
     );
-    addChipSection('Languages', Icons.translate_rounded, profile.languages);
+
+    // Never leave the information card empty — keep it premium and intentional.
+    if (sections.length == 1) {
+      sections.add(
+        const Padding(
+          padding: EdgeInsets.only(top: 22),
+          child: Text(
+            'No additional details shared yet.',
+            style: TextStyle(
+              color: Color(0xFFAEB9D6),
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+        ),
+      );
+    }
 
     return sections;
   }
@@ -881,9 +1052,7 @@ class _ChipSection extends StatelessWidget {
         _SectionLabel(title: title, icon: icon),
         const SizedBox(height: 12),
         StaggeredChips(
-          children: [
-            for (final value in values) _DetailChip(label: value),
-          ],
+          children: [for (final value in values) _DetailChip(label: value)],
         ),
       ],
     );
@@ -937,110 +1106,33 @@ class _RevealSection extends StatelessWidget {
 
 class DiscoveryControls extends StatelessWidget {
   const DiscoveryControls({
-    required this.onPrevious,
-    required this.onNext,
     required this.onConnect,
     required this.connection,
     required this.connecting,
     super.key,
   });
 
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
   final VoidCallback onConnect;
   final Connection? connection;
   final bool connecting;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _CircleControl(
-          icon: Icons.arrow_back_rounded,
-          onTap: onPrevious,
-          tooltip: 'Previous',
-        ),
-        const SizedBox(width: 34),
-        _ConnectControl(
-          connection: connection,
-          connecting: connecting,
-          onTap: onConnect,
-        ),
-        const SizedBox(width: 34),
-        _CircleControl(
-          icon: Icons.arrow_forward_rounded,
-          onTap: onNext,
-          tooltip: 'Next',
-        ),
-      ],
-    );
-  }
-}
-
-class _CircleControl extends StatefulWidget {
-  const _CircleControl({
-    required this.icon,
-    required this.onTap,
-    required this.tooltip,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  @override
-  State<_CircleControl> createState() => _CircleControlState();
-}
-
-class _CircleControlState extends State<_CircleControl> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: widget.tooltip,
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedScale(
-          scale: _pressed ? 0.92 : 1.0,
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
-          child: Container(
-            height: 58,
-            width: 58,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withValues(alpha: .14),
-                  Colors.white.withValues(alpha: .05),
-                ],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: .18)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: .32),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: widget.onTap,
-                child: Icon(widget.icon, color: Colors.white, size: 24),
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(right: 28),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: _ConnectControl(
+              connection: connection,
+              connecting: connecting,
+              onTap: onConnect,
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -1078,24 +1170,14 @@ class _ConnectControlState extends State<_ConnectControl> {
     final IconData icon = connected
         ? Icons.check_rounded
         : pending
-            ? Icons.hourglass_top_rounded
-            : Icons.favorite_rounded;
-    final gradient = connected
-        ? const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF34D399), Color(0xFF22D3EE)],
-          )
-        : const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF7C3AED), Color(0xFF2563EB), Color(0xFF22D3EE)],
-          );
+        ? Icons.hourglass_top_rounded
+        : Icons.connect_without_contact_rounded;
 
     return Tooltip(
       message: switch (widget.connection?.status) {
         ConnectionStatus.accepted => 'Connected',
-        ConnectionStatus.pending when widget.connection?.requesterId ==
+        ConnectionStatus.pending
+            when widget.connection?.requesterId ==
                 AuthService.currentUser?.id =>
           'Pending',
         ConnectionStatus.pending => 'Incoming request',
@@ -1112,38 +1194,45 @@ class _ConnectControlState extends State<_ConnectControl> {
           scale: _pressed ? 0.92 : 1.0,
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOutCubic,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic,
-            height: 82,
-            width: 82,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: gradient,
-              boxShadow: [
-                BoxShadow(
-                  color: (connected
-                          ? const Color(0xFF34D399)
-                          : const Color(0xFF7C3AED))
-                      .withValues(alpha: .55),
-                  blurRadius: 34,
-                  spreadRadius: 2,
-                  offset: const Offset(0, 12),
+          child: ClipOval(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                height: 60,
+                width: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: .10),
+                  border: Border.all(color: Colors.white.withValues(alpha: .18)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .25),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFF7C3AED).withValues(alpha: .08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFF7C3AED).withValues(alpha: .04),
+                      blurRadius: 28,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                BoxShadow(
-                  color: const Color(0xFF22D3EE).withValues(alpha: .35),
-                  blurRadius: 22,
-                  offset: const Offset(0, 4),
+                child: Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: _busy ? null : widget.onTap,
+                    child: Icon(icon, color: Colors.white, size: 26),
+                  ),
                 ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: _busy ? null : widget.onTap,
-                child: Icon(icon, color: Colors.white, size: 32),
               ),
             ),
           ),

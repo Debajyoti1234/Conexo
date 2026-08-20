@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -179,8 +180,20 @@ class SupabaseProfileRepository implements ProfileRepository {
       final result = await Supabase.instance.client.storage
           .from(_bucket)
           .createSignedUrl(storagePath, 3600);
+      if (kDebugMode) {
+        // Safe diagnostics: never logs the signed token, only whether a URL
+        // was produced. Helps trace Discovery remote-photo failures.
+        debugPrint(
+          '[PhotoSign] bucket=$_bucket path=$storagePath signed=${result.isNotEmpty}',
+        );
+      }
       return result;
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[PhotoSign] bucket=$_bucket path=$storagePath FAILED error=$e',
+        );
+      }
       return null;
     }
   }
