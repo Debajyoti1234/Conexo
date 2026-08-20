@@ -151,3 +151,110 @@ class DiscoveryProfile {
     return null;
   }
 }
+
+/// Sort ordering applied to Discovery results.
+///
+/// Previously declared in `discovery_repository.dart`; relocated here so that
+/// the filter-state model and the sort enum live in the same data layer and
+/// avoid a circular import between data and repository.
+enum DiscoverySortMode { closest, recentlyJoined, bestMatch, mostActive }
+
+/// Verification filter for the temporary Discovery filter sheet.
+enum VerificationFilter { any, verified, notVerified }
+
+/// Availability filter for the temporary Discovery filter sheet.
+enum AvailabilityFilter { any, available, notAvailable }
+
+/// Sentinel used by [DiscoveryFilterState.copyWith] to distinguish "leave the
+/// field unchanged" from "explicitly set to null".
+class _FilterCopyWithUnspecified {
+  const _FilterCopyWithUnspecified();
+  static const _FilterCopyWithUnspecified instance =
+      _FilterCopyWithUnspecified();
+}
+
+/// One coherent source of truth for the temporary Discovery filter sheet.
+///
+/// Fields:
+///  - [distanceKm]: null means **unrestricted** (no distance cap).
+///  - [minAge] / [maxAge]: null means **no bound** on that side.
+///  - [sortMode]: how results are ordered (reused from existing sort backend).
+///  - [verification]: Any / Verified / Not Verified.
+///  - [availability]: Any / Available / Not Available.
+///  - [sharedInterests]: when true, only candidates sharing ≥1 interest remain.
+///
+/// This is a **temporary** filter state — it is applied to the live Discovery
+/// result set without persisting to `profiles.discovery_*` columns.
+class DiscoveryFilterState {
+  const DiscoveryFilterState({
+    this.distanceKm,
+    this.minAge,
+    this.maxAge,
+    this.sortMode = DiscoverySortMode.closest,
+    this.verification = VerificationFilter.any,
+    this.availability = AvailabilityFilter.any,
+    this.sharedInterests = false,
+  });
+
+  final int? distanceKm;
+  final int? minAge;
+  final int? maxAge;
+  final DiscoverySortMode sortMode;
+  final VerificationFilter verification;
+  final AvailabilityFilter availability;
+  final bool sharedInterests;
+
+  /// The default (reset) state — everything unrestricted except sort, which
+  /// defaults to the existing default of [DiscoverySortMode.closest].
+  static const defaultValue = DiscoveryFilterState();
+
+  DiscoveryFilterState copyWith({
+    Object? distanceKm = _FilterCopyWithUnspecified.instance,
+    Object? minAge = _FilterCopyWithUnspecified.instance,
+    Object? maxAge = _FilterCopyWithUnspecified.instance,
+    DiscoverySortMode? sortMode,
+    VerificationFilter? verification,
+    AvailabilityFilter? availability,
+    bool? sharedInterests,
+  }) {
+    return DiscoveryFilterState(
+      distanceKm: distanceKm is _FilterCopyWithUnspecified
+          ? this.distanceKm
+          : distanceKm as int?,
+      minAge: minAge is _FilterCopyWithUnspecified
+          ? this.minAge
+          : minAge as int?,
+      maxAge: maxAge is _FilterCopyWithUnspecified
+          ? this.maxAge
+          : maxAge as int?,
+      sortMode: sortMode ?? this.sortMode,
+      verification: verification ?? this.verification,
+      availability: availability ?? this.availability,
+      sharedInterests: sharedInterests ?? this.sharedInterests,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is DiscoveryFilterState &&
+        other.distanceKm == distanceKm &&
+        other.minAge == minAge &&
+        other.maxAge == maxAge &&
+        other.sortMode == sortMode &&
+        other.verification == verification &&
+        other.availability == availability &&
+        other.sharedInterests == sharedInterests;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        distanceKm,
+        minAge,
+        maxAge,
+        sortMode,
+        verification,
+        availability,
+        sharedInterests,
+      );
+}

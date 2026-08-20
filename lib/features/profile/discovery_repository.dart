@@ -4,14 +4,13 @@ import '../../core/supabase/auth_service.dart';
 import 'discovery_data.dart';
 import 'discovery_helpers.dart';
 
-enum DiscoverySortMode { closest, recentlyJoined, bestMatch, mostActive }
-
 class DiscoveryRepository {
   const DiscoveryRepository();
 
   Future<List<DiscoveryProfile>> fetchNearby({
     double? maxDistanceMeters,
     DiscoverySortMode sort = DiscoverySortMode.closest,
+    DiscoveryFilterState? filterState,
   }) async {
     try {
       final user = AuthService.currentUser;
@@ -38,12 +37,18 @@ class DiscoveryRepository {
           (viewerProfile['interests'] as List?)?.cast<String>());
 
       // Phase 9.1B: the current user's saved Discovery Preferences, loaded once
-      // per query. Null values mean "no restriction" and leave the existing
-      // discovery behavior unchanged.
-      final viewerMaxDistanceKm =
-          (viewerProfile['discovery_distance_km'] as num?)?.toInt();
-      final viewerMinAge = (viewerProfile['discovery_min_age'] as num?)?.toInt();
-      final viewerMaxAge = (viewerProfile['discovery_max_age'] as num?)?.toInt();
+      // per query. When a [filterState] override is supplied the sheet values
+      // take precedence (null = unrestricted); otherwise the persisted profile
+      // values are used, leaving the existing behaviour unchanged.
+      final viewerMaxDistanceKm = filterState != null
+          ? filterState.distanceKm
+          : (viewerProfile['discovery_distance_km'] as num?)?.toInt();
+      final viewerMinAge = filterState != null
+          ? filterState.minAge
+          : (viewerProfile['discovery_min_age'] as num?)?.toInt();
+      final viewerMaxAge = filterState != null
+          ? filterState.maxAge
+          : (viewerProfile['discovery_max_age'] as num?)?.toInt();
 
       final candidateIds = <String>[];
       final candidateRows = <Map<String, dynamic>>[];
@@ -73,6 +78,7 @@ class DiscoveryRepository {
       final liveLocations = await _fetchLiveLocationsBatch(candidateIds);
 
       final results = <DiscoveryProfile>[];
+      final effectiveSort = filterState?.sortMode ?? sort;
       for (final row in candidateRows) {
         final candidateId = row['id'] as String;
         final coords = _resolveCoordsFromBatch(
@@ -106,10 +112,38 @@ class DiscoveryRepository {
           continue;
         }
 
+        // B1.1b: Verification filter (Any / Verified / Not Verified).
+        // Reuses the existing profiles.verification_status field + DiscoveryProfile.verified.
+        if (filterState != null &&
+            filterState.verification != VerificationFilter.any) {
+          final wantsVerified =
+              filterState.verification == VerificationFilter.verified;
+          if (base.verified != wantsVerified) continue;
+        }
+
+        // B1.1b: Availability filter (Any / Available / Not Available).
+        // Reuses the existing profiles.availability_status field.
+        if (filterState != null &&
+            filterState.availability != AvailabilityFilter.any) {
+          final isAvailableNow = base.availabilityStatus == 'available_now';
+          final wantsAvailable =
+              filterState.availability == AvailabilityFilter.available;
+          if (isAvailableNow != wantsAvailable) continue;
+        }
+
         final candidateInterests = _normalizeInterests(base.interests);
         final sharedCount = viewerInterests
             .where((i) => candidateInterests.contains(i))
             .length;
+
+        // B1.1b: Shared Interests filter — only candidates with ≥1 shared
+        // interest. Reuses the existing shared-interest computation already
+        // performed above (sharedCount).
+        if (filterState != null &&
+            filterState.sharedInterests &&
+            sharedCount == 0) {
+          continue;
+        }
 
         results.add(DiscoveryProfile(
           id: base.id,
@@ -135,7 +169,7 @@ class DiscoveryRepository {
         ));
       }
 
-      _applySort(results, sort);
+      _applySort(results, effectiveSort);
       return results;
     } catch (_) {
       return const [];

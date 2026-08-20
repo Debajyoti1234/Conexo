@@ -13,8 +13,8 @@ import 'profile/connection_data.dart';
 import 'profile/connection_repository.dart';
 import 'profile/discovery_data.dart';
 import 'profile/discovery_repository.dart';
-import 'profile/discovery_helpers.dart';
 import 'profile/supabase_profile_repository.dart';
+import 'profile/session_aware_profile_repository.dart';
 
 class _DiscoveryPreparationState extends StatefulWidget {
   const _DiscoveryPreparationState({super.key});
@@ -141,8 +141,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
   int _direction = 1;
-  String _selectedFilter = 'All';
-  DiscoverySortMode _sortMode = DiscoverySortMode.closest;
+  DiscoveryFilterState _filterState = DiscoveryFilterState.defaultValue;
+  bool _filterStateInitialized = false;
   bool _loading = false;
   bool _preparing = false;
   List<DiscoveryProfile> _profiles = const [];
@@ -156,8 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static const int _prefetchWindow = 10;
 
-  List<DiscoveryProfile> get _visibleProfiles =>
-      _applyDiscoveryProfileFilter(_profiles, _selectedFilter);
+  List<DiscoveryProfile> get _visibleProfiles => _profiles;
 
   @override
   void initState() {
@@ -170,6 +169,24 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadTimer?.cancel();
     _prefetchTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _ensureFilterStateLoaded() async {
+    if (_filterStateInitialized) return;
+    final profile = await const SessionAwareProfileRepository().loadProfile();
+    if (!mounted) return;
+    setState(() {
+      _filterState = DiscoveryFilterState(
+        distanceKm: profile?.discoveryDistanceKm,
+        minAge: profile?.discoveryMinAge,
+        maxAge: profile?.discoveryMaxAge,
+        sortMode: DiscoverySortMode.closest,
+        verification: VerificationFilter.any,
+        availability: AvailabilityFilter.any,
+        sharedInterests: false,
+      );
+      _filterStateInitialized = true;
+    });
   }
 
   Future<void> _loadProfiles() async {
@@ -185,8 +202,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
+      await _ensureFilterStateLoaded();
+
       final repository = const DiscoveryRepository();
-      final profiles = await repository.fetchNearby(sort: _sortMode);
+      final profiles = await repository.fetchNearby(
+        filterState: _filterStateInitialized ? _filterState : null,
+      );
       if (!mounted) return;
 
       if (profiles.isEmpty) {
@@ -330,29 +351,21 @@ class _HomeScreenState extends State<HomeScreen> {
     _scheduleRollingPrefetch(profiles);
   }
 
-  void _selectFilter(String filter) {
-    if (filter == _selectedFilter) return;
+  void _applyFilter(DiscoveryFilterState newState) {
+    if (newState == _filterState) return;
     _loadTimer?.cancel();
     DiscoveryPhotoCache.clear();
     setState(() {
-      _selectedFilter = filter;
+      _filterState = newState;
       _direction = 1;
       _index = 0;
-      _loading = _applyDiscoveryProfileFilter(_profiles, filter).isNotEmpty;
-    });
-    if (_loading) {
-      _loadTimer = Timer(const Duration(milliseconds: 420), () {
-        if (mounted) setState(() => _loading = false);
-      });
-    }
-  }
-
-  void _selectSortMode(DiscoverySortMode mode) {
-    if (mode == _sortMode) return;
-    setState(() {
-      _sortMode = mode;
+      _loading = true;
     });
     _loadProfiles();
+  }
+
+  void _resetFilters() {
+    _applyFilter(const DiscoveryFilterState());
   }
 
   Future<void> _sendRequest(String profileId) async {
@@ -444,11 +457,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     onRetry: _loadProfiles,
                   )
                 : profile == null
-                ? _DiscoveryEmptyState(
-                    key: const ValueKey<String>('empty'),
-                    filter: _selectedFilter,
-                    onReset: () => _selectFilter('All'),
-                  )
+                 ? _DiscoveryEmptyState(
+                     key: const ValueKey<String>('empty'),
+                     onReset: _resetFilters,
+                   )
                 : ImmersiveProfileView(
                     key: ValueKey<String>('${profile.name}_$safeIndex'),
                     profile: profile,
@@ -509,210 +521,777 @@ class _HomeScreenState extends State<HomeScreen> {
         curve: Curves.easeInOutCubic,
       ),
       builder: (_) => _FilterPreferencesSheet(
-        sortMode: _sortMode,
-        onSortChanged: _selectSortMode,
+        initialFilterState: _filterState,
+        onFilterChanged: _applyFilter,
       ),
     );
   }
 }
 
-class _FilterPreferencesSheet extends StatelessWidget {
+class _FilterPreferencesSheet extends StatefulWidget {
   const _FilterPreferencesSheet({
-    required this.sortMode,
-    required this.onSortChanged,
+    required this.initialFilterState,
+    required this.onFilterChanged,
   });
 
-  final DiscoverySortMode sortMode;
-  final ValueChanged<DiscoverySortMode> onSortChanged;
+  final DiscoveryFilterState initialFilterState;
+  final ValueChanged<DiscoveryFilterState> onFilterChanged;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(24, 14, 24, 34),
-    decoration: BoxDecoration(
-      color: const Color(0xFF172039).withValues(alpha: .97),
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-      border: Border.all(color: Colors.white.withValues(alpha: .12)),
-    ),
-    child: SafeArea(
-      top: false,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Center(
-            child: SizedBox(width: 38, child: Divider(thickness: 3)),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Discovery preferences',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 20),
-          const _PreferenceGroup(
-            title: 'Distance',
-            values: ['1 km', '3 km', '5 km', '10 km'],
-          ),
-          const _PreferenceGroup(
-            title: 'Availability',
-            values: ['Available Now', 'Today', 'This Week'],
-          ),
-          const _PreferenceGroup(
-            title: 'Verification',
-            values: ['Verified Only', 'Everyone'],
-          ),
-          _PreferenceGroup(
-            title: 'Sort',
-            values: ['Closest', 'Best Match', 'Recently Joined', 'Most Active'],
-            selected: sortMode,
-            onChanged: onSortChanged,
-          ),
-        ],
-      ),
-    ),
-  );
+  State<_FilterPreferencesSheet> createState() =>
+      _FilterPreferencesSheetState();
 }
 
-class _PreferenceGroup extends StatelessWidget {
-  const _PreferenceGroup({
-    required this.title,
-    required this.values,
-    this.selected,
-    this.onChanged,
-  });
-
-  final String title;
-  final List<String> values;
-  final DiscoverySortMode? selected;
-  final ValueChanged<DiscoverySortMode>? onChanged;
+class _FilterPreferencesSheetState extends State<_FilterPreferencesSheet> {
+  late DiscoveryFilterState _localState;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 18),
-    child: Column(
+  void initState() {
+    super.initState();
+    _localState = widget.initialFilterState;
+  }
+
+  void _onDistanceDrag(double v) {
+    setState(() {
+      _localState = _localState.copyWith(distanceKm: v.round());
+    });
+  }
+
+  void _onDistanceChanged(int? km) {
+    final next = _localState.copyWith(distanceKm: km);
+    setState(() => _localState = next);
+    widget.onFilterChanged(next);
+  }
+
+  void _updateMinAge(int value) {
+    final clampedMax = _localState.maxAge != null && value > _localState.maxAge!
+        ? value
+        : _localState.maxAge;
+    final next = _localState.copyWith(minAge: value, maxAge: clampedMax);
+    setState(() => _localState = next);
+    widget.onFilterChanged(next);
+  }
+
+  void _updateMaxAge(int value) {
+    final clampedMin =
+        _localState.minAge != null && value < _localState.minAge!
+            ? value
+            : _localState.minAge;
+    final next = _localState.copyWith(minAge: clampedMin, maxAge: value);
+    setState(() => _localState = next);
+    widget.onFilterChanged(next);
+  }
+
+  void _updateSort(DiscoverySortMode mode) {
+    final next = _localState.copyWith(sortMode: mode);
+    setState(() => _localState = next);
+    widget.onFilterChanged(next);
+  }
+
+  void _updateVerification(VerificationFilter v) {
+    final next = _localState.copyWith(verification: v);
+    setState(() => _localState = next);
+    widget.onFilterChanged(next);
+  }
+
+  void _updateAvailability(AvailabilityFilter v) {
+    final next = _localState.copyWith(availability: v);
+    setState(() => _localState = next);
+    widget.onFilterChanged(next);
+  }
+
+  void _updateSharedInterests(bool v) {
+    final next = _localState.copyWith(sharedInterests: v);
+    setState(() => _localState = next);
+    widget.onFilterChanged(next);
+  }
+
+  void _reset() {
+    const reset = DiscoveryFilterState();
+    setState(() => _localState = reset);
+    widget.onFilterChanged(reset);
+  }
+
+  String _formatDistance(int? km) {
+    if (km == null) return 'Any';
+    return '$km km';
+  }
+
+  String _formatAgeRange(int? min, int? max) {
+    if (min == null && max == null) return 'Any';
+    final minText = min?.toString() ?? '--';
+    final maxText = max?.toString() ?? '--';
+    return '$minText – $maxText';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 34),
+        decoration: BoxDecoration(
+          color: const Color(0xFF172039).withValues(alpha: .97),
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(32)),
+          border: Border.all(color: Colors.white.withValues(alpha: .12)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: SizedBox(width: 38, child: Divider(thickness: 3)),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Discovery filters',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFEAEEF9),
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Adjust who appears in your discovery feed.',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: Color(0xFFB9C3DC),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 22),
+              _FilterCard(
+                icon: Icons.social_distance_rounded,
+                title: 'Distance',
+                trailing: Text(
+                  _formatDistance(_localState.distanceKm),
+                  style: _valueStyle,
+                ),
+                child: _DistanceSlider(
+                  distance: _localState.distanceKm,
+                  onDistanceDrag: _onDistanceDrag,
+                  onDistanceChanged: _onDistanceChanged,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _FilterCard(
+                icon: Icons.cake_outlined,
+                title: 'Age Range',
+                trailing: Text(
+                  _formatAgeRange(_localState.minAge, _localState.maxAge),
+                  style: _valueStyle,
+                ),
+                child: _AgeRangeControls(
+                  minAge: _localState.minAge,
+                  maxAge: _localState.maxAge,
+                  onMinAgeChanged: _updateMinAge,
+                  onMaxAgeChanged: _updateMaxAge,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _FilterCard(
+                icon: Icons.sort_rounded,
+                title: 'Sort by',
+                child: _SortChips(
+                  selected: _localState.sortMode,
+                  onChanged: _updateSort,
+                ),
+              ),
+              const SizedBox(height: 22),
+              const Text(
+                'Advanced settings',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFAEB9D6),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _FilterCard(
+                icon: Icons.verified_user_rounded,
+                title: 'Verification',
+                child: _VerificationChips(
+                  selected: _localState.verification,
+                  onChanged: _updateVerification,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _FilterCard(
+                icon: Icons.schedule_rounded,
+                title: 'Availability',
+                child: _AvailabilityChips(
+                  selected: _localState.availability,
+                  onChanged: _updateAvailability,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _FilterCard(
+                icon: Icons.favorite_rounded,
+                title: 'Shared Interests',
+                child: _SharedInterestsToggle(
+                  value: _localState.sharedInterests,
+                  onChanged: _updateSharedInterests,
+                ),
+              ),
+              const SizedBox(height: 24),
+              _FilterResetButton(onTap: _reset),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _valueStyle = TextStyle(
+  fontSize: 13.5,
+  fontWeight: FontWeight.w700,
+  color: Color(0xFFB7A5FF),
+);
+
+class _FilterCard extends StatelessWidget {
+  const _FilterCard({
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .04),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: const Color(0xFFB7A5FF)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFEAEEF9),
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _DistanceSlider extends StatelessWidget {
+  const _DistanceSlider({
+    required this.distance,
+    required this.onDistanceDrag,
+    required this.onDistanceChanged,
+  });
+
+  final int? distance;
+  final ValueChanged<double> onDistanceDrag;
+  final ValueChanged<int?> onDistanceChanged;
+
+  static const _presets = <int>[5, 10, 25, 50, 100];
+
+  @override
+  Widget build(BuildContext context) {
+    final sliderValue = distance == null ? 5.0 : distance!.toDouble();
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 9),
+        Row(
+          children: [
+            Text(
+              '5 km',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: .5),
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '100 km',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: .5),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Slider(
+          value: sliderValue,
+          min: 5,
+          max: 100,
+          divisions: 19,
+          activeColor: const Color(0xFF8B5CF6),
+          inactiveColor: Colors.white.withValues(alpha: .10),
+          onChanged: onDistanceDrag,
+          onChangeEnd: (v) => onDistanceChanged(v.round()),
+        ),
+        const SizedBox(height: 12),
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: values.map((value) {
-            final mode = _sortModeFromLabel(value);
-            final isSelected = mode != null && mode == selected;
-            final isMostActiveDisabled = value == 'Most Active';
-            return ChoiceChip(
-              label: Text(value),
-              selected: isSelected,
-              onSelected: isMostActiveDisabled
-                  ? null
-                  : (onChanged != null && mode != null)
-                  ? (bool selected) {
-                      if (selected && onChanged != null) {
-                        onChanged!(mode);
-                      }
-                    }
-                  : null,
-            );
-          }).toList(),
+          children: [
+            for (final preset in _presets)
+              _PresetChip(
+                label: '$preset',
+                selected: distance == preset,
+                onTap: () => onDistanceChanged(preset),
+              ),
+            _PresetChip(
+              label: 'Any',
+              selected: distance == null,
+              onTap: () => onDistanceChanged(null),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Current: ${distance == null ? "Any" : "$distance km"}',
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFFB9C3DC),
+          ),
         ),
       ],
-    ),
-  );
-}
-
-DiscoverySortMode? _sortModeFromLabel(String label) {
-  switch (label) {
-    case 'Closest':
-      return DiscoverySortMode.closest;
-    case 'Best Match':
-      return DiscoverySortMode.bestMatch;
-    case 'Recently Joined':
-      return DiscoverySortMode.recentlyJoined;
-    case 'Most Active':
-      return DiscoverySortMode.mostActive;
-    default:
-      return null;
+    );
   }
 }
 
-const _kDiscoveryFilterKeywords = <String, List<String>>{
-  'Coffee': ['coffee', 'cafe', 'espresso', 'chai', 'tea'],
-  'Walk': ['walk', 'walking', 'hiking', 'trek', 'running', 'run', 'jog'],
-  'Music': [
-    'music',
-    'singing',
-    'jazz',
-    'vinyl',
-    'songwriter',
-    'podcast',
-    'guitar',
-    'piano',
-  ],
-  'Study': [
-    'book',
-    'reading',
-    'writing',
-    'poetry',
-    'chess',
-    'journaling',
-    'study',
-    'learn',
-  ],
-};
+class _PresetChip extends StatelessWidget {
+  const _PresetChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
-List<DiscoveryProfile> _applyDiscoveryProfileFilter(
-  List<DiscoveryProfile> profiles,
-  String filter,
-) {
-  switch (filter) {
-    case 'All':
-      return profiles;
-    case 'Nearby':
-      return [
-        for (final p in profiles)
-          if (p.distanceMeters != null && p.distanceMeters! <= 1500) p,
-      ];
-    case 'Verified':
-      return [
-        for (final p in profiles)
-          if (p.verified) p,
-      ];
-    case 'Available Now':
-      return [
-        for (final p in profiles)
-          if (p.availabilityStatus == 'available_now') p,
-      ];
-    case 'New':
-      return [
-        for (final p in profiles)
-          if (isNewProfile(p.createdAt)) p,
-      ];
-    case 'Shared Interests':
-      return [
-        for (final p in profiles)
-          if (p.sharedInterestsCount > 0) p,
-      ];
-    default:
-      final keywords = _kDiscoveryFilterKeywords[filter];
-      if (keywords == null) return profiles;
-      return [
-        for (final p in profiles)
-          if (_profileMatchesKeywords(p, keywords)) p,
-      ];
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF8B5CF6).withValues(alpha: .22)
+              : Colors.white.withValues(alpha: .05),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF8B5CF6).withValues(alpha: .55)
+                : Colors.white.withValues(alpha: .10),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: selected
+                ? const Color(0xFFEAEEF9)
+                : const Color(0xFFB9C3DC),
+          ),
+        ),
+      ),
+    );
   }
 }
 
-bool _profileMatchesKeywords(DiscoveryProfile profile, List<String> keywords) {
-  final haystack = <String>[
-    ...profile.interests,
-    profile.bio,
-    profile.location,
-    if (profile.occupation != null) profile.occupation!,
-  ].join(' ').toLowerCase();
-  for (final k in keywords) {
-    if (haystack.contains(k)) return true;
+class _AgeRangeControls extends StatelessWidget {
+  const _AgeRangeControls({
+    required this.minAge,
+    required this.maxAge,
+    required this.onMinAgeChanged,
+    required this.onMaxAgeChanged,
+  });
+
+  final int? minAge;
+  final int? maxAge;
+  final ValueChanged<int> onMinAgeChanged;
+  final ValueChanged<int> onMaxAgeChanged;
+
+  static final _ageOptions = List<int>.generate(63, (i) => 18 + i);
+
+  @override
+  Widget build(BuildContext context) {
+    final minInvalid = minAge != null && maxAge != null && minAge! > maxAge!;
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _AgeDropdown(
+                label: 'Min Age',
+                value: minAge ?? 18,
+                items: _ageOptions,
+                onChanged: (v) {
+                  if (v == null) return;
+                  onMinAgeChanged(v);
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            const Icon(Icons.arrow_forward_rounded,
+                color: Color(0xFFB9C3DC)),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _AgeDropdown(
+                label: 'Max Age',
+                value: maxAge ?? 80,
+                items: _ageOptions,
+                onChanged: (v) {
+                  if (v == null) return;
+                  onMaxAgeChanged(v);
+                },
+              ),
+            ),
+          ],
+        ),
+        if (minInvalid)
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Text(
+              'Minimum age cannot exceed maximum age.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFFE36D9D),
+              ),
+            ),
+          ),
+      ],
+    );
   }
-  return false;
+}
+
+class _AgeDropdown extends StatelessWidget {
+  const _AgeDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final String label;
+  final int value;
+  final List<int> items;
+  final ValueChanged<int?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFFB9C3DC),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: .08),
+            ),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: value,
+              isExpanded: true,
+              dropdownColor: const Color(0xFF141B2E),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFEAEEF9),
+              ),
+              items: [
+                for (final age in items)
+                  DropdownMenuItem(
+                    value: age,
+                    child: Text('$age'),
+                  ),
+              ],
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SortChips extends StatelessWidget {
+  const _SortChips({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final DiscoverySortMode selected;
+  final ValueChanged<DiscoverySortMode> onChanged;
+
+  static const _options = [
+    ('Closest', DiscoverySortMode.closest),
+    ('Best Match', DiscoverySortMode.bestMatch),
+    ('Recently Joined', DiscoverySortMode.recentlyJoined),
+    ('Most Active', DiscoverySortMode.mostActive),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final (label, mode) in _options)
+          _FilterChip<DiscoverySortMode>(
+            label: label,
+            value: mode,
+            selected: mode == selected,
+            onTap: () => onChanged(mode),
+          ),
+      ],
+    );
+  }
+}
+
+class _VerificationChips extends StatelessWidget {
+  const _VerificationChips({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final VerificationFilter selected;
+  final ValueChanged<VerificationFilter> onChanged;
+
+  static const _options = [
+    ('Any', VerificationFilter.any),
+    ('Verified', VerificationFilter.verified),
+    ('Not Verified', VerificationFilter.notVerified),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final (label, value) in _options)
+          _FilterChip<VerificationFilter>(
+            label: label,
+            value: value,
+            selected: value == selected,
+            onTap: () => onChanged(value),
+          ),
+      ],
+    );
+  }
+}
+
+class _AvailabilityChips extends StatelessWidget {
+  const _AvailabilityChips({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final AvailabilityFilter selected;
+  final ValueChanged<AvailabilityFilter> onChanged;
+
+  static const _options = [
+    ('Any', AvailabilityFilter.any),
+    ('Available', AvailabilityFilter.available),
+    ('Not Available', AvailabilityFilter.notAvailable),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final (label, value) in _options)
+          _FilterChip<AvailabilityFilter>(
+            label: label,
+            value: value,
+            selected: value == selected,
+            onTap: () => onChanged(value),
+          ),
+      ],
+    );
+  }
+}
+
+class _FilterChip<T> extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final T value;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF8B5CF6).withValues(alpha: .22)
+              : Colors.white.withValues(alpha: .05),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(
+            color: selected
+                ? const Color(0xFF8B5CF6).withValues(alpha: .55)
+                : Colors.white.withValues(alpha: .10),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: selected
+                ? const Color(0xFFEAEEF9)
+                : const Color(0xFFB9C3DC),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SharedInterestsToggle extends StatelessWidget {
+  const _SharedInterestsToggle({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Show only profiles we share interests with',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: value
+                  ? const Color(0xFFEAEEF9)
+                  : const Color(0xFFB9C3DC),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Switch.adaptive(
+          value: value,
+          onChanged: onChanged,
+          activeThumbColor: const Color(0xFF8B5CF6),
+          activeTrackColor: const Color(0xFF8B5CF6).withValues(alpha: .4),
+          inactiveThumbColor: Colors.white.withValues(alpha: .4),
+          inactiveTrackColor: Colors.white.withValues(alpha: .10),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterResetButton extends StatelessWidget {
+  const _FilterResetButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF7C3AED).withValues(alpha: .4),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.refresh_rounded, size: 18, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                'Reset filters',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// A floating, frosted-glass header pill that sits over the hero. It carries
@@ -817,12 +1396,10 @@ class _FloatingFilterButton extends StatelessWidget {
 
 class _DiscoveryEmptyState extends StatelessWidget {
   const _DiscoveryEmptyState({
-    required this.filter,
     required this.onReset,
     super.key,
   });
 
-  final String filter;
   final VoidCallback onReset;
 
   @override
@@ -862,10 +1439,10 @@ class _DiscoveryEmptyState extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 22),
-                Text(
-                  'No one matches "$filter" nearby',
+                const Text(
+                  'No one matches your filters nearby',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.2,
@@ -874,7 +1451,7 @@ class _DiscoveryEmptyState extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Try a different filter to see more people around you.',
+                  'Try adjusting your filters to see more people.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
