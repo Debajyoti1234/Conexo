@@ -59,8 +59,6 @@ class ConexoAppState extends State<ConexoApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed &&
         AuthService.currentUser != null) {
       LiveLocationTracker.start();
-    } else if (state == AppLifecycleState.paused) {
-      LiveLocationTracker.stop();
     }
   }
 

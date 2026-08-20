@@ -3,6 +3,7 @@ import 'package:permission_handler/permission_handler.dart' as ph;
 
 enum PermissionType {
   locationWhenInUse,
+  locationAlways,
   camera,
   photos,
   microphone,
@@ -48,6 +49,8 @@ abstract final class PermissionManager {
     switch (type) {
       case PermissionType.locationWhenInUse:
         return ph.Permission.locationWhenInUse;
+      case PermissionType.locationAlways:
+        return ph.Permission.locationAlways;
       case PermissionType.camera:
         return ph.Permission.camera;
       case PermissionType.photos:
@@ -79,6 +82,7 @@ abstract final class PermissionManager {
   static bool _unsupportedOnWeb(PermissionType type) {
     return switch (type) {
       PermissionType.locationWhenInUse ||
+      PermissionType.locationAlways ||
       PermissionType.camera ||
       PermissionType.photos ||
       PermissionType.microphone ||
@@ -89,7 +93,7 @@ abstract final class PermissionManager {
 
   static PermissionStatus _webSafeStatus(PermissionType type) {
     return switch (type) {
-      PermissionType.locationWhenInUse => PermissionStatus.granted,
+      PermissionType.locationWhenInUse || PermissionType.locationAlways => PermissionStatus.granted,
       _ => PermissionStatus.denied,
     };
   }

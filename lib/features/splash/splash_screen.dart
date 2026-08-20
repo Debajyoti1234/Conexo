@@ -225,6 +225,8 @@ class _SplashScreenState extends State<SplashScreen>
         return 'Photos/Media';
       case PermissionType.locationWhenInUse:
         return 'Location';
+      case PermissionType.locationAlways:
+        return 'Location (Always)';
       case PermissionType.notifications:
         return 'Notifications';
       case PermissionType.microphone:

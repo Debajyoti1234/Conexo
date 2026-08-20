@@ -29,6 +29,12 @@
 	<!-- Conexo Phase 9.0: privacy usage descriptions for PermissionManager -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Conexo needs your location to help you discover nearby people and plans.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Conexo needs your location to keep your profile updated for Discovery, even when the app is in the background.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Conexo needs camera access for profile photos and verification.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
