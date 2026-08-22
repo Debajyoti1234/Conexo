@@ -17,14 +17,15 @@ const _kGlassPanel = Color(0xFF141B31);
 
 // ── Tabs ────────────────────────────────────────────────────────────────
 
-/// The four management sections. Hosting + Joined use the reusable
+/// The five management sections. Hosting + Joined + Requested use the reusable
 /// [ExperienceCard]; Archived + Drafts get their own light-weight rows.
-enum MyPlansTab { hosting, joined, archived, drafts }
+enum MyPlansTab { hosting, joined, requested, archived, drafts }
 
 extension MyPlansTabLabel on MyPlansTab {
   String get label => switch (this) {
         MyPlansTab.hosting => 'Hosting',
         MyPlansTab.joined => 'Joined',
+        MyPlansTab.requested => 'Requested',
         MyPlansTab.archived => 'Archived',
         MyPlansTab.drafts => 'Drafts',
       };
@@ -32,6 +33,7 @@ extension MyPlansTabLabel on MyPlansTab {
   IconData get icon => switch (this) {
         MyPlansTab.hosting => Icons.campaign_rounded,
         MyPlansTab.joined => Icons.event_available_rounded,
+        MyPlansTab.requested => Icons.hourglass_top_rounded,
         MyPlansTab.archived => Icons.inventory_2_rounded,
         MyPlansTab.drafts => Icons.drafts_rounded,
       };
@@ -636,36 +638,6 @@ class _GlassDialog extends StatelessWidget {
   }
 }
 
-/// A minimal glass primary button used inside dialogs.
-class _DialogPrimary extends StatelessWidget {
-  const _DialogPrimary({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 46,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [_kAccent, _kSecondary]),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _DialogGhost extends StatelessWidget {
   const _DialogGhost({required this.label, required this.onTap});
   final String label;
@@ -694,47 +666,6 @@ class _DialogGhost extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Shows the premium glass "Edit Plan" sheet. Local + demo only — editing
-/// full plan data is future work, so this confirms intent elegantly.
-Future<void> showEditPlanDialog(BuildContext context, String title) {
-  return showDialog<void>(
-    context: context,
-    builder: (context) => _GlassDialog(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.edit_rounded, size: 20, color: Color(0xFFB7A5FF)),
-              SizedBox(width: 10),
-              Text(
-                'Edit Plan',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Editing "$title" will be available soon. Your plan details '
-            'stay saved locally in the meantime.',
-            style: const TextStyle(
-              fontSize: 13.5,
-              height: 1.5,
-              color: _kSoftText,
-            ),
-          ),
-          const SizedBox(height: 22),
-          _DialogPrimary(
-            label: 'Got it',
-            onTap: () => Navigator.of(context).pop(),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 /// Shows the premium glass "Share Plan" sheet with local share options.

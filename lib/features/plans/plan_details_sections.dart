@@ -212,14 +212,24 @@ class PlanInfoSection extends StatelessWidget {
           style: const TextStyle(fontSize: 12.5, color: Color(0xFF9DB2E8)),
         ),
         const SizedBox(height: 14),
-        Text(
-          _describe(e),
-          style: const TextStyle(
-            fontSize: 14.5,
-            height: 1.5,
-            color: Color(0xFFC7D0E6),
+        if (e.description.isNotEmpty)
+          Text(
+            e.description,
+            style: const TextStyle(
+              fontSize: 14.5,
+              height: 1.5,
+              color: Color(0xFFC7D0E6),
+            ),
+          )
+        else
+          Text(
+            _describe(e),
+            style: const TextStyle(
+              fontSize: 14.5,
+              height: 1.5,
+              color: Color(0xFFC7D0E6),
+            ),
           ),
-        ),
         const SizedBox(height: 18),
         Wrap(
           spacing: 10,
@@ -263,18 +273,44 @@ class PlanInfoSection extends StatelessWidget {
 
   /// A believable local description generated from the plan's own fields.
   String _describe(Experience e) {
-    return 'Join ${e.host} for ${e.title.toLowerCase()} in ${e.city}. '
-        'A ${e.mood.toLowerCase()} plan happening ${e.date.toLowerCase()} '
-        'at ${e.time}. ${e.goingCount} people are going with '
-        '${e.spotsLeft} spots still open — come meet nearby people who '
-        'share your vibe.';
+    final parts = <String>[];
+
+    if (e.host.isNotEmpty && e.title.isNotEmpty) {
+      parts.add('Join ${e.host} for ${e.title.toLowerCase()}');
+    } else if (e.title.isNotEmpty) {
+      parts.add('Join for ${e.title.toLowerCase()}');
+    }
+
+    if (e.city.trim().isNotEmpty) {
+      parts.add('in ${e.city.trim()}');
+    }
+
+    final mood = e.mood.trim().toLowerCase();
+    if (mood.isNotEmpty) {
+      parts.add('A $mood plan');
+    }
+
+    if (e.date != 'Date TBD' && e.time != 'TBD') {
+      parts.add('happening ${e.date.toLowerCase()} at ${e.time}');
+    } else if (e.date != 'Date TBD') {
+      parts.add('happening ${e.date.toLowerCase()}');
+    }
+
+    final description = parts.join('. ');
+    if (description.isEmpty) return 'A new plan worth showing up for.';
+    return '$description. ${e.goingCount} people are going with ${e.spotsLeft} spots still open — come meet nearby people who share your vibe.';
   }
 }
 
 /// Premium glass host card with demo credibility signals.
 class HostSection extends StatelessWidget {
-  const HostSection({required this.experience, super.key});
+  const HostSection({
+    required this.experience,
+    this.onViewProfile,
+    super.key,
+  });
   final Experience experience;
+  final VoidCallback? onViewProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -356,7 +392,7 @@ class HostSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          _ViewProfileButton(),
+          _ViewProfileButton(onPressed: onViewProfile),
         ],
       ),
     );
@@ -364,21 +400,16 @@ class HostSection extends StatelessWidget {
 }
 
 class _ViewProfileButton extends StatelessWidget {
+  const _ViewProfileButton({this.onPressed});
+
+  final VoidCallback? onPressed;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: () {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              const SnackBar(
-                behavior: SnackBarBehavior.floating,
-                content: Text('Profiles coming soon'),
-              ),
-            );
-        },
+        onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: Colors.white,
           side: BorderSide(color: Colors.white.withValues(alpha: .18)),
@@ -397,24 +428,31 @@ class _ViewProfileButton extends StatelessWidget {
   }
 }
 
-/// Premium horizontal participant rail — host pinned first + "+N more".
+/// Premium horizontal participant rail — real joined participants only.
+///
+/// The creator/host is intentionally EXCLUDED here (they are surfaced in the
+/// header + host/management card). Participants are the real joined members
+/// (status = 'joined', user_id != creator_id) passed in from the screen, with
+/// real display names + signed profile photos. Tapping an avatar opens that
+/// participant's public profile.
 class ParticipantsSection extends StatelessWidget {
-  const ParticipantsSection({required this.experience, super.key});
+  const ParticipantsSection({
+    required this.experience,
+    this.participants = const [],
+    this.onTapParticipant,
+    super.key,
+  });
+
   final Experience experience;
+  final List<PlanMembership> participants;
+  final void Function(PlanMembership)? onTapParticipant;
 
   @override
   Widget build(BuildContext context) {
     final e = experience;
-    // Host pinned first, then participants. Overflow beyond a visible cap.
-    const visible = 5;
-    final people = <_Person>[
-      _Person(e.hostPortrait, e.host, isHost: true),
-      for (final p in e.participants) _Person(p, ''),
-    ];
-    final shown = people.take(visible).toList();
-    // "+N more" uses goingCount as the authoritative total when larger.
-    final total = e.goingCount > people.length ? e.goingCount : people.length;
-    final extra = total - shown.length;
+    const visible = 8;
+    final shown = participants.take(visible).toList();
+    final extra = participants.length - shown.length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,38 +462,180 @@ class ParticipantsSection extends StatelessWidget {
           subtitle: '${e.goingCount} going • ${e.spotsLeft} spots left',
         ),
         const SizedBox(height: 14),
-        SizedBox(
-          height: 84,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: shown.length + (extra > 0 ? 1 : 0),
-            separatorBuilder: (_, _) => const SizedBox(width: 14),
-
-            itemBuilder: (context, i) {
-              if (i < shown.length) {
-                final p = shown[i];
-                return ParticipantAvatar(
-                  asset: p.asset,
-                  accent: e.accent,
-                  label: p.isHost ? p.label : '',
-                  isHost: p.isHost,
-                );
-              }
-              return ParticipantOverflow(count: extra);
-            },
+        if (shown.isEmpty)
+          Text(
+            'No one has joined yet.',
+            style: TextStyle(
+              fontSize: 13.5,
+              color: Colors.white.withValues(alpha: .6),
+            ),
+          )
+        else
+          SizedBox(
+            height: 84,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: shown.length + (extra > 0 ? 1 : 0),
+              separatorBuilder: (_, _) => const SizedBox(width: 14),
+              itemBuilder: (context, i) {
+                if (i < shown.length) {
+                  final m = shown[i];
+                  final label = m.displayName?.trim().isNotEmpty ?? false
+                      ? m.displayName!.trim()
+                      : 'User ${m.userId.substring(0, 8)}';
+                  return ParticipantAvatar(
+                    asset: (m.photoUrl?.trim().isEmpty ?? true) ? '' : m.photoUrl!.trim(),
+                    accent: e.accent,
+                    label: label,
+                    onTap: onTapParticipant == null ? null : () => onTapParticipant!(m),
+                  );
+                }
+                return ParticipantOverflow(count: extra);
+              },
+            ),
           ),
-        ),
       ],
     );
   }
 }
 
-class _Person {
-  const _Person(this.asset, this.label, {this.isHost = false});
-  final String asset;
+/// Own-plan management card shown in Plan Details when the viewer is the
+/// creator. Deliberately replaces the social discovery-style host card so the
+/// owner never sees "Hosted by / View Profile / Friends / Mutual / stats" for
+/// their own plan.
+class OwnPlanManagementCard extends StatelessWidget {
+  const OwnPlanManagementCard({
+    required this.experience,
+    required this.onEdit,
+    required this.onShare,
+    required this.onArchive,
+    super.key,
+  });
+
+  final Experience experience;
+  final VoidCallback onEdit;
+  final VoidCallback onShare;
+  final VoidCallback onArchive;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              PlanPortrait(
+                asset: experience.hostPortrait,
+                accent: experience.accent,
+                size: 44,
+                label: 'You',
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'You\'re hosting this plan',
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Manage your plan',
+                      style: TextStyle(fontSize: 12.5, color: Color(0xFF9DB2E8)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const PanelDivider(),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _ManageAction(
+                  icon: Icons.edit_rounded,
+                  label: 'Edit',
+                  onTap: onEdit,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ManageAction(
+                  icon: Icons.ios_share_rounded,
+                  label: 'Share',
+                  onTap: onShare,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ManageAction(
+                  icon: Icons.archive_outlined,
+                  label: 'Archive',
+                  onTap: onArchive,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ManageAction extends StatelessWidget {
+  const _ManageAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
   final String label;
-  final bool isHost;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: .12)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: const Color(0xFFC7D0E6)),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFC7D0E6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// A premium "why join" section built from local, derived reasons.

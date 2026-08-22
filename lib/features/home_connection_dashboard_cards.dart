@@ -28,21 +28,50 @@ class PortraitAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = size / 2;
     Widget avatar;
     if (portrait.isNotEmpty) {
-      avatar = ClipOval(
-        child: Image.asset(
+      final isNetwork = portrait.startsWith('http://') || portrait.startsWith('https://');
+      if (isNetwork) {
+        avatar = Image.network(
           portrait,
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) =>
-              _fallback(radius: radius),
-        ),
-      );
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              width: size,
+              height: size,
+              color: color.withValues(alpha: .25),
+              child: Center(
+                child: SizedBox(
+                  width: size * .4,
+                  height: size * .4,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white.withValues(alpha: .7),
+                    value: progress.expectedTotalBytes != null
+                        ? progress.cumulativeBytesLoaded /
+                            progress.expectedTotalBytes!
+                        : null,
+                  ),
+                ),
+              ),
+            );
+          },
+          errorBuilder: _buildFallback,
+        );
+      } else {
+        avatar = Image.asset(
+          portrait,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: _buildFallback,
+        );
+      }
     } else {
-      avatar = _fallback(radius: radius);
+      avatar = _buildFallback(context, null, null);
     }
     return Container(
       width: size,
@@ -62,7 +91,8 @@ class PortraitAvatar extends StatelessWidget {
     );
   }
 
-  Widget _fallback({required double radius}) {
+  Widget _buildFallback(BuildContext context, Object? error, StackTrace? stackTrace) {
+    final radius = size / 2;
     return Container(
       width: radius * 2,
       height: radius * 2,
@@ -585,39 +615,80 @@ class PendingRequestCard extends StatelessWidget {
 }
 
 /// Premium portrait chip for an approved participant.
+///
+/// Tapping the chip opens the participant's public profile. When [onRemove] is
+/// provided (creator context), a small remove control is shown so the host can
+/// remove a joined participant.
 class ParticipantChip extends StatelessWidget {
-  const ParticipantChip({super.key, required this.participant});
+  const ParticipantChip({
+    super.key,
+    required this.participant,
+    this.onTap,
+    this.onRemove,
+  });
 
   final Participant participant;
+  final VoidCallback? onTap;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 13, 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .06),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .1)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PortraitAvatar(
-            name: participant.name,
-            color: participant.color,
-            portrait: participant.portrait,
-            size: 34,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withValues(alpha: .1)),
           ),
-          const SizedBox(width: 9),
-          Text(
-            participant.name,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFFDDE3F4),
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              PortraitAvatar(
+                name: participant.name,
+                color: participant.color,
+                portrait: participant.portrait,
+                size: 34,
+              ),
+              const SizedBox(width: 9),
+              Flexible(
+                child: Text(
+                  participant.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFDDE3F4),
+                  ),
+                ),
+              ),
+              if (onRemove != null) ...[
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: onRemove,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFFE36D9D).withValues(alpha: .16),
+                    ),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      size: 14,
+                      color: Color(0xFFE36D9D),
+                    ),
+                  ),
+                ),
+              ] else
+                const SizedBox(width: 5),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

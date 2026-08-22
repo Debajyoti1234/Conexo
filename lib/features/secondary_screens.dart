@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../app/theme/app_widgets.dart';
 import 'chat/connections_screen.dart';
 import 'home_connection_dashboard.dart';
+import 'plans/plan_repository.dart';
 import 'plans/plans_screen.dart';
+import 'plans/supabase_plan_repository.dart';
 import 'profile/my_profile_screen.dart';
 import 'profile/profile_creation_screen.dart';
 import 'profile/profile_repository.dart';
@@ -81,11 +83,13 @@ class ConnectionsScreen extends StatelessWidget {
 
 
 class PlansScreen extends StatelessWidget {
-  const PlansScreen({super.key});
+  const PlansScreen({super.key, this.repository = const SupabasePlanRepository()});
+
+  final PlanRepository repository;
 
   @override
   Widget build(BuildContext context) {
-    return const _ScreenFrame(child: PlansDiscoveryScreen());
+    return _ScreenFrame(child: PlansDiscoveryScreen(repository: repository));
   }
 }
 

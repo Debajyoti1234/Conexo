@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../chat/chat_models.dart';
 import '../chat/chat_repository.dart';
 import '../chat/conversation_screen.dart';
 import '../profile/privacy_verification_widgets.dart';
@@ -48,17 +49,8 @@ class NotificationNavigation {
 
       case NotificationKind.join:
       case NotificationKind.plan:
-        // Plan joined or plan reminder → find the group chat or show coming soon
-        final groupChat = _repo.findConversationForPlan(notification.id);
-        if (groupChat != null) {
-          Navigator.of(context).push(conversationRoute(groupChat));
-        } else {
-          ComingSoonDialog.show(
-            context,
-            title: 'Plan chat',
-            message: 'Group chat will open once the plan has participants.',
-          );
-        }
+        // Plan joined / plan activity → open the REAL plan group chat.
+        _openPlanChat(context, notification.id);
         break;
 
       case NotificationKind.system:
@@ -70,5 +62,59 @@ class NotificationNavigation {
         );
         break;
     }
+  }
+
+  /// Opens the real Plan group conversation for [planId]. Prefers an existing
+  /// conversation; if none exists yet, it is created lazily when the current
+  /// user is the creator or a joined participant. Ineligible users get a clear
+  /// message — never a "coming soon" placeholder.
+  static Future<void> _openPlanChat(
+    BuildContext context,
+    String planId,
+  ) async {
+    const chatRepository = ChatRepository();
+
+    String? conversationId;
+    String? errorMessage;
+
+    final existing = await chatRepository.findConversationForPlan(planId);
+    if (!context.mounted) return;
+    if (existing.isSuccess && existing.value != null) {
+      conversationId = existing.value!.id;
+    } else {
+      final created = await chatRepository.getOrCreatePlanConversation(planId);
+      if (!context.mounted) return;
+      if (created.isSuccess && created.value != null) {
+        conversationId = created.value;
+      } else {
+        errorMessage = created.error ??
+            "You are not a member of this plan's group chat.";
+      }
+    }
+
+    if (conversationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(errorMessage ?? 'Could not open the plan chat.'),
+        ),
+      );
+      return;
+    }
+
+    final preview = ConversationPreview(
+      id: conversationId,
+      name: 'Plan chat',
+      avatarAsset: '',
+      lastMessage: '',
+      timestamp: '',
+      type: ConversationType.group,
+      status: ConversationStatus.offline,
+      lastMessageType: LastMessageType.plan,
+    );
+
+    Navigator.of(context).push(
+      conversationRoute(preview, chatRepository: chatRepository),
+    );
   }
 }

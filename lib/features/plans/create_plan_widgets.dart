@@ -38,7 +38,7 @@ class CreateSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 26),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -69,13 +69,13 @@ class CreateSection extends StatelessWidget {
             ],
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               subtitle!,
-              style: const TextStyle(fontSize: 13.5, color: _kSoftText),
+              style: const TextStyle(fontSize: 13, color: _kSoftText),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           child,
         ],
       ),
@@ -89,15 +89,15 @@ class _CompletionCheck extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 24,
-      height: 24,
+      width: 22,
+      height: 22,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: const Color(0xFF47D7A5).withValues(alpha: .22),
         border: Border.all(color: const Color(0xFF47D7A5).withValues(alpha: .6)),
       ),
       alignment: Alignment.center,
-      child: const Icon(Icons.check_rounded, size: 15, color: Color(0xFF7BE8C2)),
+      child: const Icon(Icons.check_rounded, size: 13, color: Color(0xFF7BE8C2)),
     );
   }
 }
@@ -124,7 +124,7 @@ class StageRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final stages = CreateStage.values;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
       child: Row(
         children: [
           for (final stage in stages) ...[
@@ -182,7 +182,7 @@ class _StageItem extends StatelessWidget {
           duration: const Duration(milliseconds: 340),
           curve: Curves.easeInOutCubic,
           height: 3,
-          width: active ? 26 : (done ? 18 : 10),
+          width: active ? 22 : (done ? 14 : 8),
           decoration: BoxDecoration(
             color: highlighted
                 ? _kAccent.withValues(alpha: active ? .95 : .5)
@@ -197,9 +197,15 @@ class _StageItem extends StatelessWidget {
 
 // ── Cover picker hero + premium Conexo gallery grid ─────────────────────
 
-/// The large rounded cover hero with a two-button row:
-/// "Conexo Gallery" (active) and "Upload Your Own" (visible, disabled with
-/// a subtle "Coming Soon" — no new dependency).
+/// The cover selection area.
+///
+/// When no cover is chosen, shows two equal premium glass cards side by side:
+///   • "Add Your Cover" — opens the device gallery
+///   • "Conexo Gallery" — opens the built-in cover gallery
+///
+/// When a cover is already selected, shows the cover image with a subtle
+/// glass overlay and a "Change cover" affordance, plus the two action cards
+/// below for switching.
 class CoverPickerHero extends StatelessWidget {
   const CoverPickerHero({
     required this.coverAsset,
@@ -226,18 +232,18 @@ class CoverPickerHero extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _CoverButton(
-                icon: Icons.photo_library_rounded,
-                label: 'Conexo Gallery',
+              child: _CoverActionCard(
                 onTap: onPickGallery,
+                icon: Icons.add_photo_alternate_rounded,
+                label: 'Add Your Cover',
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
-              child: _CoverButton(
-                icon: Icons.file_upload_rounded,
-                label: 'Upload Your Own',
-                comingSoon: true,
+            Expanded(
+              child: _CoverActionCard(
+                onTap: onPickGallery,
+                icon: Icons.photo_library_rounded,
+                label: 'Conexo Gallery',
               ),
             ),
           ],
@@ -248,93 +254,100 @@ class CoverPickerHero extends StatelessWidget {
 
   Widget _hero(String? asset) {
     if (asset == null || asset.isEmpty) {
-      return Container(
-        key: const ValueKey('empty-cover'),
-        height: 200,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .05),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: .12),
-            width: 1.4,
-          ),
-        ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add_photo_alternate_rounded,
-                size: 40, color: Color(0xFF9DB2E8)),
-            SizedBox(height: 10),
-            Text(
-              'Choose a cover to bring your plan to life',
-              style: TextStyle(color: _kSoftText, fontSize: 13.5),
-            ),
-          ],
-        ),
-      );
+      return const SizedBox.shrink(key: ValueKey('empty-cover'));
     }
     return SizedBox(
       key: ValueKey(asset),
       height: 200,
       width: double.infinity,
-      child: PlanCover(asset: asset, accent: _kAccent, radius: 24),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PlanCover(asset: asset, accent: _kAccent, radius: 24),
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: .0),
+                borderRadius: BorderRadius.circular(24),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: GestureDetector(
+              onTap: onPickGallery,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: .45),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: .2)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.edit_rounded, size: 14, color: Colors.white),
+                    SizedBox(width: 6),
+                    Text(
+                      'Change cover',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _CoverButton extends StatelessWidget {
-  const _CoverButton({
+class _CoverActionCard extends StatelessWidget {
+  const _CoverActionCard({
+    required this.onTap,
     required this.icon,
     required this.label,
-    this.onTap,
-    this.comingSoon = false,
   });
 
+  final VoidCallback onTap;
   final IconData icon;
   final String label;
-  final VoidCallback? onTap;
-  final bool comingSoon;
 
   @override
   Widget build(BuildContext context) {
-    final disabled = comingSoon;
-    return Opacity(
-      opacity: disabled ? 0.55 : 1,
-      child: GestureDetector(
-        onTap: disabled ? null : onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .07),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: .12)),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, size: 20, color: const Color(0xFFB7A5FF)),
-              const SizedBox(height: 7),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .07),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: .12)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: _kAccent.withValues(alpha: .16),
+                borderRadius: BorderRadius.circular(13),
               ),
-              if (comingSoon) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Coming Soon',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white.withValues(alpha: .6),
-                  ),
-                ),
-              ],
-            ],
-          ),
+              child: Icon(icon, size: 18, color: const Color(0xFFB7A5FF)),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -497,7 +510,7 @@ class _LuxuryChipState extends State<LuxuryChip> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 240),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: selected ? .16 : .06),
             borderRadius: BorderRadius.circular(16),
@@ -563,7 +576,7 @@ class SegmentedVisibilityCards extends StatelessWidget {
           selected: value == PlanVisibility.public,
           onTap: () => onChanged(PlanVisibility.public),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         _VisibilityCard(
           emoji: '🔒',
           title: 'Private Plan',
@@ -597,7 +610,7 @@ class _VisibilityCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: selected ? .12 : .05),
           borderRadius: BorderRadius.circular(20),
@@ -632,10 +645,10 @@ class _VisibilityCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 12.5, color: _kSoftText),
+                    style: const TextStyle(fontSize: 12, color: _kSoftText),
                   ),
                 ],
               ),
@@ -683,18 +696,19 @@ class SelectorTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: GlassCard(
+        padding: const EdgeInsets.all(14),
         child: Row(
           children: [
             Container(
-              width: 42,
-              height: 42,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 color: _kAccent.withValues(alpha: .16),
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, size: 20, color: const Color(0xFFB7A5FF)),
+              child: Icon(icon, size: 17, color: const Color(0xFFB7A5FF)),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,7 +717,7 @@ class SelectorTile extends StatelessWidget {
                     label,
                     style: const TextStyle(fontSize: 12, color: _kSoftText),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     value,
                     style: TextStyle(
@@ -731,17 +745,22 @@ class GlassTextField extends StatelessWidget {
     super.key,
     this.maxLines = 1,
     this.onChanged,
+    this.leadingIcon,
   });
 
   final TextEditingController controller;
   final String hint;
   final int maxLines;
   final ValueChanged<String>? onChanged;
+  final IconData? leadingIcon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: leadingIcon != null ? 14 : 16,
+        vertical: maxLines > 1 ? 14 : 6,
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: .06),
         borderRadius: BorderRadius.circular(18),
@@ -753,6 +772,10 @@ class GlassTextField extends StatelessWidget {
         maxLines: maxLines,
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         decoration: InputDecoration(
+          prefixIcon: leadingIcon != null
+              ? Icon(leadingIcon, size: 18, color: const Color(0xFF9DB2E8))
+              : null,
+          prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           border: InputBorder.none,
           hintText: hint,
           hintStyle: const TextStyle(color: Color(0xFF6B7799)),
@@ -766,19 +789,23 @@ class GlassTextField extends StatelessWidget {
 
 enum PublishState { idle, loading }
 
-/// The large floating gradient "🚀 Publish Plan" button. Disabled (dimmed +
+/// The large floating gradient action button. Disabled (dimmed +
 /// non-interactive) until [enabled]; morphs into a loading spinner on tap.
+/// [label] lets the caller show "Publish Plan" (create) or "Save Changes"
+/// (editing an existing plan).
 class PublishButton extends StatelessWidget {
   const PublishButton({
     required this.enabled,
     required this.state,
     required this.onTap,
     super.key,
+    this.label = 'Publish Plan',
   });
 
   final bool enabled;
   final PublishState state;
   final VoidCallback onTap;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -803,9 +830,9 @@ class PublishButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(loading ? 28 : 18),
               boxShadow: [
                 BoxShadow(
-                  color: _kAccent.withValues(alpha: .5),
-                  blurRadius: 26,
-                  offset: const Offset(0, 10),
+                  color: _kAccent.withValues(alpha: .45),
+                  blurRadius: 22,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
@@ -822,10 +849,10 @@ class PublishButton extends StatelessWidget {
                         color: Colors.white,
                       ),
                     )
-                  : const Text(
-                      '🚀 Publish Plan',
-                      key: ValueKey('label'),
-                      style: TextStyle(
+                  : Text(
+                      label,
+                      key: const ValueKey('label'),
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -841,12 +868,18 @@ class PublishButton extends StatelessWidget {
 
 // ── Premium success overlay ─────────────────────────────────────────────
 
-/// A calm full-screen success state shown after publishing.
+/// A calm full-screen success state shown after publishing or saving edits.
 class PublishSuccessOverlay extends StatelessWidget {
-  const PublishSuccessOverlay({super.key});
+  const PublishSuccessOverlay({super.key, this.isEditing = false});
+
+  final bool isEditing;
 
   @override
   Widget build(BuildContext context) {
+    final title = isEditing ? '✨ Changes Saved' : '✨ Plan Published';
+    final message = isEditing
+        ? 'Your plan has been updated.'
+        : 'Your plan is now visible to nearby people.';
     return Container(
       color: const Color(0xFF060912).withValues(alpha: .92),
       alignment: Alignment.center,
@@ -874,17 +907,17 @@ class PublishSuccessOverlay extends StatelessWidget {
                   size: 44, color: Colors.white),
             ),
             const SizedBox(height: 26),
-            const Text(
-              '✨ Plan Published',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 10),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                'Your plan is now visible to nearby people.',
+                message,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14.5, color: _kSoftText),
+                style: const TextStyle(fontSize: 14.5, color: _kSoftText),
               ),
             ),
           ],

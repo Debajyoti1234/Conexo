@@ -49,10 +49,11 @@ class ConversationPreview {
     this.unreadCount = 0,
     this.isTyping = false,
     this.isPinned = false,
-    this.isMuted = false,
-    this.isVerified = false,
-    this.otherUserId,
-  });
+  this.isMuted = false,
+  this.isVerified = false,
+  this.otherUserId,
+  this.planId,
+});
 
   final String id;
   final String name;
@@ -68,6 +69,7 @@ class ConversationPreview {
   final bool isMuted;
   final bool isVerified;
   final String? otherUserId;
+  final String? planId;
 
   bool get hasUnread => unreadCount > 0;
   bool get isGroup => type == ConversationType.group;

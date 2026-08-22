@@ -256,6 +256,39 @@ class PlanDraft {
       description: (json['description'] as String?) ?? '',
     );
   }
+
+  static TimeOfDay? _timeFromLabel(String label) {
+    final regex = RegExp(r'(\d+):(\d+)\s*(AM|PM)', caseSensitive: false);
+    final match = regex.firstMatch(label);
+    if (match == null) return null;
+    final hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    final period = match.group(3)!.toUpperCase();
+    var h = hour % 12;
+    if (period == 'PM') h += 12;
+    return TimeOfDay(hour: h, minute: minute);
+  }
+
+  factory PlanDraft.fromPublishedPlan(PublishedPlan plan) {
+    final time = _timeFromLabel(plan.timeLabel);
+    final isCustomMood = plan.mood == 'Custom' || plan.mood.isEmpty;
+    return PlanDraft(
+      coverAsset: plan.coverAsset.isEmpty ? null : plan.coverAsset,
+      title: plan.title,
+      mood: isCustomMood ? null : plan.mood,
+      customMood: isCustomMood ? plan.category ?? '' : '',
+      visibility: plan.visibility,
+      location: plan.location,
+      latitude: plan.latitude,
+      longitude: plan.longitude,
+      createdAt: plan.createdAt,
+      date: plan.date ?? plan.startsAt,
+      time: time,
+      participants: plan.participants,
+      customParticipants: null,
+      description: plan.description,
+    );
+  }
 }
 
 // ── The published plan (future-ready model) ─────────────────────────────
@@ -278,6 +311,8 @@ class PublishedPlan {
     this.participants,
     this.description = '',
     this.status = 'active',
+    this.startsAt,
+    this.category,
   });
 
   final String id;
@@ -289,13 +324,57 @@ class PublishedPlan {
   final String mood;
   final String location;
   final PlanVisibility visibility;
-  final double? latitude; // future distance-first
-  final double? longitude; // future distance-first
+  final double? latitude;
+  final double? longitude;
   final DateTime? date;
   final String timeLabel;
   final int? participants;
   final String description;
   final String status;
+  final DateTime? startsAt;
+  final String? category;
+
+  PublishedPlan copyWith({
+    String? id,
+    String? hostId,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    String? coverAsset,
+    String? title,
+    String? mood,
+    String? location,
+    PlanVisibility? visibility,
+    double? latitude,
+    double? longitude,
+    DateTime? date,
+    String? timeLabel,
+    int? participants,
+    String? description,
+    String? status,
+    DateTime? startsAt,
+    String? category,
+  }) {
+    return PublishedPlan(
+      id: id ?? this.id,
+      hostId: hostId ?? this.hostId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      coverAsset: coverAsset ?? this.coverAsset,
+      title: title ?? this.title,
+      mood: mood ?? this.mood,
+      location: location ?? this.location,
+      visibility: visibility ?? this.visibility,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      date: date ?? this.date,
+      timeLabel: timeLabel ?? this.timeLabel,
+      participants: participants ?? this.participants,
+      description: description ?? this.description,
+      status: status ?? this.status,
+      startsAt: startsAt ?? this.startsAt,
+      category: category ?? this.category,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -314,6 +393,8 @@ class PublishedPlan {
         'participants': participants,
         'description': description,
         'status': status,
+        'startsAt': startsAt?.toIso8601String(),
+        'category': category,
       };
 
   factory PublishedPlan.fromJson(Map<String, dynamic> json) {
@@ -343,11 +424,35 @@ class PublishedPlan {
       participants: json['participants'] as int?,
       description: (json['description'] as String?) ?? '',
       status: (json['status'] as String?) ?? 'active',
+      startsAt: parseNullable(json['startsAt']),
+      category: json['category'] as String?,
     );
   }
 
   factory PublishedPlan.fromDraft(PlanDraft draft) {
     final now = DateTime.now();
+    final effectiveMood = draft.effectiveMood;
+    final date = draft.date;
+    final time = draft.time;
+    DateTime? startsAt;
+    if (date != null && time != null) {
+      startsAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    } else if (date != null) {
+      startsAt = DateTime(date.year, date.month, date.day);
+    }
+
+    String timeLabel = '';
+    if (time != null) {
+      final h = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+      final m = time.minute.toString().padLeft(2, '0');
+      final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+      timeLabel = '$h:$m $period';
+    }
+
+    final category = effectiveMood.isEmpty
+        ? (draft.title.trim().isEmpty ? 'Custom' : draft.title.trim())
+        : effectiveMood;
+
     return PublishedPlan(
       id: 'plan_${now.microsecondsSinceEpoch}',
       hostId: 'local_user',
@@ -355,15 +460,57 @@ class PublishedPlan {
       updatedAt: now,
       coverAsset: draft.coverAsset ?? '',
       title: draft.title.trim(),
-      mood: draft.effectiveMood,
+      mood: effectiveMood,
       location: draft.location.trim(),
       visibility: draft.visibility ?? PlanVisibility.public,
       latitude: draft.latitude,
       longitude: draft.longitude,
-      date: draft.date,
+      date: date,
+      timeLabel: timeLabel,
       participants: draft.effectiveParticipants,
       description: draft.description.trim(),
       status: 'active',
+      startsAt: startsAt,
+      category: category,
+    );
+  }
+
+  factory PublishedPlan.fromSupabase(Map<String, dynamic> row) {
+    DateTime? parseNullable(Object? raw) =>
+        raw is String ? DateTime.tryParse(raw) : null;
+
+    PlanVisibility visibility = PlanVisibility.public;
+    final v = row['visibility'] as String?;
+    if (v == PlanVisibility.private.name) visibility = PlanVisibility.private;
+
+    final startsAt = parseNullable(row['starts_at']);
+    String timeLabel = '';
+    if (startsAt != null) {
+      final hour = startsAt.hour % 12 == 0 ? 12 : startsAt.hour % 12;
+      final m = startsAt.minute.toString().padLeft(2, '0');
+      final period = startsAt.hour < 12 ? 'AM' : 'PM';
+      timeLabel = '$hour:$m $period';
+    }
+
+    return PublishedPlan(
+      id: (row['id'] as String?) ?? 'plan_unknown',
+      hostId: (row['creator_id'] as String?) ?? 'local_user',
+      createdAt: parseNullable(row['created_at']) ?? DateTime.now(),
+      updatedAt: parseNullable(row['updated_at']) ?? DateTime.now(),
+      coverAsset: (row['cover_url'] as String?) ?? '',
+      title: (row['title'] as String?) ?? '',
+      mood: (row['mood'] as String?) ?? '',
+      location: '',
+      visibility: visibility,
+      latitude: (row['latitude'] as num?)?.toDouble(),
+      longitude: (row['longitude'] as num?)?.toDouble(),
+      date: startsAt,
+      timeLabel: timeLabel,
+      participants: row['capacity'] as int?,
+      description: (row['description'] as String?) ?? '',
+      status: (row['status'] as String?) ?? 'active',
+      startsAt: startsAt,
+      category: row['category'] as String?,
     );
   }
 }
@@ -400,6 +547,7 @@ Experience draftToPlan(PlanDraft draft) {
     id: 'draft_preview',
     title: draft.hasTitle ? draft.title.trim() : 'Your plan title',
     host: 'You',
+    hostId: 'local_user',
     hostPortrait: 'assets/images/portraits/demo1.jpeg',
     coverAsset: draft.coverAsset ?? planCoverGallery.first.asset,
     category: effectiveMood.isEmpty ? 'Plan' : effectiveMood,
@@ -417,5 +565,7 @@ Experience draftToPlan(PlanDraft draft) {
         : draft.description.trim(),
     participants: const <String>[],
     visibility: draft.visibility ?? PlanVisibility.public,
+    description: draft.description.trim(),
+    capacity: limit ?? 0,
   );
 }

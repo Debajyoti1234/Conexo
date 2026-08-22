@@ -22,7 +22,7 @@ class LivePlanPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final experience = draftToPlan(draft);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 26),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -41,12 +41,12 @@ class LivePlanPreview extends StatelessWidget {
               _LiveBadge(),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           const Text(
             'This is exactly how your plan will appear to nearby people.',
-            style: TextStyle(fontSize: 13.5, color: Color(0xFFB9C3DC)),
+            style: TextStyle(fontSize: 13, color: Color(0xFFB9C3DC)),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 380),
             switchInCurve: Curves.easeOutCubic,
@@ -103,7 +103,7 @@ class _LiveBadgeState extends State<_LiveBadge>
         CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
       ),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: const Color(0xFF47D7A5).withValues(alpha: .18),
           borderRadius: BorderRadius.circular(10),
@@ -114,12 +114,12 @@ class _LiveBadgeState extends State<_LiveBadge>
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.circle, size: 7, color: Color(0xFF47D7A5)),
+            Icon(Icons.circle, size: 6, color: Color(0xFF47D7A5)),
             SizedBox(width: 5),
             Text(
               'LIVE',
               style: TextStyle(
-                fontSize: 10.5,
+                fontSize: 10,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFF7BE8C2),
                 letterSpacing: .6,

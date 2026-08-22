@@ -159,6 +159,13 @@ const PlanCategory allCategory = PlanCategory(
   Color(0xFF8B5CF6),
 );
 
+const PlanCategory privateCategory = PlanCategory(
+  'Private',
+  '🔒',
+  Icons.lock_rounded,
+  Color(0xFF8B5CF6),
+);
+
 /// Horizontal strip of premium glass category cards. Fully controlled: "All"
 /// is index 0, and selection is owned by the parent (single source of truth).
 class CategoryStrip extends StatelessWidget {
@@ -174,7 +181,7 @@ class CategoryStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = <PlanCategory>[allCategory, ...planCategories];
+    final items = <PlanCategory>[allCategory, ...planCategories, privateCategory];
     return SizedBox(
       height: 108,
       child: ListView.separated(

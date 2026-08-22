@@ -7,8 +7,9 @@ import 'plans_data.dart';
 /// Local assets only — no network images. Every widget keeps the luxury
 /// dark-glass language consistent with the People and Connections screens.
 
-/// A local cover image with a soft gradient scrim + vignette. Falls back to
-/// a gentle accent gradient if the asset is missing.
+/// A cover image for the premium Plan UI. Supports both local assets and
+/// remote network URLs (for Supabase-backed covers). Falls back to a gentle
+/// accent gradient if the image cannot be loaded.
 class PlanCover extends StatelessWidget {
   const PlanCover({
     required this.asset,
@@ -27,26 +28,45 @@ class PlanCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final image = Image.asset(
-      asset,
-      height: height,
-      width: double.infinity,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(
+    Widget image;
+    if (asset.startsWith('http://') || asset.startsWith('https://')) {
+      image = Image.network(
+        asset,
         height: height,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color.lerp(accent, Colors.white, .25) ?? accent,
-              accent,
-              Color.lerp(accent, const Color(0xFF0A0F1F), .55) ?? accent,
-            ],
-          ),
-        ),
-      ),
-    );
+        width: double.infinity,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Container(
+            height: height,
+            color: accent.withValues(alpha: .25),
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white.withValues(alpha: .7),
+                  value: progress.expectedTotalBytes != null
+                      ? progress.cumulativeBytesLoaded /
+                          progress.expectedTotalBytes!
+                      : null,
+                ),
+              ),
+            ),
+          );
+        },
+        errorBuilder: _buildFallback,
+      );
+    } else {
+      image = Image.asset(
+        asset,
+        height: height,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: _buildFallback,
+      );
+    }
 
     final layered = Stack(
       fit: StackFit.expand,
@@ -88,6 +108,23 @@ class PlanCover extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: layered,
+    );
+  }
+
+  Widget _buildFallback(BuildContext context, Object error, StackTrace? stackTrace) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.lerp(accent, Colors.white, .25) ?? accent,
+            accent,
+            Color.lerp(accent, const Color(0xFF0A0F1F), .55) ?? accent,
+          ],
+        ),
+      ),
     );
   }
 }
@@ -388,6 +425,47 @@ class PlanPortrait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget image;
+    if (asset.startsWith('http://') || asset.startsWith('https://')) {
+      image = Image.network(
+        asset,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Container(
+            width: size,
+            height: size,
+            color: accent.withValues(alpha: .25),
+            child: Center(
+              child: SizedBox(
+                width: size * .4,
+                height: size * .4,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white.withValues(alpha: .7),
+                  value: progress.expectedTotalBytes != null
+                      ? progress.cumulativeBytesLoaded /
+                          progress.expectedTotalBytes!
+                      : null,
+                ),
+              ),
+            ),
+          );
+        },
+        errorBuilder: _buildFallback,
+      );
+    } else {
+      image = Image.asset(
+        asset,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: _buildFallback,
+      );
+    }
+
     return Container(
       width: size,
       height: size,
@@ -395,14 +473,18 @@ class PlanPortrait extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white.withValues(alpha: .35), width: 1.4),
       ),
-      child: ClipOval(
-        child: Image.asset(
-          asset,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            color: accent,
-            alignment: Alignment.center,
-            child: Text(
+      child: ClipOval(child: image),
+    );
+  }
+
+  Widget _buildFallback(BuildContext context, Object error, StackTrace? stackTrace) {
+    final isYou = label == 'You';
+    return Container(
+      color: accent,
+      alignment: Alignment.center,
+      child: isYou
+          ? const Icon(Icons.person_outline_rounded, size: 18, color: Colors.white)
+          : Text(
               label.isEmpty ? '?' : label.substring(0, 1).toUpperCase(),
               style: TextStyle(
                 fontSize: size * .4,
@@ -410,9 +492,6 @@ class PlanPortrait extends StatelessWidget {
                 color: Colors.white,
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }

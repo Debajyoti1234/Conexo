@@ -12,6 +12,7 @@ import 'chat_dtos.dart';
 import 'conversation_screen.dart';
 import 'realtime_messages_service.dart';
 import '../../core/supabase/auth_service.dart';
+import '../plans/supabase_plan_repository.dart';
 import '../profile/connections_view_model.dart';
 import '../profile/realtime_connections_service.dart';
 
@@ -46,7 +47,6 @@ class ConnectionsInboxScreen extends StatefulWidget {
 
 class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
   final _chatRepository = const ChatRepository();
-  final _repository = const LocalChatRepository();
   final _searchController = TextEditingController();
 
   List<ConversationPreview> _connections = const [];
@@ -65,6 +65,10 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
   final List<ChatMessageEvent> _pendingRealtimeEvents = [];
   final Set<String> _processedMessageIds = {};
   final Set<String> _viewedConversationIds = {};
+  // P1.2B.9: plan group chat tracking (conversation ids, keyed identically to
+  // the plan ConversationPreview.id, which is the conversation id).
+  final Set<String> _planConversationIds = <String>{};
+  final Set<String> _viewedPlanConversationIds = {};
   bool _suppressUnreadIncrement = false;
 
   static const _pinnedPrefsKey = 'chat_pinned_ids';
@@ -119,9 +123,19 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
 
     final conversationId = message.conversationId;
     final connectionId = _conversationToConnectionMap[conversationId];
-    if (connectionId == null) return;
-    if (!_connectionModels.containsKey(connectionId)) return;
+    if (connectionId != null) {
+      if (!_connectionModels.containsKey(connectionId)) return;
+      _applyConnectionMessage(connectionId, message);
+      return;
+    }
 
+    // P1.2B.9: live updates for plan group chats.
+    if (_planConversationIds.contains(conversationId)) {
+      _applyPlanMessage(conversationId, message);
+    }
+  }
+
+  void _applyConnectionMessage(String connectionId, ChatMessage message) {
     final localCreatedAt = message.createdAt.toLocal();
     final isFromOther = message.senderId != AuthService.currentUser?.id;
     final isCurrentlyViewed = _viewedConversationIds.contains(connectionId);
@@ -149,10 +163,54 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
           isPinned: existing.isPinned,
           isMuted: existing.isMuted,
           isVerified: existing.isVerified,
+          otherUserId: existing.otherUserId,
         );
       }
 
       _connections.sort((a, b) {
+        final aTime = _latestMessageTimes[a.id];
+        final bTime = _latestMessageTimes[b.id];
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
+    });
+  }
+
+  void _applyPlanMessage(String conversationId, ChatMessage message) {
+    final localCreatedAt = message.createdAt.toLocal();
+    final isFromOther = message.senderId != AuthService.currentUser?.id;
+    final isCurrentlyViewed =
+        _viewedPlanConversationIds.contains(conversationId);
+
+    setState(() {
+      _latestMessageTimes[conversationId] = localCreatedAt;
+
+      final idx = _plans.indexWhere((c) => c.id == conversationId);
+      if (idx >= 0) {
+        final existing = _plans[idx];
+        _plans[idx] = ConversationPreview(
+          id: existing.id,
+          name: existing.name,
+          avatarAsset: existing.avatarAsset,
+          lastMessage: message.content,
+          timestamp: _formatInboxTimestamp(localCreatedAt),
+          type: existing.type,
+          status: existing.status,
+          lastMessageType: existing.lastMessageType,
+          unreadCount: existing.unreadCount +
+              ((isFromOther && !isCurrentlyViewed && !_suppressUnreadIncrement)
+                  ? 1
+                  : 0),
+          isTyping: existing.isTyping,
+          isPinned: existing.isPinned,
+          isMuted: existing.isMuted,
+          isVerified: existing.isVerified,
+        );
+      }
+
+      _plans.sort((a, b) {
         final aTime = _latestMessageTimes[a.id];
         final bTime = _latestMessageTimes[b.id];
         if (aTime == null && bTime == null) return 0;
@@ -172,7 +230,6 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
       ..addAll(_prefs!.getStringList(_pinnedPrefsKey) ?? const <String>[]);
 
     final accepted = await _viewModel.loadAcceptedConnections();
-    final plans = await _repository.loadPlanConversations();
     if (!mounted) return;
 
     final currentUser = AuthService.currentUser;
@@ -249,6 +306,9 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
       }
     }
 
+    final planPreviews = await _loadPlanPreviews();
+    if (!mounted) return;
+
     setState(() {
       _connectionModels.clear();
       for (final m in accepted) {
@@ -263,7 +323,7 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
         if (bTime == null) return -1;
         return bTime.compareTo(aTime);
       });
-      _plans = plans;
+      _plans = planPreviews;
       _loading = false;
     });
 
@@ -277,6 +337,82 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
       }
     }
     _suppressUnreadIncrement = false;
+  }
+
+  /// P1.2B.9: builds real Plan group-chat previews from the backend. RLS on
+  /// `conversations` guarantees only conversations the user belongs to (creator
+  /// + joined participants) are returned. No demo data is used.
+  Future<List<ConversationPreview>> _loadPlanPreviews() async {
+    final result = await _chatRepository.loadPlanConversations();
+    _planConversationIds.clear();
+    if (result.isFailure || result.value == null) {
+      return const <ConversationPreview>[];
+    }
+
+    final summaries = result.value!;
+    final coverPaths = summaries.map((s) => s.coverPath).toList();
+    final signedCovers = <String>[];
+    if (coverPaths.isNotEmpty) {
+      final repo = SupabasePlanRepository();
+      final signed = await repo.getCoverSignedUrls(coverPaths);
+      signedCovers.addAll(signed.map((u) => u ?? ''));
+    }
+
+    final previews = <ConversationPreview>[];
+    for (var i = 0; i < summaries.length; i++) {
+      final summary = summaries[i];
+      _planConversationIds.add(summary.conversationId);
+
+      String lastMessage = '';
+      String timestamp = '';
+      final previewResult =
+          await _chatRepository.getLatestMessagePreview(summary.conversationId);
+      if (previewResult.isSuccess && previewResult.value != null) {
+        final preview = previewResult.value!;
+        lastMessage = preview['content'] as String? ?? '';
+        final createdAt = preview['created_at'] as String?;
+        if (createdAt != null) {
+          final local = DateTime.parse(createdAt).toLocal();
+          _latestMessageTimes[summary.conversationId] = local;
+          timestamp = _formatInboxTimestamp(local);
+        }
+      }
+
+      final unreadResult =
+          await _chatRepository.loadUnreadCount(summary.conversationId);
+      final unreadCount = unreadResult.isSuccess ? (unreadResult.value ?? 0) : 0;
+
+      final avatarAsset = i < signedCovers.length && signedCovers[i].isNotEmpty
+          ? signedCovers[i]
+          : summary.coverPath?.startsWith('assets/') == true
+              ? summary.coverPath!
+              : '';
+
+      previews.add(ConversationPreview(
+        id: summary.conversationId,
+        name: summary.title,
+        avatarAsset: avatarAsset,
+        lastMessage: lastMessage,
+        timestamp: timestamp,
+        type: ConversationType.group,
+        status: ConversationStatus.offline,
+        lastMessageType: LastMessageType.plan,
+        unreadCount: unreadCount,
+        isPinned: _pinnedConnectionIds.contains(summary.conversationId),
+        planId: summary.planId,
+      ));
+    }
+
+    previews.sort((a, b) {
+      final aTime = _latestMessageTimes[a.id];
+      final bTime = _latestMessageTimes[b.id];
+      if (aTime == null && bTime == null) return 0;
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      return bTime.compareTo(aTime);
+    });
+
+    return previews;
   }
 
   void _onSearchChanged(String value) {
@@ -310,6 +446,19 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
       _filtered.where((c) => !c.isPinned).toList();
 
   void _openConversation(ConversationPreview c) async {
+    // P1.2B.9: Plan group chat. The preview id IS the plan conversation id, so
+    // it opens the real backend conversation with the real ChatRepository.
+    if (c.isGroup) {
+      _viewedPlanConversationIds.add(c.id);
+      await Navigator.of(context).push(
+        conversationRoute(c, chatRepository: _chatRepository),
+      );
+      if (!mounted) return;
+      _viewedPlanConversationIds.remove(c.id);
+      _clearUnreadForPlan(c.id);
+      return;
+    }
+
     final isConnectionChat = _connectionModels.containsKey(c.id);
     if (isConnectionChat) {
       final connectionId = c.id;
@@ -382,6 +531,30 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
     });
   }
 
+  void _clearUnreadForPlan(String conversationId) {
+    final idx = _plans.indexWhere((c) => c.id == conversationId);
+    if (idx < 0) return;
+    final existing = _plans[idx];
+    if (existing.unreadCount == 0) return;
+    setState(() {
+      _plans[idx] = ConversationPreview(
+        id: existing.id,
+        name: existing.name,
+        avatarAsset: existing.avatarAsset,
+        lastMessage: existing.lastMessage,
+        timestamp: existing.timestamp,
+        type: existing.type,
+        status: existing.status,
+        lastMessageType: existing.lastMessageType,
+        unreadCount: 0,
+        isTyping: existing.isTyping,
+        isPinned: existing.isPinned,
+        isMuted: existing.isMuted,
+        isVerified: existing.isVerified,
+      );
+    });
+  }
+
   Future<void> _togglePin(ConversationPreview c) async {
     final id = c.id;
     final willPin = !_pinnedConnectionIds.contains(id);
@@ -391,28 +564,35 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
       } else {
         _pinnedConnectionIds.remove(id);
       }
-      final idx = _connections.indexWhere((x) => x.id == id);
-      if (idx >= 0) {
-        final existing = _connections[idx];
-        _connections[idx] = ConversationPreview(
-          id: existing.id,
-          name: existing.name,
-          avatarAsset: existing.avatarAsset,
-          lastMessage: existing.lastMessage,
-          timestamp: existing.timestamp,
-          type: existing.type,
-          status: existing.status,
-          lastMessageType: existing.lastMessageType,
-          unreadCount: existing.unreadCount,
-          isTyping: existing.isTyping,
-          isPinned: willPin,
-          isMuted: existing.isMuted,
-          isVerified: existing.isVerified,
-        );
-      }
+      _applyPinState(_connections, id, willPin);
+      _applyPinState(_plans, id, willPin);
     });
     _prefs ??= await SharedPreferences.getInstance();
     await _prefs!.setStringList(_pinnedPrefsKey, _pinnedConnectionIds.toList());
+  }
+
+  /// Rebuilds the matching preview (in either list) with a new pin state.
+  /// Reuses the single shared pinned-id architecture — no second store.
+  void _applyPinState(List<ConversationPreview> list, String id, bool willPin) {
+    final idx = list.indexWhere((x) => x.id == id);
+    if (idx < 0) return;
+    final existing = list[idx];
+    list[idx] = ConversationPreview(
+      id: existing.id,
+      name: existing.name,
+      avatarAsset: existing.avatarAsset,
+      lastMessage: existing.lastMessage,
+      timestamp: existing.timestamp,
+      type: existing.type,
+      status: existing.status,
+      lastMessageType: existing.lastMessageType,
+      unreadCount: existing.unreadCount,
+      isTyping: existing.isTyping,
+      isPinned: willPin,
+      isMuted: existing.isMuted,
+      isVerified: existing.isVerified,
+      otherUserId: existing.otherUserId,
+    );
   }
 
   void _showConversationActions(ConversationPreview c) {
@@ -520,7 +700,9 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
       );
     }
 
-    final onLongPress = isConnections ? _showConversationActions : null;
+    // P1.2B.9: pinning now works on both tabs, reusing the single shared
+    // pinned-id store. Connections behavior is unchanged.
+    final onLongPress = _showConversationActions;
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,

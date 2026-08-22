@@ -14,7 +14,45 @@ import 'plans_filter.dart';
 ///
 /// The UI only surfaces `notJoined → requested → joined` today. [cancelled]
 /// exists now so adding leave/cancel later needs no model change.
-enum JoinStatus { notJoined, requested, joined, cancelled }
+enum JoinStatus { notJoined, requested, joined, cancelled, hosting }
+
+class PlanMembership {
+  const PlanMembership({
+    required this.planId,
+    required this.userId,
+    required this.role,
+    required this.status,
+    required this.joinedAt,
+    required this.updatedAt,
+    this.displayName,
+    this.photoUrl,
+  });
+
+  final String planId;
+  final String userId;
+  final String role;
+  final String status;
+  final DateTime joinedAt;
+  final DateTime updatedAt;
+  final String? displayName;
+  final String? photoUrl;
+
+  factory PlanMembership.fromSupabase(Map<String, dynamic> row) {
+    DateTime? parseNullable(Object? raw) =>
+        raw is String ? DateTime.tryParse(raw) : null;
+
+    return PlanMembership(
+      planId: (row['plan_id'] as String?) ?? '',
+      userId: (row['user_id'] as String?) ?? '',
+      role: (row['role'] as String?) ?? 'member',
+      status: (row['status'] as String?) ?? 'pending',
+      joinedAt: parseNullable(row['joined_at']) ?? DateTime.now(),
+      updatedAt: parseNullable(row['updated_at']) ?? DateTime.now(),
+      displayName: row['display_name'] as String?,
+      photoUrl: row['photo_url'] as String?,
+    );
+  }
+}
 
 /// A stable pseudo-random 0..(mod-1) value derived from a plan id + salt.
 /// Deterministic so demo stats never flicker between rebuilds.
@@ -48,7 +86,6 @@ class PlanHostDetails {
   final String createdLabel; // e.g. "2 days ago"
 
   factory PlanHostDetails.of(Experience e) {
-    final ratingTenths = 42 + _seed(e.id, 7, 8); // 4.2 .. 4.9
     final created = _seed(e.id, 13, 6); // 0..5 → label below
     const createdLabels = [
       'just now',
@@ -59,11 +96,11 @@ class PlanHostDetails {
       'last week',
     ];
     return PlanHostDetails(
-      rating: ratingTenths / 10.0,
-      isVerified: _seed(e.id, 3, 10) > 3, // ~60% verified
-      plansHosted: 4 + _seed(e.id, 5, 40),
-      friendsJoined: _seed(e.id, 11, 6), // 0..5
-      mutualInterests: 2 + _seed(e.id, 17, 10),
+      rating: 0.0,
+      isVerified: false,
+      plansHosted: 0,
+      friendsJoined: 0,
+      mutualInterests: 0,
       createdLabel: createdLabels[created],
     );
   }
@@ -77,29 +114,11 @@ List<String> whyJoinReasons(Experience e) {
   if (parseDistanceKm(e.distance) <= 2.0) {
     reasons.add('Perfect for meeting nearby people');
   }
-  if (e.isEditorsPick) {
-    reasons.add('Editor\'s pick worth showing up for');
-  }
   if (e.goingCount >= 15) {
     reasons.add('Trending this weekend');
   }
-  if (e.sections.contains('friends')) {
-    reasons.add('A few friends are already interested');
-  }
   if (e.spotsLeft <= 3) {
     reasons.add('Only a few spots left');
-  }
-
-  // Always-available fallbacks so every plan shows 3–4 reasons.
-  const fallbacks = [
-    'Great for first-time Conexo users',
-    'Hosted by an active member',
-    'A relaxed way to meet like-minded people',
-    'Easy to reach and beginner friendly',
-  ];
-  for (final f in fallbacks) {
-    if (reasons.length >= 4) break;
-    if (!reasons.contains(f)) reasons.add(f);
   }
 
   return reasons.take(4).toList();
@@ -112,23 +131,5 @@ List<String> whyJoinReasons(Experience e) {
 /// the result at [limit] (6–8) so the rail stays light + curated. The Details
 /// page never sorts or filters independently.
 List<Experience> similarNearby(Experience current, {int limit = 8}) {
-  // First pass: same category, distance-first.
-  final scoped = applyPipeline(
-    experiences,
-    PlansFilterState(selectedCategory: current.category),
-  ).where((e) => e.id != current.id).toList();
-
-  if (scoped.length >= limit) return scoped.take(limit).toList();
-
-  // Fallback: widen to all categories (still distance-first) to fill the rail.
-  final broad = applyPipeline(experiences, const PlansFilterState())
-      .where((e) => e.id != current.id)
-      .toList();
-
-  final result = <Experience>[...scoped];
-  for (final e in broad) {
-    if (result.length >= limit) break;
-    if (result.every((x) => x.id != e.id)) result.add(e);
-  }
-  return result.take(limit).toList();
+  return const <Experience>[];
 }

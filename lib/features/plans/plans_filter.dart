@@ -110,6 +110,11 @@ List<Experience> applyPipeline(
     result = result.where((e) => e.category.toLowerCase() == cat);
   }
 
+  // 1.5) Visibility filter (null = all; PlanVisibility.private = private only).
+  if (state.visibility != null) {
+    result = result.where((e) => e.visibility == state.visibility);
+  }
+
   // 2) Search filter (title / host / mood / category / city).
   if (state.hasQuery) {
     final q = state.query.trim().toLowerCase();

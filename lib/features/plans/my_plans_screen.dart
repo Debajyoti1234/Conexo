@@ -9,6 +9,9 @@ import 'plan_details_screen.dart';
 import 'plan_repository.dart';
 import 'plans_data.dart';
 import 'plans_widgets.dart';
+import 'supabase_plan_repository.dart';
+
+import '../../core/supabase/auth_service.dart';
 
 /// The premium My Plans management experience (Phase 3.4).
 ///
@@ -21,7 +24,7 @@ import 'plans_widgets.dart';
 /// Local + demo only. No backend, no navigation-graph changes, no request
 /// logic — actions confirm intent through premium glass dialogs.
 class MyPlansScreen extends StatefulWidget {
-  const MyPlansScreen({super.key, this.repository = const LocalPlanRepository()});
+  const MyPlansScreen({super.key, this.repository = const SupabasePlanRepository()});
 
   /// Injected so a future backend repository can replace the local one with
   /// zero UI change.
@@ -35,16 +38,15 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   MyPlansTab _tab = MyPlansTab.hosting;
   MyPlansFilter? _filter;
 
-  // Local, in-memory management state layered over the demo dataset. These
-  // sets track which plans the user archived / left so the UI reacts without a
-  // backend. Ids reference [Experience.id].
   final Set<String> _archivedIds = {};
   final Set<String> _leftIds = {};
 
-  // Locally published plans + the saved draft, loaded through the repository.
-  List<PublishedPlan> _published = const [];
+  List<Experience> _publishedExperiences = const [];
+  List<Experience> _joinedExperiences = const [];
+  List<Experience> _requestedExperiences = const [];
   PlanDraft? _draft;
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -53,37 +55,62 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   }
 
   Future<void> _load() async {
-    final published = await widget.repository.loadPublished();
-    final draft = await widget.repository.loadDraft();
-    if (!mounted) return;
-    setState(() {
-      _published = published;
-      _draft = draft;
-      _loading = false;
-    });
+    try {
+      final publishedExperiences = await widget.repository.getPublishedExperiences();
+      final joinedExperiences = await widget.repository.getJoinedExperiences();
+      final requestedExperiences = await widget.repository.getRequestedExperiences();
+      final draft = await widget.repository.loadDraft();
+      if (!mounted) return;
+      setState(() {
+        _publishedExperiences = publishedExperiences;
+        _joinedExperiences = joinedExperiences;
+        _requestedExperiences = requestedExperiences;
+        _draft = draft;
+        _loading = false;
+        _error = null;
+      });
+    } on AuthFailure catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Something went wrong. Please try again.';
+      });
+    }
   }
 
   // ── Derived lists (single pipeline is the source of truth) ────────────
 
   List<Experience> get _hosting {
-    final published = _published.map(publishedToExperience);
-    final demo = demoHostedPlans();
-    final all = [...published, ...demo]
+    final published = _publishedExperiences;
+    final all = published
         .where((e) => !_archivedIds.contains(e.id))
         .toList();
     return _applyTimeFilter(sortMyPlans(all));
   }
 
   List<Experience> get _joined {
-    final all = demoJoinedPlans()
+    final all = _joinedExperiences
         .where((e) => !_leftIds.contains(e.id) && !_archivedIds.contains(e.id))
         .toList();
     return _applyTimeFilter(sortMyPlans(all));
   }
 
+  List<Experience> get _requested {
+    final all = _requestedExperiences
+        .where((e) => !_archivedIds.contains(e.id))
+        .toList();
+    return _applyTimeFilter(sortMyPlans(all));
+  }
+
   List<Experience> get _archived {
-    final published = _published.map(publishedToExperience);
-    final all = [...published, ...demoHostedPlans(), ...demoJoinedPlans()]
+    final published = _publishedExperiences;
+    final all = published
         .where((e) => _archivedIds.contains(e.id))
         .toList();
     return _applyTimeFilter(sortMyPlans(all));
@@ -129,7 +156,28 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       confirmLabel: 'Leave',
       danger: true,
     );
-    if (ok) setState(() => _leftIds.add(e.id));
+    if (ok != true || !mounted) return;
+    try {
+      await widget.repository.leavePlan(e.id);
+      if (!mounted) return;
+      await _load();
+    } on AuthFailure catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to leave plan. Please try again.'),
+          backgroundColor: Color(0xFFFF4D8D),
+        ),
+      );
+    }
   }
 
   Future<void> _deleteDraft() async {
@@ -159,6 +207,24 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       MaterialPageRoute(builder: (_) => const CreatePlanScreen()),
     );
     await _load();
+  }
+
+  Future<void> _edit(Experience e) async {
+    try {
+      final plan = await widget.repository.getPublishedPlan(e.id);
+      if (!mounted || plan == null) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => CreatePlanScreen(existingPlan: plan),
+        ),
+      );
+      await _load();
+    } on AuthFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    }
   }
 
   @override
@@ -216,6 +282,29 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       );
     }
 
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+        child: Column(
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: Color(0xFF9DB2E8)),
+            const SizedBox(height: 20),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15, color: Color(0xFFB9C3DC)),
+            ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
     // Gentle fade between tabs — premium, never abrupt.
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 320),
@@ -236,7 +325,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         return HostingList(
           items: _hosting,
           onOpen: _open,
-          onEdit: (e) => showEditPlanDialog(context, e.title),
+          onEdit: _edit,
           onShare: (e) => showSharePlanDialog(context, e.title),
           onArchive: _archive,
         );
@@ -246,6 +335,11 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
           onOpen: _open,
           onShare: (e) => showSharePlanDialog(context, e.title),
           onLeave: _leave,
+        );
+      case MyPlansTab.requested:
+        return RequestedList(
+          items: _requested,
+          onOpen: _open,
         );
       case MyPlansTab.archived:
         return ArchivedList(

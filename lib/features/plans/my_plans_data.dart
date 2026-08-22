@@ -85,6 +85,7 @@ Experience publishedToExperience(PublishedPlan plan) {
     id: plan.id,
     title: plan.title,
     host: 'You',
+    hostId: plan.hostId,
     hostPortrait: 'assets/images/portraits/demo1.jpeg',
     coverAsset: plan.coverAsset,
     category: plan.mood,
@@ -94,34 +95,17 @@ Experience publishedToExperience(PublishedPlan plan) {
     date: dateLabel,
     time: plan.timeLabel.isNotEmpty ? plan.timeLabel : 'TBD',
     distance: plan.location,
-    goingCount: 1, // Demo: placeholder
-    spotsLeft: (plan.participants ?? 10) - 1, // Demo: limit minus host
+    goingCount: 1,
+    spotsLeft: (plan.participants ?? 10) - 1,
     accent: accent,
     highlight: plan.description.isNotEmpty
         ? plan.description
         : 'Just created — be the first to join',
     participants: const <String>[],
     visibility: plan.visibility,
+    description: plan.description,
+    capacity: plan.participants ?? 10,
   );
-}
-
-// ── Demo seed data ──────────────────────────────────────────────────────
-
-/// Demo hosted plans "by You" for the Hosting tab. These are lightweight
-/// references to existing [experiences] (treating them as if the local user
-/// created them) so the UI looks premium out of the box.
-List<Experience> demoHostedPlans() {
-  // Reference a few existing experiences by ID as if "You" hosted them.
-  const ids = {'e01', 'e04', 'e07', 'e10'};
-  return experiences.where((e) => ids.contains(e.id)).toList();
-}
-
-/// Demo joined plans for the Joined tab. References existing [experiences]
-/// as if the local user joined them.
-List<Experience> demoJoinedPlans() {
-  // Reference a different set as "joined" plans.
-  const ids = {'e02', 'e05', 'e08', 'e11', 'e14'};
-  return experiences.where((e) => ids.contains(e.id)).toList();
 }
 
 // ── Insights ────────────────────────────────────────────────────────────

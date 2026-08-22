@@ -12,6 +12,9 @@ import 'conversation_widgets.dart';
 import 'message_models.dart';
 import 'message_widgets.dart';
 import 'realtime_messages_service.dart';
+import '../plans/plan_details_screen.dart';
+import '../plans/plan_members_screen.dart';
+import '../plans/supabase_plan_repository.dart';
 import '../profile/profile_data.dart';
 import '../profile/public_profile_data.dart';
 import '../profile/public_profile_screen.dart';
@@ -37,6 +40,9 @@ class ConversationScreen extends StatefulWidget {
 class _ConversationScreenState extends State<ConversationScreen> {
   List<Message> _messages = const [];
   GroupMetadata? _group;
+  // P1.2B.9: sender lookup for group (plan) chats, so received bubbles show
+  // the real participant name/avatar. Empty for 1:1 connection chats.
+  final Map<String, Participant> _participantsById = {};
   bool _loading = true;
   String? _error;
   StreamSubscription<ChatMessageEvent>? _realtimeSubscription;
@@ -50,8 +56,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
   void initState() {
     super.initState();
     _load();
-    if (widget.chatRepository != null &&
-        widget.conversation.type == ConversationType.private) {
+    // Realtime for BOTH private connection chats and group plan chats. The
+    // per-conversation channel is generic; only pure demo (no chatRepository)
+    // skips realtime.
+    if (widget.chatRepository != null) {
       _startRealtime();
     }
     _checkBlockStatus();
@@ -120,12 +128,27 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   Message _mapDtoToMessage(ChatMessage dto) {
     final isMine = dto.senderId == AuthService.currentUser?.id;
+    // For group (plan) chats, resolve the real sender identity for received
+    // bubbles from the loaded participant list. 1:1 chats leave these null.
+    String? senderName;
+    String? senderAvatar;
+    if (!isMine && widget.conversation.type == ConversationType.group) {
+      final participant = _participantsById[dto.senderId];
+      senderName = participant?.name;
+      final avatar = participant?.avatarAsset ?? '';
+      senderAvatar = avatar.isNotEmpty ? avatar : null;
+    }
+    final isSystem = dto.type == 'system';
     return Message(
       id: dto.id,
-      author: isMine ? MessageAuthor.me : MessageAuthor.them,
+      author: isSystem
+          ? MessageAuthor.system
+          : (isMine ? MessageAuthor.me : MessageAuthor.them),
       timestamp: dto.createdAt,
-      type: MessageType.text,
+      type: isSystem ? MessageType.system : MessageType.text,
       text: dto.content,
+      senderName: senderName,
+      senderAvatar: senderAvatar,
       // Truthful status only: a persisted own message is "sent" (gray tick).
       // Blue "read" is deferred to a future backend read-receipt phase.
       deliveryStatus: MessageDeliveryStatus.sent,
@@ -151,8 +174,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
 
     try {
-      if (widget.chatRepository != null &&
-          widget.conversation.type == ConversationType.private) {
+      if (widget.chatRepository != null) {
+        final isGroup = widget.conversation.type == ConversationType.group;
+
+        // Load group metadata FIRST so received-message sender identity
+        // resolves during message mapping below.
+        GroupMetadata? group;
+        if (isGroup) {
+          final groupResult = await widget.chatRepository!.loadGroupMetadata(
+            widget.conversation.id,
+          );
+          if (groupResult.isSuccess) {
+            group = groupResult.value;
+          }
+        }
+
         final messagesResult = await widget.chatRepository!.loadMessages(
           widget.conversation.id,
         );
@@ -177,6 +213,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
           return;
         }
 
+        _participantsById.clear();
+        if (group != null) {
+          for (final participant in group.participants) {
+            _participantsById[participant.id] = participant;
+          }
+        }
+
         final dtoMessages = messagesResult.value!;
         final mapped = <Message>[
           for (final dto in dtoMessages)
@@ -185,7 +228,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
         setState(() {
           _messages = mapped;
-          _group = null;
+          _group = group;
           _loading = false;
         });
       } else {
@@ -238,8 +281,47 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   void _handleMenuAction(String actionId) {
+    final c = widget.conversation;
+
+    if (actionId == 'view_members' && c.isGroup) {
+      final planId = c.planId;
+      if (planId == null || planId.isEmpty) return;
+      Navigator.of(context).push(
+        PageRouteBuilder<void>(
+          transitionDuration: const Duration(milliseconds: 380),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              PlanMembersScreen(planId: planId),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInOutCubic,
+            );
+            return FadeTransition(
+              opacity: curved,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.04),
+                  end: Offset.zero,
+                ).animate(curved),
+                child: child,
+              ),
+            );
+          },
+        ),
+      );
+      return;
+    }
+
+    if (actionId == 'view_plan' && c.isGroup) {
+      final planId = c.planId;
+      if (planId == null || planId.isEmpty) return;
+      _openPlanFromChat(planId);
+      return;
+    }
+
     if (actionId == 'view_profile') {
-      final c = widget.conversation;
       final profile = UserProfile(
         id: c.id,
         photos: [
@@ -285,6 +367,34 @@ class _ConversationScreenState extends State<ConversationScreen> {
     }
 
     debugPrint('Menu action: $actionId');
+  }
+
+  void _openPlanFromChat(String planId) {
+    () async {
+      final repo = SupabasePlanRepository();
+      try {
+        final experience = await repo.getPlanExperience(planId);
+        if (experience == null) throw StateError('plan not found');
+        if (!mounted) return;
+        Navigator.of(context).push(premiumPlanRoute(experience));
+      } on StateError {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open plan details'),
+            backgroundColor: Color(0xFFFF4D8D),
+          ),
+        );
+      } on AuthFailure catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: const Color(0xFFFF4D8D),
+          ),
+        );
+      }
+    }();
   }
 
   Future<void> _showBlockDialog(String otherId) async {
@@ -413,6 +523,33 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   List<ChatMenuAction> _buildMenuActions(ConversationPreview c) {
+    if (c.isGroup) {
+      return [
+        const ChatMenuAction(
+          id: 'view_members',
+          label: 'View Members',
+          icon: 0xe7ef,
+        ),
+        const ChatMenuAction(
+          id: 'view_plan',
+          label: 'View Plan',
+          icon: 0xe8b6,
+        ),
+        if (c.isMuted)
+          const ChatMenuAction(
+            id: 'unmute',
+            label: 'Unmute',
+            icon: 0xe7f6,
+          )
+        else
+          const ChatMenuAction(
+            id: 'mute',
+            label: 'Mute',
+            icon: 0xe7f5,
+          ),
+      ];
+    }
+
     return [
       const ChatMenuAction(
         id: 'view_profile',
@@ -430,12 +567,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
           id: 'mute',
           label: 'Mute',
           icon: 0xe7f5,
-        ),
-      if (c.isGroup)
-        const ChatMenuAction(
-          id: 'group_details',
-          label: 'Group details',
-          icon: 0xe88a,
         ),
       const ChatMenuAction(
         id: 'block',

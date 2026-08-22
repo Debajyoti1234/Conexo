@@ -3,7 +3,8 @@
   "permission": {
     "edit": {
       "lib/features/profile/profile_creation_screen.dart": "allow",
-      "lib/features/profile/profile_creation_widgets.dart": "allow"
+      "lib/features/profile/profile_creation_widgets.dart": "allow",
+      "lib/features/plans/**": "allow"
     }
   }
 }

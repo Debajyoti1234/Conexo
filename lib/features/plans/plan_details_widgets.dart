@@ -225,12 +225,14 @@ class ParticipantAvatar extends StatefulWidget {
     super.key,
     this.label = '',
     this.isHost = false,
+    this.onTap,
   });
 
   final String asset;
   final Color accent;
   final String label;
   final bool isHost;
+  final VoidCallback? onTap;
 
   @override
   State<ParticipantAvatar> createState() => _ParticipantAvatarState();
@@ -242,6 +244,7 @@ class _ParticipantAvatarState extends State<ParticipantAvatar> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTap: widget.onTap,
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),

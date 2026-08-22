@@ -74,3 +74,23 @@ class ChatMessageEvent {
   final ChatEventType type;
   final ChatMessage? message;
 }
+
+/// A lightweight projection of a Plan group conversation for the Chat → Plans
+/// inbox. Carries just enough to render a tile: the conversation id, the plan
+/// id, the plan title, and the raw plan cover storage path (to be signed).
+class PlanConversationSummary {
+  const PlanConversationSummary({
+    required this.conversationId,
+    required this.planId,
+    required this.title,
+    this.coverPath,
+  });
+
+  final String conversationId;
+  final String planId;
+  final String title;
+
+  /// Raw `plans.cover_url` value (a `plan-covers` storage path or a local
+  /// asset). Signed by the caller via the existing cover-signing pipeline.
+  final String? coverPath;
+}

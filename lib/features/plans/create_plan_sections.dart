@@ -67,7 +67,7 @@ class _CoverSectionState extends State<CoverSection> {
           _Reveal(
             visible: _galleryOpen,
             child: Padding(
-              padding: const EdgeInsets.only(top: 18),
+              padding: const EdgeInsets.only(top: 14),
               child: CoverGalleryGrid(
                 selected: widget.draft.coverAsset,
                 onSelect: (asset) {
@@ -129,43 +129,50 @@ class MoodSection extends StatelessWidget {
       title: 'Mood',
       subtitle: 'What kind of vibe are you going for?',
       completed: draft.hasMood,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final mood in planMoods)
-                LuxuryChip(
-                  label: mood.label,
-                  emoji: mood.emoji,
-                  accent: mood.accent,
-                  selected: draft.mood == mood.label,
-                  onTap: () {
-                    final updated = draft.copyWith(mood: mood.label);
-                    // Auto-suggest cover if none chosen yet
-                    if (!draft.hasCover && mood.cover != null) {
-                      onChanged(updated.copyWith(coverAsset: mood.cover));
-                    } else {
-                      onChanged(updated);
-                    }
-                  },
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final mood in planMoods)
+                  LuxuryChip(
+                    label: mood.label,
+                    emoji: mood.emoji,
+                    accent: mood.accent,
+                    selected: draft.mood == mood.label,
+                    onTap: () {
+                      final updated = draft.copyWith(mood: mood.label);
+                      if (!draft.hasCover && mood.cover != null) {
+                        onChanged(updated.copyWith(coverAsset: mood.cover));
+                      } else {
+                        onChanged(updated);
+                      }
+                    },
+                  ),
+              ],
+            ),
+            _Reveal(
+              visible: draft.mood == 'Custom',
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: GlassTextField(
+                  controller: customController,
+                  hint: 'Name your mood…',
+                  onChanged: (v) => onChanged(draft.copyWith(customMood: v)),
                 ),
-            ],
-          ),
-          _Reveal(
-            visible: draft.mood == 'Custom',
-            child: Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: GlassTextField(
-                controller: customController,
-                hint: 'Name your mood…',
-                onChanged: (v) => onChanged(draft.copyWith(customMood: v)),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -214,10 +221,49 @@ class LocationSection extends StatelessWidget {
       title: 'Location',
       subtitle: 'Where is this happening?',
       completed: draft.hasLocation,
-      child: GlassTextField(
-        controller: controller,
-        hint: 'Café, park, your place…',
-        onChanged: (v) => onChanged(draft.copyWith(location: v)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () {
+              if (!draft.hasLocation) {
+                onChanged(draft.copyWith(location: 'Near you'));
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: .1)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.near_me_rounded, size: 14, color: const Color(0xFF9DB2E8)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Near you',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: draft.hasLocation
+                          ? const Color(0xFF6B7799)
+                          : Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          GlassTextField(
+            controller: controller,
+            hint: 'Café, park, your place…',
+            leadingIcon: Icons.location_on_rounded,
+            onChanged: (v) => onChanged(draft.copyWith(location: v)),
+          ),
+        ],
       ),
     );
   }
@@ -334,47 +380,55 @@ class _ParticipantsSectionState extends State<ParticipantsSection> {
     return CreateSection(
       title: 'Max Participants',
       completed: draft.hasParticipants,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final n in participantOptions)
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final n in participantOptions)
+                  LuxuryChip(
+                    label: '$n',
+                    selected: draft.participants == n,
+                    onTap: () => widget.onChanged(
+                      draft.copyWith(participants: n),
+                    ),
+                  ),
                 LuxuryChip(
-                  label: '$n',
-                  selected: draft.participants == n,
+                  label: 'Custom',
+                  selected: draft.participants == -1,
                   onTap: () => widget.onChanged(
-                    draft.copyWith(participants: n),
+                    draft.copyWith(participants: -1),
                   ),
                 ),
-              LuxuryChip(
-                label: 'Custom',
-                selected: draft.participants == -1,
-                onTap: () => widget.onChanged(
-                  draft.copyWith(participants: -1),
+              ],
+            ),
+            _Reveal(
+              visible: draft.participants == -1,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: GlassTextField(
+                  controller: widget.customController,
+                  hint: 'Enter a number…',
+                  onChanged: (v) {
+                    final n = int.tryParse(v.trim());
+                    if (n != null && n > 0) {
+                      widget.onChanged(draft.copyWith(customParticipants: n));
+                    }
+                  },
                 ),
               ),
-            ],
-          ),
-          _Reveal(
-            visible: draft.participants == -1,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: GlassTextField(
-                controller: widget.customController,
-                hint: 'Enter a number…',
-                onChanged: (v) {
-                  final n = int.tryParse(v.trim());
-                  if (n != null && n > 0) {
-                    widget.onChanged(draft.copyWith(customParticipants: n));
-                  }
-                },
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

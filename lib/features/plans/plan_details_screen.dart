@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 
+import 'create_plan_screen.dart';
 import 'plan_details_data.dart';
 import 'plan_details_sections.dart';
 import 'plan_join_controller.dart';
+import 'plan_repository.dart';
 import 'plans_data.dart';
+import 'supabase_plan_repository.dart';
+
+import '../../core/supabase/auth_service.dart';
+import '../chat/chat_models.dart';
+import '../chat/chat_repository.dart';
+import '../chat/conversation_screen.dart';
+import '../profile/profile_navigation_mapper.dart';
+import '../profile/public_profile_screen.dart';
 
 /// The premium, cinematic Plan Details experience.
 ///
@@ -16,9 +26,14 @@ import 'plans_data.dart';
 /// bottom action bar rebuilds when [JoinStatus] changes, via a scoped
 /// [ListenableBuilder] on the controller.
 class PlanDetailsScreen extends StatefulWidget {
-  const PlanDetailsScreen({required this.experience, super.key});
+  const PlanDetailsScreen({
+    required this.experience,
+    this.repository = const SupabasePlanRepository(),
+    super.key,
+  });
 
   final Experience experience;
+  final PlanRepository repository;
 
   @override
   State<PlanDetailsScreen> createState() => _PlanDetailsScreenState();
@@ -26,11 +41,24 @@ class PlanDetailsScreen extends StatefulWidget {
 
 class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   late final PlanJoinController _join;
+  late Experience _experience;
+  late final bool _isHost;
+  List<PlanMembership> _participants = const [];
 
   @override
   void initState() {
     super.initState();
-    _join = PlanJoinController();
+    _experience = widget.experience;
+    _isHost = widget.experience.hostId == AuthService.currentUser?.id;
+    _join = PlanJoinController(
+      repository: widget.repository,
+      initial: _isHost ? JoinStatus.hosting : JoinStatus.notJoined,
+    );
+    if (!_isHost) {
+      _join.loadMembership(widget.experience.id);
+    }
+    _refreshCounts();
+    _loadParticipants();
   }
 
   @override
@@ -39,22 +67,151 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
     super.dispose();
   }
 
+  Future<void> _refreshCounts() async {
+    try {
+      final counts = await widget.repository.getJoinedCounts([widget.experience.id]);
+      final joinedCount = counts[widget.experience.id] ?? 1;
+      final capacity = _experience.capacity;
+      if (!mounted) return;
+      setState(() {
+        _experience = widget.experience.copyWith(
+          goingCount: joinedCount,
+          spotsLeft: (capacity - joinedCount).clamp(0, 1000),
+        );
+      });
+    } catch (_) {
+      // Keep existing counts on error.
+    }
+  }
+
+  /// Loads the real joined participants for the "Who's going" rail. The creator
+  /// is EXCLUDED (status = 'joined' AND user_id != plans.creator_id) so the host
+  /// never appears as a joined participant; the host is surfaced separately in
+  /// the header/host card.
+  Future<void> _loadParticipants() async {
+    try {
+      final members = await widget.repository.getPlanMembers(widget.experience.id);
+      final joined = members
+          .where((m) =>
+              m.status == 'joined' &&
+              m.role != 'creator' &&
+              m.userId != widget.experience.hostId)
+          .toList();
+      if (!mounted) return;
+      setState(() => _participants = joined);
+    } catch (_) {
+      // Keep existing participants on error.
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(message),
+        ),
+      );
+  }
+
   void _openSimilar(Experience e) {
-    // Navigation stays in the Plans screen layer; push a sibling details page
-    // with the same premium fade + slide transition.
     Navigator.of(context).push(premiumPlanRoute(e));
+  }
+
+  /// Opens the canonical Public Profile for a joined participant.
+  void _viewParticipant(PlanMembership m) {
+    final name = m.displayName?.trim().isNotEmpty ?? false
+        ? m.displayName!.trim()
+        : 'User ${m.userId.substring(0, 8)}';
+    Navigator.of(context).push(
+      premiumPublicProfileRoute(
+        data: mapPlanParticipantToProfile(
+          userId: m.userId,
+          name: name,
+          photoUrl: m.photoUrl ?? '',
+        ),
+      ),
+    );
+  }
+
+  void _viewHostProfile() {
+    final e = widget.experience;
+    final name = e.host.trim().isNotEmpty
+        ? e.host.trim()
+        : 'User ${e.hostId.substring(0, 8)}';
+    Navigator.of(context).push(
+      premiumPublicProfileRoute(
+        data: mapPlanParticipantToProfile(
+          userId: e.hostId,
+          name: name,
+          photoUrl: e.hostPortrait,
+        ),
+      ),
+    );
+  }
+
+  /// Own-plan Edit: reuses CreatePlanScreen(existingPlan:) — never inserts a new
+  /// plan, preserves plans.id / creator_id / created_at.
+  Future<void> _editPlan() async {
+    try {
+      final plan = await widget.repository.getPublishedPlan(widget.experience.id);
+      if (!mounted) return;
+      if (plan == null) {
+        _showError('Could not load this plan for editing.');
+        return;
+      }
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => CreatePlanScreen(existingPlan: plan)),
+      );
+      await _refreshCounts();
+    } catch (e) {
+      if (!mounted) return;
+      _showError(e.toString());
+    }
+  }
+
+  /// P1.2B.9: opens the Plan's single group conversation, creating it lazily.
+  /// Only reachable for the creator or a joined participant; the server RPC
+  /// rejects anyone else, and we surface a clear error instead of failing
+  /// silently. Never shows a "coming soon" placeholder.
+  Future<void> _openGroupChat() async {
+    const chatRepository = ChatRepository();
+    final result =
+        await chatRepository.getOrCreatePlanConversation(_experience.id);
+    if (!mounted) return;
+    if (result.isFailure || result.value == null) {
+      _showError(result.error ?? 'Could not open the group chat.');
+      return;
+    }
+
+    final preview = ConversationPreview(
+      id: result.value!,
+      name: _experience.title,
+      avatarAsset: '',
+      lastMessage: '',
+      timestamp: '',
+      type: ConversationType.group,
+      status: ConversationStatus.offline,
+      lastMessageType: LastMessageType.plan,
+      planId: _experience.id,
+    );
+
+    await Navigator.of(context).push(
+      conversationRoute(preview, chatRepository: chatRepository),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final e = widget.experience;
+    final e = _experience;
+    final isHost = _isHost;
     return Scaffold(
       backgroundColor: const Color(0xFF0B1020),
-      // The sticky action bar floats over the scrolling content.
       extendBody: true,
       body: Stack(
         children: [
-          // ── Static, build-once content ──────────────────────────────
           CustomScrollView(
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
@@ -75,14 +232,32 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                     children: [
                       RevealSection(child: PlanInfoSection(experience: e)),
                       const SizedBox(height: 26),
+                      // Own plan → management card (Edit/Share/Archive).
+                      // Other user's plan → social host glass card.
                       RevealSection(
                         delayMs: 60,
-                        child: HostSection(experience: e),
+                        child: isHost
+                            ? OwnPlanManagementCard(
+                                experience: e,
+                                onEdit: _editPlan,
+                                onShare: () =>
+                                    _comingSoon(context, 'Sharing coming soon'),
+                                onArchive: () => _comingSoon(
+                                    context, 'Manage archive from My Plans'),
+                              )
+                            : HostSection(
+                                experience: e,
+                                onViewProfile: _viewHostProfile,
+                              ),
                       ),
                       const SizedBox(height: 26),
                       RevealSection(
                         delayMs: 90,
-                        child: ParticipantsSection(experience: e),
+                        child: ParticipantsSection(
+                          experience: e,
+                          participants: _participants,
+                          onTapParticipant: _viewParticipant,
+                        ),
                       ),
                       const SizedBox(height: 26),
                       RevealSection(
@@ -94,7 +269,6 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   ),
                 ),
               ),
-              // Similar rail spans full width (its own internal padding).
               SliverToBoxAdapter(
                 child: RevealSection(
                   delayMs: 150,
@@ -123,12 +297,12 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                   ),
                 ),
               ),
-              // Bottom spacer so content clears the sticky action bar.
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              SliverToBoxAdapter(
+                child: const SizedBox(height: 120),
+              ),
             ],
           ),
 
-          // ── Sticky action bar — the ONLY part that rebuilds on status ──
           Positioned(
             left: 0,
             right: 0,
@@ -138,6 +312,9 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
               builder: (context, _) => _JoinActionBar(
                 experience: e,
                 controller: _join,
+                isHost: isHost,
+                onError: _showError,
+                onOpenGroupChat: _openGroupChat,
               ),
             ),
           ),
@@ -150,41 +327,63 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 /// The sticky bottom glass action bar. Rebuilds in isolation when the join
 /// status changes. Public → "Join Plan"; Private → "Request to Join".
 class _JoinActionBar extends StatelessWidget {
-  const _JoinActionBar({required this.experience, required this.controller});
+  const _JoinActionBar({
+    required this.experience,
+    required this.controller,
+    required this.isHost,
+    required this.onOpenGroupChat,
+    this.onError,
+  });
 
   final Experience experience;
   final PlanJoinController controller;
+  final bool isHost;
+  final Future<void> Function() onOpenGroupChat;
+  final void Function(String message)? onError;
 
   @override
   Widget build(BuildContext context) {
     final e = experience;
     final status = controller.status;
 
-    // Resolve label / colours from the local status + visibility.
-    late final String label;
-    late final IconData icon;
-    late final bool enabled;
-    switch (status) {
-      case JoinStatus.joined:
-        label = 'Joined';
-        icon = Icons.check_circle_rounded;
-        enabled = false;
-      case JoinStatus.requested:
-        label = 'Requested';
-        icon = Icons.hourglass_top_rounded;
-        enabled = false;
-      case JoinStatus.notJoined:
-      case JoinStatus.cancelled:
-        label = e.isPublic ? 'Join Plan' : 'Request to Join';
-        icon = e.isPublic ? Icons.bolt_rounded : Icons.lock_open_rounded;
-        enabled = true;
+    if (status == JoinStatus.hosting || isHost) {
+      return _HostingBar(experience: e, onOpenGroupChat: onOpenGroupChat);
     }
 
-    void onPressed() {
-      if (e.isPublic) {
-        controller.join();
-      } else {
-        controller.request();
+    String label;
+    IconData icon;
+    bool enabled;
+    if (controller.isLoading) {
+      label = e.isPublic ? 'Joining...' : 'Requesting...';
+      icon = e.isPublic ? Icons.bolt_rounded : Icons.lock_open_rounded;
+      enabled = false;
+    } else {
+      switch (status) {
+        case JoinStatus.joined:
+          label = 'Joined';
+          icon = Icons.check_circle_rounded;
+          enabled = false;
+        case JoinStatus.requested:
+          label = 'Request Pending';
+          icon = Icons.hourglass_top_rounded;
+          enabled = false;
+        case JoinStatus.notJoined:
+        case JoinStatus.cancelled:
+          label = e.isPublic ? 'Join Plan' : 'Request to Join';
+          icon = e.isPublic ? Icons.bolt_rounded : Icons.lock_open_rounded;
+          enabled = true;
+        case JoinStatus.hosting:
+          label = "You're Hosting";
+          icon = Icons.star_rounded;
+          enabled = false;
+      }
+    }
+
+    Future<void> onPressed() async {
+      try {
+        await controller.joinOrRequest(e.id);
+      } on AuthFailure catch (err) {
+        onError?.call(err.message);
       }
     }
 
@@ -210,7 +409,6 @@ class _JoinActionBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Going / spots summary on the left.
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -233,7 +431,10 @@ class _JoinActionBar extends StatelessWidget {
             ],
           ),
           const SizedBox(width: 16),
-          // Primary action — animates smoothly between states.
+          if (status == JoinStatus.joined) ...[
+            _GroupChatButton(onTap: onOpenGroupChat),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: _PrimaryJoinButton(
               label: label,
@@ -241,6 +442,121 @@ class _JoinActionBar extends StatelessWidget {
               accent: e.accent,
               enabled: enabled,
               onPressed: enabled ? onPressed : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A compact secondary "Group Chat" action for the sticky bottom bar. It never
+/// replaces the primary Join/Request/Hosting action — it sits beside it and is
+/// only shown to the creator or a joined participant.
+class _GroupChatButton extends StatelessWidget {
+  const _GroupChatButton({required this.onTap});
+
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onTap(),
+      child: Container(
+        height: 54,
+        width: 54,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: .14)),
+        ),
+        child: const Icon(
+          Icons.forum_rounded,
+          size: 22,
+          color: Color(0xFFB7A5FF),
+        ),
+      ),
+    );
+  }
+}
+
+class _HostingBar extends StatelessWidget {
+  const _HostingBar({required this.experience, required this.onOpenGroupChat});
+
+  final Experience experience;
+  final Future<void> Function() onOpenGroupChat;
+
+  @override
+  Widget build(BuildContext context) {
+    final e = experience;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        18,
+        14,
+        18,
+        14 + MediaQuery.of(context).padding.bottom,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1020).withValues(alpha: .92),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: .08)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${e.spotsLeft} spots left',
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+              Text(
+                '${e.goingCount} going',
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF9DB2E8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          _GroupChatButton(onTap: onOpenGroupChat),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Container(
+              height: 54,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: .12)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Icon(
+                    Icons.star_rounded,
+                    size: 19,
+                    color: Color(0xFFFFC24D),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    "You're Hosting",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF9DB2E8),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

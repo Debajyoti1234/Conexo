@@ -186,6 +186,55 @@ PublicProfileViewData mapConnectionUiModelToProfile(ConnectionUiModel model) {
   );
 }
 
+/// Maps a Plan participant (canonical auth.users.id + display name + an
+/// already-resolved signed photo URL) to the shared public profile view model.
+///
+/// Reuses the SAME canonical `premiumPublicProfileRoute` + public profile
+/// screen used everywhere else. It only carries data the viewer already
+/// legitimately sees in their own plan's participant/request lists (name +
+/// signed photo). [photoUrl] is a ready-to-render https signed URL, so it is
+/// placed in [ProfilePhoto.remoteUrl] where the public profile hero passes
+/// http(s) URLs straight to Image.network. Private-profile photos are already
+/// blocked upstream by storage RLS (the signed URL is empty), so the fallback
+/// avatar shows without leaking a private photo.
+PublicProfileViewData mapPlanParticipantToProfile({
+  required String userId,
+  required String name,
+  String photoUrl = '',
+}) {
+  final photos = <ProfilePhoto>[];
+  final trimmed = photoUrl.trim();
+  if (trimmed.isNotEmpty) {
+    photos.add(ProfilePhoto(
+      id: '${userId}_photo_0',
+      assetPath: '',
+      isPrimary: true,
+      remoteUrl: trimmed,
+      uploadStatus: PhotoUploadStatus.uploaded,
+    ));
+  }
+  return PublicProfileViewData(
+    displayName: name,
+    age: null,
+    viewerInterests: const [],
+    profile: UserProfile(
+      id: userId,
+      photos: photos,
+      bio: '',
+      interests: const [],
+      languages: const [],
+      gender: '',
+      location: '',
+      socialLinks: const [],
+      occupation: '',
+      verificationStatus: VerificationStatus.notVerified,
+      profileVisibility: ProfileVisibility.public,
+      displayName: name,
+      availabilityStatus: 'offline',
+    ),
+  );
+}
+
 /// Maps the current user's [UserProfile] to a public profile view model for
 /// the owner's own Profile tab. Never invents or mutates profile data.
 PublicProfileViewData mapUserProfileToPublicProfile(UserProfile profile) {

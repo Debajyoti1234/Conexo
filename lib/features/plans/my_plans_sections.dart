@@ -194,6 +194,65 @@ class JoinedList extends StatelessWidget {
   }
 }
 
+/// A requested (pending) plan: the reusable [ExperienceCard] with a "Request
+/// Pending" status badge. The viewer has requested to join but is awaiting the
+/// creator's decision. Tapping opens the plan (which shows "Request Pending").
+/// No Edit/Leave actions — the request is not yet an accepted membership.
+class RequestedList extends StatelessWidget {
+  const RequestedList({
+    required this.items,
+    required this.onOpen,
+    super.key,
+  });
+
+  final List<Experience> items;
+  final ValueChanged<Experience> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const MyPlansEmptyState(
+        icon: Icons.hourglass_top_rounded,
+        title: 'No pending requests',
+        message: 'Plans you request to join from discovery will wait here '
+            'until the host approves.',
+      );
+    }
+    return Column(
+      children: [
+        for (var i = 0; i < items.length; i++)
+          EntranceFade(
+            delay: Duration(milliseconds: 60 * i),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        StatusBadge(
+                          label: 'Request Pending',
+                          color: Color(0xFFF0B65A),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ExperienceCard(
+                    experience: items[i],
+                    variant: CardVariant.stacked,
+                    onTap: () => onOpen(items[i]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// Archived plans: dimmed compact cards with a Restore action.
 class ArchivedList extends StatelessWidget {
   const ArchivedList({

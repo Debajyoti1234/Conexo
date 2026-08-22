@@ -26,12 +26,12 @@ class _MainShellState extends State<MainShell> {
   // Plans (index 0) is the default landing tab.
   int _selectedIndex = 0;
 
-  static const _screens = [
+  static final _screens = [
     PlansScreen(),
-    HomeScreen(),
-    ConnectionsScreen(),
-    ChatsScreen(),
-    ProfileScreen(),
+    const HomeScreen(),
+    const ConnectionsScreen(),
+    const ChatsScreen(),
+    const ProfileScreen(),
   ];
 
   /// The single, shell-owned notification state. Pure state only — the shell is

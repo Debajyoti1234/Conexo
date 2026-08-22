@@ -1,0 +1,122 @@
+==================================================
+P1.2B.9A — FINAL REPORT
+==================================================
+
+Plan Chat created on publish:
+YES
+
+One conversation per Plan:
+YES
+
+Plan name in Chat:
+YES
+
+Plan image in Chat:
+YES
+
+Join system message:
+YES
+
+Join message example:
+"{display_name} has joined the plan "{plan_title}""
+
+Join timestamp:
+YES
+
+Plan rooms sorted by latest activity:
+YES
+
+View Profile → View Members:
+YES
+
+Plan Members screen:
+YES
+
+Joined member names:
+YES
+
+Joined member photos:
+YES
+
+Creator indicator:
+YES
+
+Creator can remove members:
+YES
+
+Removal uses existing remove_plan_member RPC:
+YES
+
+Admin remove from Chat:
+NOT IMPLEMENTED
+
+Normal members are view-only:
+YES
+
+Pending users protected:
+YES
+
+Declined users protected:
+YES
+
+Removed users protected:
+YES
+
+Left users protected:
+YES
+
+View Members → Plan Details:
+YES
+
+Creator Plan Details state:
+YES
+
+Joined Plan Details state:
+YES
+
+Connection Chat unchanged:
+YES
+
+Plan discovery unchanged:
+YES
+
+Plan membership architecture unchanged:
+YES
+
+Profile-photo privacy unchanged:
+YES
+
+Demo Plan chat data:
+NONE
+
+Chat Polish changes:
+NONE
+
+Files changed:
+lib/features/chat/chat_models.dart (added planId to ConversationPreview)
+lib/features/chat/chat_repository.dart (existing plan chat methods, unchanged)
+lib/features/chat/connections_screen.dart (signed plan covers, planId propagation)
+lib/features/chat/conversation_screen.dart (group menu: View Members/View Plan, system message mapping)
+lib/features/plans/supabase_plan_repository.dart (create plan chat on publish in savePublished)
+lib/features/plans/plan_members_screen.dart (NEW: Plan Members screen)
+
+Migrations:
+supabase/migrations/20260903000000_plan_chat_refinements.sql (NEW)
+  - Extended sync_plan_conversation_members() to insert system join messages
+  - Added bump_conversation_updated_at() trigger on messages INSERT
+
+flutter analyze:
+PASSED (12 pre-existing info-level lints in unrelated files, 0 errors)
+
+APK build:
+SUCCESS
+
+APK path:
+build\app\outputs\flutter-apk\app-release.apk
+
+P1.2B.9A:
+COMPLETE
+
+==================================================
+STOP — DO NOT MOVE TO CHAT POLISH
+==================================================

@@ -9,13 +9,20 @@ import 'chat/conversation_screen.dart';
 import 'home_connection_dashboard_cards.dart';
 import 'home_connection_dashboard_data.dart';
 import 'home_discovery_animations.dart';
+import 'plans/plan_repository.dart';
+import 'plans/supabase_plan_repository.dart';
 import 'profile/connections_view_model.dart';
 import 'profile/profile_navigation_mapper.dart';
 import 'profile/public_profile_screen.dart';
 import 'profile/realtime_connections_service.dart';
 
 class ConnectionsDashboard extends StatefulWidget {
-  const ConnectionsDashboard({super.key});
+  const ConnectionsDashboard({
+    super.key,
+    this.repository = const SupabasePlanRepository(),
+  });
+
+  final PlanRepository repository;
 
   @override
   State<ConnectionsDashboard> createState() => _ConnectionsDashboardState();
@@ -29,12 +36,12 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
   List<ConnectionUiModel> _network = const [];
   List<ConnectionUiModel> _requests = const [];
   List<ConnectionUiModel> _pending = const [];
-  late final List<HostedPlan> _plans;
+  List<HostedPlan> _plans = const [];
+  bool _plansLoading = false;
+  String? _plansError;
 
   bool _loading = true;
   String? _error;
-
-  _ConnectionsDashboardState() : _plans = _copyPlans(demoHostedPlans);
 
   final Set<String> _removing = <String>{};
 
@@ -99,10 +106,125 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
         _loading = false;
       });
     }
+
+    await _loadHostedPlans();
   }
 
   Future<void> _refresh() async {
     await _load();
+  }
+
+  // -------------------------------------------------------------------------
+  // Hosted plans (real backend)
+  // -------------------------------------------------------------------------
+
+  Future<void> _loadHostedPlans() async {
+    setState(() {
+      _plansLoading = true;
+      _plansError = null;
+    });
+
+    try {
+      final experiences = await widget.repository.getPublishedExperiences();
+      if (!mounted) return;
+
+      final plans = <HostedPlan>[];
+      for (final experience in experiences) {
+        final pending = await widget.repository.getPendingPlanMembers(experience.id);
+        final members = await widget.repository.getPlanMembers(experience.id);
+
+        final joinRequests = <JoinRequest>[];
+        final participants = <Participant>[];
+
+        for (final membership in pending) {
+          final name = membership.displayName?.trim().isNotEmpty ?? false
+              ? membership.displayName!.trim()
+              : 'User ${membership.userId.substring(0, 8)}';
+          joinRequests.add(JoinRequest(
+            id: membership.userId,
+            name: name,
+            color: _colorFromId(membership.userId),
+            portrait: membership.photoUrl ?? '',
+          ));
+        }
+
+        for (final membership in members) {
+          // Creator must NEVER appear as a joined participant:
+          //   status = 'joined' AND user_id != plans.creator_id (experience.hostId)
+          if (membership.status == 'joined' &&
+              membership.role != 'creator' &&
+              membership.userId != experience.hostId) {
+            final name = membership.displayName?.trim().isNotEmpty ?? false
+                ? membership.displayName!.trim()
+                : 'User ${membership.userId.substring(0, 8)}';
+            participants.add(Participant(
+              id: membership.userId,
+              name: name,
+              color: _colorFromId(membership.userId),
+              portrait: membership.photoUrl ?? '',
+            ));
+          }
+        }
+
+        plans.add(HostedPlan(
+          id: experience.id,
+          name: experience.title,
+          date: _formatDate(experience.date),
+          time: experience.time,
+          location: experience.city,
+          color: experience.accent,
+          joinRequests: joinRequests,
+          participants: participants,
+        ));
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _plans = plans;
+        _plansLoading = false;
+      });
+
+      for (final plan in _plans) {
+        final stored = _prefs?.getBool('cnx_plan_${plan.id}');
+        if (stored != null) _planExpanded[plan.id] = stored;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _plansError = e.toString();
+        _plansLoading = false;
+      });
+    }
+  }
+
+  Color _colorFromId(String id) {
+    var hash = 0;
+    for (final codeUnit in id.codeUnits) {
+      hash = (hash * 31 + codeUnit) & 0xFFFFFF;
+    }
+    final hue = (hash % 360).toDouble();
+    return HSVColor.fromAHSV(1.0, hue / 360.0, 0.65, 0.95).toColor();
+  }
+
+  String _formatDate(String shortDate) {
+    final now = DateTime.now();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    if (shortDate.contains(RegExp(r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)'))) {
+      return shortDate;
+    }
+
+    for (final month in months) {
+      final regex = RegExp('$month (\\d+)');
+      final match = regex.firstMatch(shortDate);
+      if (match != null) {
+        final day = int.parse(match.group(1)!);
+        final date = DateTime(now.year, months.indexOf(month) + 1, day);
+        return '${days[date.weekday - 1]}, $day $month ${date.year}';
+      }
+    }
+    return shortDate;
   }
 
   // -------------------------------------------------------------------------
@@ -210,12 +332,18 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
     );
   }
 
-  void _approveJoin(HostedPlan plan, JoinRequest request) {
+  Future<void> _approveJoin(HostedPlan plan, JoinRequest request) async {
+    try {
+      await widget.repository.approvePlanMember(plan.id, request.id);
+    } catch (e) {
+      _showError(e.toString());
+      return;
+    }
     _animateRemoval(request.id, () {
       plan.joinRequests.removeWhere((r) => r.id == request.id);
       plan.participants.add(
         Participant(
-          id: 'participant_${request.id}',
+          id: request.id,
           name: request.name,
           color: request.color,
           portrait: request.portrait,
@@ -224,10 +352,72 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
     });
   }
 
-  void _declineJoin(HostedPlan plan, JoinRequest request) {
+  Future<void> _declineJoin(HostedPlan plan, JoinRequest request) async {
+    try {
+      await widget.repository.declinePlanMember(plan.id, request.id);
+    } catch (e) {
+      _showError(e.toString());
+      return;
+    }
     _animateRemoval(
       request.id,
       () => plan.joinRequests.removeWhere((r) => r.id == request.id),
+    );
+  }
+
+  /// Opens the canonical Public Profile for a joined participant. Reuses the
+  /// same route + screen as connections; carries only the name + signed photo
+  /// the creator already sees in their own plan.
+  void _viewParticipantProfile(Participant participant) {
+    Navigator.of(context).push(
+      premiumPublicProfileRoute(
+        data: mapPlanParticipantToProfile(
+          userId: participant.id,
+          name: participant.name,
+          photoUrl: participant.portrait,
+        ),
+      ),
+    );
+  }
+
+  /// Creator-only removal of an already-joined participant (joined -> removed).
+  /// Distinct from decline (pending -> declined). Frees a capacity spot under
+  /// the database-authoritative model.
+  Future<void> _removeParticipant(HostedPlan plan, Participant participant) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF141C31),
+        title: const Text('Remove participant?',
+            style: TextStyle(color: Colors.white)),
+        content: Text(
+          '${participant.name} will be removed from "${plan.name}". '
+          'A spot will open up again.',
+          style: const TextStyle(color: Color(0xFFB9C3DC)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Remove', style: TextStyle(color: Color(0xFFE36D9D))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await widget.repository.removePlanMember(plan.id, participant.id);
+    } catch (e) {
+      _showError(e.toString());
+      return;
+    }
+    _animateRemoval(
+      participant.id,
+      () => plan.participants.removeWhere((p) => p.id == participant.id),
     );
   }
 
@@ -529,14 +719,36 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
   }
 
   Widget _buildHostedPlansSection() {
-    final content = _plans.isEmpty
-        ? const _EmptyState(
-            icon: Icons.event_available_outlined,
-            message: "You haven't hosted any plans yet.",
-          )
-        : Column(
-            children: [for (final plan in _plans) _buildHostedPlanCard(plan)],
-          );
+    Widget content;
+    if (_plansLoading) {
+      content = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: Color(0xFF7C3AED),
+            ),
+          ),
+        ),
+      );
+    } else if (_plansError != null) {
+      content = _ErrorState(
+        message: _plansError!,
+        onRetry: _loadHostedPlans,
+      );
+    } else if (_plans.isEmpty) {
+      content = const _EmptyState(
+        icon: Icons.event_available_outlined,
+        message: "You haven't hosted any plans yet.",
+      );
+    } else {
+      content = Column(
+        children: [for (final plan in _plans) _buildHostedPlanCard(plan)],
+      );
+    }
     return _ExpandableSection(
       sectionKey: _sectionKeys['hosted']!,
       expanded: _sectionExpanded['hosted']!,
@@ -720,8 +932,8 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
                   spacing: 10,
                   child: JoinRequestRow(
                     request: request,
-                    onApprove: () => _approveJoin(plan, request),
-                    onDecline: () => _declineJoin(plan, request),
+                    onApprove: () { _approveJoin(plan, request); },
+                    onDecline: () { _declineJoin(plan, request); },
                   ),
                 ),
             ],
@@ -755,6 +967,8 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
                 ParticipantChip(
                   key: ValueKey<String>('participant-${participant.id}'),
                   participant: participant,
+                  onTap: () => _viewParticipantProfile(participant),
+                  onRemove: () => _removeParticipant(plan, participant),
                 ),
             ],
           ),
@@ -762,19 +976,6 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
     );
   }
 
-  static List<HostedPlan> _copyPlans(List<HostedPlan> source) => [
-        for (final plan in source)
-          HostedPlan(
-            id: plan.id,
-            name: plan.name,
-            date: plan.date,
-            time: plan.time,
-            location: plan.location,
-            color: plan.color,
-            joinRequests: List.of(plan.joinRequests),
-            participants: List.of(plan.participants),
-          ),
-      ];
 }
 
 class _ErrorState extends StatelessWidget {
