@@ -213,9 +213,9 @@ class ConnectionRepository {
   Future<bool> _isBlocked(String userId1, String userId2) async {
     try {
       final result = await Supabase.instance.client
-          .from('blocked_users')
+          .from('blocks')
           .select('id')
-          .or('and(blocker_user_id.eq.$userId1,blocked_user_id.eq.$userId2),and(blocker_user_id.eq.$userId2,blocked_user_id.eq.$userId1)')
+          .or('and(blocker_id.eq.$userId1,blocked_id.eq.$userId2),and(blocker_id.eq.$userId2,blocked_id.eq.$userId1)')
           .maybeSingle();
       return result != null;
     } catch (_) {

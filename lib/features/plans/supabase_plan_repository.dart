@@ -193,6 +193,13 @@ class SupabasePlanRepository implements PlanRepository {
           if (row['plan_id'] is String) row['plan_id'] as String,
       };
 
+      // Canonical block exclusion: a plan created by someone the viewer has
+      // blocked — or who has blocked the viewer — must NOT appear in the
+      // viewer's Plan Discovery. Uses the same canonical `blocks` relationship
+      // via the SECURITY DEFINER blocked_profile_ids() helper (bidirectional),
+      // never a plan-specific block list.
+      final blockedCreatorIds = await _loadBlockedProfileIds();
+
       final data = await Supabase.instance.client
           .from('plans')
           .select('''
@@ -226,6 +233,11 @@ class SupabasePlanRepository implements PlanRepository {
           final id = row['id'] as String?;
           // Hide plans the current viewer has already requested or joined.
           if (id != null && hiddenPlanIds.contains(id)) continue;
+          // Hide plans created by a blocked (either direction) user.
+          final creatorId = row['creator_id'] as String?;
+          if (creatorId != null && blockedCreatorIds.contains(creatorId)) {
+            continue;
+          }
           plans.add(PublishedPlan.fromSupabase(row));
         } catch (_) {
           // Skip malformed rows rather than failing the whole feed.
@@ -242,11 +254,52 @@ class SupabasePlanRepository implements PlanRepository {
     }
   }
 
+  /// Returns the set of user ids the current viewer is blocked-with in EITHER
+  /// direction (viewer blocked them, or they blocked viewer), using the
+  /// canonical SECURITY DEFINER `blocked_profile_ids()` helper over
+  /// `public.blocks`. Falls back to the viewer-as-blocker direction that RLS
+  /// exposes directly, and to an empty set on any failure so discovery never
+  /// hard-fails.
+  Future<Set<String>> _loadBlockedProfileIds() async {
+    final user = AuthService.currentUser;
+    if (user == null) return const <String>{};
+
+    try {
+      final rows = await Supabase.instance.client.rpc('blocked_profile_ids');
+      if (rows is List) {
+        final blocked = <String>{};
+        for (final row in rows) {
+          if (row is Map) {
+            final id = row['user_id'] as String?;
+            if (id != null) blocked.add(id);
+          } else if (row is String) {
+            blocked.add(row);
+          }
+        }
+        return blocked;
+      }
+    } catch (_) {
+      // Fall back to the direct one-direction query below.
+    }
+
+    try {
+      final data = await Supabase.instance.client
+          .from('blocks')
+          .select('blocked_id')
+          .eq('blocker_id', user.id);
+      return <String>{
+        for (final row in data)
+          if (row['blocked_id'] is String) row['blocked_id'] as String,
+      };
+    } catch (_) {
+      return const <String>{};
+    }
+  }
+
   @override
   Future<PlanMembership?> getMyMembership(String planId) async {
     final user = AuthService.currentUser;
     if (user == null) return null;
-
     try {
       final data = await Supabase.instance.client
           .from('plan_members')

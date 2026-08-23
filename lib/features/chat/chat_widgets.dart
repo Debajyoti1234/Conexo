@@ -23,12 +23,17 @@ class ConversationAvatar extends StatelessWidget {
     required this.status,
     super.key,
     this.size = 56,
+    this.onTap,
   });
 
   final String asset;
   final String name;
   final ConversationStatus status;
   final double size;
+
+  /// Optional tap handler. When provided, the avatar becomes tappable (used in
+  /// the conversation app bar to open the person's canonical Public Profile).
+  final VoidCallback? onTap;
 
   static bool _isNetwork(String value) {
     return value.startsWith('http://') || value.startsWith('https://');
@@ -96,7 +101,7 @@ class ConversationAvatar extends StatelessWidget {
     final isOnline = status == ConversationStatus.online;
     final isNew = status == ConversationStatus.recentlyConnected;
 
-    return SizedBox(
+    final avatar = SizedBox(
       width: size,
       height: size,
       child: Stack(
@@ -124,6 +129,14 @@ class ConversationAvatar extends StatelessWidget {
             ),
         ],
       ),
+    );
+
+    if (onTap == null) return avatar;
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: avatar,
     );
   }
 }

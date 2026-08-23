@@ -48,11 +48,15 @@ class ChatRepository {
     String conversationId,
   ) async {
     try {
+      // Soft-deleted messages are intentionally NOT filtered out here: they
+      // must remain in the timeline so conversation ordering/history is
+      // preserved. The UI renders them as "This message was deleted" using the
+      // row's deleted_at. (Unread counts + inbox previews still exclude deleted
+      // rows in their own queries below.)
       final response = await Supabase.instance.client
           .from('messages')
           .select()
           .eq('conversation_id', conversationId)
-          .isFilter('deleted_at', null)
           .order('created_at', ascending: true);
 
       final messages = <ChatMessage>[];
@@ -73,6 +77,62 @@ class ChatRepository {
         );
       }
       return ChatResult.failure('Failed to load messages');
+    }
+  }
+
+  /// Soft-deletes a single message the current user authored by stamping
+  /// `deleted_at`. This NEVER physically deletes the row, so conversation
+  /// ordering, history, unread bookkeeping, and realtime all stay intact.
+  ///
+  /// Ownership is enforced twice: the `sender_id` predicate here AND the
+  /// canonical "Senders can update own messages" UPDATE RLS policy
+  /// (`auth.uid() = sender_id`). A caller can therefore only ever delete their
+  /// own message; an attempt on someone else's message affects zero rows.
+  ///
+  /// Returns success when the row was stamped. An empty result means the
+  /// message no longer exists or is not owned by the caller; when it was
+  /// already deleted (e.g. a concurrent realtime update won the race) this
+  /// still returns success because the desired end state is achieved.
+  Future<ChatResult<void>> deleteMessage(String messageId) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return const ChatResult.failure('Not authenticated');
+      }
+
+      final rows = await Supabase.instance.client
+          .from('messages')
+          .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
+          .eq('id', messageId)
+          .eq('sender_id', user.id)
+          .select('id, deleted_at');
+
+      if (rows.isEmpty) {
+        // Either not ours / missing, or it was already deleted by a concurrent
+        // update. Re-check the current state so an already-deleted own message
+        // is treated as a success rather than a spurious failure.
+        final existing = await Supabase.instance.client
+            .from('messages')
+            .select('deleted_at')
+            .eq('id', messageId)
+            .maybeSingle();
+        final alreadyDeleted =
+            existing != null && existing['deleted_at'] != null;
+        if (alreadyDeleted) {
+          return const ChatResult.success(null);
+        }
+        return const ChatResult.failure('Message no longer available');
+      }
+
+      return const ChatResult.success(null);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } on PostgrestException catch (e) {
+      debugPrint('deleteMessage FAILED: code=${e.code} message=${e.message}');
+      return const ChatResult.failure('Failed to delete message');
+    } catch (e) {
+      debugPrint('deleteMessage FAILED: ${e.runtimeType}: $e');
+      return const ChatResult.failure('Failed to delete message');
     }
   }
 
@@ -123,7 +183,161 @@ class ChatRepository {
     } on AuthException catch (e) {
       return ChatResult.failure(e.message);
     } catch (e) {
-      return ChatResult.failure('Failed to update read state');
+      debugPrint('updateLastReadAt FAILED: ${e.runtimeType}: $e');
+      return const ChatResult.failure('Failed to update read state');
+    }
+  }
+
+  /// Returns the other participant's `last_read_at` for read-receipt derivation.
+  /// For 1:1 chats this is exactly one row; for groups it returns the most
+  /// recent co-member marker, or null when none is available.
+  Future<ChatResult<DateTime?>> loadOtherMemberLastReadAt(
+    String conversationId,
+  ) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return const ChatResult.failure('Not authenticated');
+      }
+
+      final rows = await Supabase.instance.client
+          .from('conversation_members')
+          .select('user_id, last_read_at')
+          .eq('conversation_id', conversationId)
+          .neq('user_id', user.id)
+          .limit(2);
+
+      if (rows.isEmpty) return const ChatResult.success(null);
+
+      DateTime? latest;
+      for (final row in rows) {
+        final raw = row['last_read_at'] as String?;
+        if (raw == null || raw.isEmpty) continue;
+        final parsed = DateTime.parse(raw);
+        if (latest == null || parsed.isAfter(latest)) latest = parsed;
+      }
+      return ChatResult.success(latest);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } catch (e) {
+      debugPrint(
+        'loadOtherMemberLastReadAt FAILED: ${e.runtimeType}: $e',
+      );
+      return const ChatResult.success(null);
+    }
+  }
+
+  /// Mutes this conversation for the current user only. Persists a row in
+  /// `conversation_mutes` (canonical per-user, per-conversation mute table) so
+  /// the state survives reopen/restart. Never affects the other participant.
+  Future<ChatResult<void>> muteConversation(String conversationId) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return ChatResult.failure('Not authenticated');
+      }
+
+      // Upsert so a repeated mute is idempotent (unique on
+      // conversation_id + user_id).
+      await Supabase.instance.client.from('conversation_mutes').upsert(
+        {
+          'conversation_id': conversationId,
+          'user_id': user.id,
+          'muted_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        onConflict: 'conversation_id,user_id',
+      );
+
+      return const ChatResult.success(null);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } catch (e) {
+      return ChatResult.failure('Failed to mute conversation');
+    }
+  }
+
+  /// Unmutes this conversation for the current user only by removing the
+  /// `conversation_mutes` row for (conversation, current user).
+  Future<ChatResult<void>> unmuteConversation(String conversationId) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return ChatResult.failure('Not authenticated');
+      }
+
+      await Supabase.instance.client
+          .from('conversation_mutes')
+          .delete()
+          .eq('conversation_id', conversationId)
+          .eq('user_id', user.id);
+
+      return const ChatResult.success(null);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } catch (e) {
+      return ChatResult.failure('Failed to unmute conversation');
+    }
+  }
+
+  /// Returns whether the current user has muted this conversation, based on the
+  /// presence of a `conversation_mutes` row for (conversation, current user).
+  Future<ChatResult<bool>> isConversationMuted(String conversationId) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return const ChatResult.success(false);
+      }
+
+      final mute = await Supabase.instance.client
+          .from('conversation_mutes')
+          .select('muted_at')
+          .eq('conversation_id', conversationId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      final mutedAt = mute?['muted_at'] as String?;
+      return ChatResult.success(mutedAt != null && mutedAt.isNotEmpty);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } catch (e) {
+      return const ChatResult.success(false);
+    }
+  }
+
+  /// Resolves the other participant's user id for a 1:1 connection, using the
+  /// canonical `connections` row (requester/recipient). Used by entry points
+  /// that only hold a connectionId (e.g. notification taps) so the opened
+  /// conversation carries a real `otherUserId` for profile/block/report.
+  Future<ChatResult<String>> resolveConnectionOtherUserId(
+    String connectionId,
+  ) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return ChatResult.failure('Not authenticated');
+      }
+
+      final row = await Supabase.instance.client
+          .from('connections')
+          .select('requester_id, recipient_id')
+          .eq('id', connectionId)
+          .maybeSingle();
+
+      if (row == null) {
+        return const ChatResult.failure('Connection not found');
+      }
+
+      final requesterId = row['requester_id'] as String?;
+      final recipientId = row['recipient_id'] as String?;
+      final otherId = requesterId == user.id ? recipientId : requesterId;
+      if (otherId == null || otherId.isEmpty) {
+        return const ChatResult.failure('Could not resolve user');
+      }
+      return ChatResult.success(otherId);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } catch (e) {
+      return const ChatResult.failure('Could not resolve user');
     }
   }
 

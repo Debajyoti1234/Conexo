@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'chat_models.dart';
 import 'chat_repository.dart';
@@ -232,28 +231,14 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
     final accepted = await _viewModel.loadAcceptedConnections();
     if (!mounted) return;
 
-    final currentUser = AuthService.currentUser;
-    final blockedIds = <String>{};
-    if (currentUser != null) {
-      try {
-        final blocked = await Supabase.instance.client
-            .from('blocked_users')
-            .select('blocked_user_id')
-            .eq('blocker_user_id', currentUser.id);
-        for (final row in blocked) {
-          final id = row['blocked_user_id'] as String?;
-          if (id != null) blockedIds.add(id);
-        }
-      } catch (_) {
-        // ignore block load failure — show all connections
-      }
-    }
-
-    final filtered = accepted.where((m) => !blockedIds.contains(m.otherUserId)).toList();
-
+    // NOTE: Blocked connections are intentionally NOT removed from the inbox.
+    // A blocked conversation must remain visible to both users (product rule):
+    // opening it shows the appropriate blocked state and the composer is
+    // disabled, while server-side RLS rejects any message. Discovery/People
+    // exclusion is handled separately by the canonical block source.
     _latestMessageTimes.clear();
     final connectionPreviews = <ConversationPreview>[];
-    for (final m in filtered) {
+    for (final m in accepted) {
       String lastMessage = '';
       String timestamp = '';
 
@@ -274,6 +259,9 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
         }
         final unreadResult = await _chatRepository.loadUnreadCount(conversationId);
         final unreadCount = unreadResult.isSuccess ? (unreadResult.value ?? 0) : 0;
+        final mutedResult =
+            await _chatRepository.isConversationMuted(conversationId);
+        final isMuted = mutedResult.isSuccess ? (mutedResult.value ?? false) : false;
         connectionPreviews.add(ConversationPreview(
           id: m.connectionId,
           name: m.otherUserName,
@@ -285,6 +273,7 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
           lastMessageType: LastMessageType.connectionAccepted,
           unreadCount: unreadCount,
           isPinned: _pinnedConnectionIds.contains(m.connectionId),
+          isMuted: isMuted,
           isVerified: m.isVerified,
           otherUserId: m.otherUserId,
         ));
@@ -496,7 +485,9 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
         status: ConversationStatus.recentlyConnected,
         lastMessageType: LastMessageType.connectionAccepted,
         unreadCount: unreadCount,
+        isMuted: c.isMuted,
         isVerified: c.isVerified,
+        otherUserId: c.otherUserId,
       );
 
       if (!mounted) return;

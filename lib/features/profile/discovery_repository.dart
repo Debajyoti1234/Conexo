@@ -331,15 +331,38 @@ Set<String> _normalizeInterests(List<String>? interests) {
   }
 
   Future<Set<String>> _loadBlockedProfileIds(String userId) async {
+    // Prefer the canonical bidirectional helper so that a block in EITHER
+    // direction removes the other user from discovery. RLS on public.blocks
+    // only exposes rows where the caller is the blocker, so the reverse
+    // direction (someone who blocked me) is resolved by this SECURITY DEFINER
+    // RPC over the same canonical `blocks` table.
+    try {
+      final rows = await Supabase.instance.client.rpc('blocked_profile_ids');
+      if (rows is List) {
+        final blocked = <String>{};
+        for (final row in rows) {
+          if (row is Map) {
+            final id = row['user_id'] as String?;
+            if (id != null) blocked.add(id);
+          } else if (row is String) {
+            blocked.add(row);
+          }
+        }
+        return blocked;
+      }
+    } catch (_) {
+      // Fall back to the direct one-direction query below.
+    }
+
     try {
       final data = await Supabase.instance.client
-          .from('blocked_users')
-          .select('blocked_user_id')
-          .eq('blocker_user_id', userId);
+          .from('blocks')
+          .select('blocked_id')
+          .eq('blocker_id', userId);
 
       final blocked = <String>{};
       for (final row in data) {
-        final blockedId = row['blocked_user_id'] as String?;
+        final blockedId = row['blocked_id'] as String?;
         if (blockedId != null) blocked.add(blockedId);
       }
       return blocked;

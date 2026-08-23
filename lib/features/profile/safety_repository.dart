@@ -20,6 +20,26 @@ class SafetyResult<T> {
   bool get isFailure => error != null;
 }
 
+/// Directional block relationship between the current user and one other user.
+///
+/// Resolved through the canonical `block_state` SECURITY DEFINER RPC over
+/// `public.blocks`, so it can report [theyBlocked] even though RLS hides that
+/// row from a direct client query.
+class BlockState {
+  const BlockState({required this.iBlocked, required this.theyBlocked});
+
+  /// The current user has blocked the other user.
+  final bool iBlocked;
+
+  /// The other user has blocked the current user.
+  final bool theyBlocked;
+
+  /// A block exists in either direction.
+  bool get isBlocked => iBlocked || theyBlocked;
+
+  static const none = BlockState(iBlocked: false, theyBlocked: false);
+}
+
 class BlockedUser {
   const BlockedUser({
     required this.id,
@@ -224,16 +244,37 @@ class SafetyRepository {
         return const SafetyResult.failure('You must be signed in');
       }
 
-      final data = await Supabase.instance.client
-          .from('blocked_users')
-          .select(
-              'id, blocker_user_id, blocked_user_id, created_at, blocked_profiles!inner(display_name, photos)')
-          .eq('blocker_user_id', user.id)
+      // Canonical block relationship lives in public.blocks
+      // (blocker_id, blocked_id). RLS returns only rows where the current user
+      // is the blocker.
+      final blocksData = await Supabase.instance.client
+          .from('blocks')
+          .select('id, blocked_id, created_at')
+          .eq('blocker_id', user.id)
           .order('created_at', ascending: false);
 
+      if (blocksData.isEmpty) {
+        return const SafetyResult.success(<BlockedUser>[]);
+      }
+
+      final blockedIds = <String>[
+        for (final row in blocksData) row['blocked_id'] as String,
+      ];
+
+      // Resolve display info from the canonical profiles table in one batch.
+      final profilesData = await Supabase.instance.client
+          .from('profiles')
+          .select('id, display_name, photos')
+          .inFilter('id', blockedIds);
+
+      final profilesById = <String, Map<String, dynamic>>{
+        for (final row in profilesData) row['id'] as String: row,
+      };
+
       final blocked = <BlockedUser>[];
-      for (final row in data) {
-        final profile = row['blocked_profiles'] as Map<String, dynamic>?;
+      for (final row in blocksData) {
+        final blockedId = row['blocked_id'] as String;
+        final profile = profilesById[blockedId];
         final photos = profile?['photos'] as List?;
         String? avatar;
         if (photos != null && photos.isNotEmpty) {
@@ -248,7 +289,7 @@ class SafetyRepository {
 
         blocked.add(BlockedUser(
           id: row['id'] as String,
-          blockedUserId: row['blocked_user_id'] as String,
+          blockedUserId: blockedId,
           blockedUserName:
               (profile?['display_name'] as String?)?.trim().isNotEmpty == true
                   ? (profile?['display_name'] as String)
@@ -277,13 +318,11 @@ class SafetyRepository {
         return const SafetyResult.failure('Cannot block yourself');
       }
 
-      final now = DateTime.now().toIso8601String();
       await Supabase.instance.client
-          .from('blocked_users')
+          .from('blocks')
           .insert({
-            'blocker_user_id': user.id,
-            'blocked_user_id': userId,
-            'created_at': now,
+            'blocker_id': user.id,
+            'blocked_id': userId,
           });
 
       return const SafetyResult.success(null);
@@ -305,10 +344,10 @@ class SafetyRepository {
       }
 
       await Supabase.instance.client
-          .from('blocked_users')
+          .from('blocks')
           .delete()
-          .eq('blocker_user_id', user.id)
-          .eq('blocked_user_id', userId);
+          .eq('blocker_id', user.id)
+          .eq('blocked_id', userId);
 
       return const SafetyResult.success(null);
     } on PostgrestException catch (e) {
@@ -324,14 +363,45 @@ class SafetyRepository {
       if (user == null) return const SafetyResult.success(false);
 
       final result = await Supabase.instance.client
-          .from('blocked_users')
+          .from('blocks')
           .select('id')
-          .or('and(blocker_user_id.eq.${user.id},blocked_user_id.eq.$otherUserId),and(blocker_user_id.eq.$otherUserId,blocked_user_id.eq.${user.id})')
+          .or('and(blocker_id.eq.${user.id},blocked_id.eq.$otherUserId),and(blocker_id.eq.$otherUserId,blocked_id.eq.${user.id})')
           .maybeSingle();
 
       return SafetyResult.success(result != null);
     } catch (_) {
       return const SafetyResult.success(false);
+    }
+  }
+
+  /// Resolves the directional block relationship (who blocked whom) between the
+  /// current user and [otherUserId] via the canonical `block_state` RPC.
+  ///
+  /// Never throws: on any failure it reports [BlockState.none] so callers can
+  /// decide their own safe default. Callers that must fail closed (e.g. a chat
+  /// composer) should keep the input disabled until this resolves.
+  Future<BlockState> blockStateWith(String otherUserId) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) return BlockState.none;
+
+      final rows = await Supabase.instance.client.rpc(
+        'block_state',
+        params: {'p_other': otherUserId},
+      );
+
+      if (rows is List && rows.isNotEmpty) {
+        final row = rows.first;
+        if (row is Map) {
+          return BlockState(
+            iBlocked: row['i_blocked'] == true,
+            theyBlocked: row['they_blocked'] == true,
+          );
+        }
+      }
+      return BlockState.none;
+    } catch (_) {
+      return BlockState.none;
     }
   }
 }

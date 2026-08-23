@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'chat_models.dart';
+import 'chat_starter_prompts.dart';
 import 'chat_widgets.dart';
 import 'message_models.dart';
 
@@ -24,6 +25,7 @@ class ConversationAppBar extends StatelessWidget
     required this.group,
     required this.menuActions,
     required this.onMenuSelected,
+    this.onAvatarTap,
     super.key,
   });
 
@@ -31,6 +33,11 @@ class ConversationAppBar extends StatelessWidget
   final GroupMetadata? group;
   final List<ChatMenuAction> menuActions;
   final ValueChanged<String> onMenuSelected;
+
+  /// Tapping the person's avatar opens their canonical Public Profile — the
+  /// same action as the "View Profile" menu item. Null disables the tap (e.g.
+  /// group/plan chats, or before the profile target is known).
+  final VoidCallback? onAvatarTap;
 
   @override
   Size get preferredSize => const Size.fromHeight(68);
@@ -56,6 +63,7 @@ class ConversationAppBar extends StatelessWidget
                 name: c.name,
                 status: c.status,
                 size: 44,
+                onTap: onAvatarTap,
               ),
               const SizedBox(width: 12),
 
@@ -207,11 +215,22 @@ class MessageComposer extends StatefulWidget {
     this.onSend,
     this.initialText,
     this.onDraftChanged,
+    this.onChanged,
+    this.enableStarters = false,
   });
 
   final Future<void> Function(String)? onSend;
   final String? initialText;
   final ValueChanged<String>? onDraftChanged;
+
+  /// Fired on every text change (used to drive the ephemeral typing indicator).
+  /// Separate from [onDraftChanged] so draft persistence and typing stay
+  /// decoupled.
+  final ValueChanged<String>? onChanged;
+
+  /// When true the `+` button opens the Conversation Starter sheet. Disabled in
+  /// read-only/demo composers so the control stays inert there.
+  final bool enableStarters;
 
   @override
   State<MessageComposer> createState() => _MessageComposerState();
@@ -237,6 +256,11 @@ class _MessageComposerState extends State<MessageComposer> {
     super.dispose();
   }
 
+  void _handleChanged(String text) {
+    widget.onDraftChanged?.call(text);
+    widget.onChanged?.call(text);
+  }
+
   Future<void> _handleSend() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
@@ -245,11 +269,64 @@ class _MessageComposerState extends State<MessageComposer> {
     setState(() => _sending = true);
     _controller.clear();
     widget.onDraftChanged?.call('');
+    // Text is now empty — let listeners (typing indicator) know immediately.
+    widget.onChanged?.call('');
     try {
       await widget.onSend!(text);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  /// Opens the Conversation Starter sheet. If the composer already contains
+  /// text, confirms before replacing it (never silently overwrites). The
+  /// selected prompt only POPULATES the composer — it is never auto-sent.
+  Future<void> _openStarters() async {
+    final current = _controller.text.trim();
+    if (current.isNotEmpty) {
+      final replace = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF141B2E),
+          title: const Text(
+            'Replace your message?',
+            style: TextStyle(color: Color(0xFFEAEEF9)),
+          ),
+          content: const Text(
+            'Your current message will be replaced with the starter you pick.',
+            style: TextStyle(color: Color(0xFFB9C3DC)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Keep typing'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF8B5CF6),
+              ),
+              child: const Text('Replace'),
+            ),
+          ],
+        ),
+      );
+      if (replace != true || !mounted) return;
+    }
+
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => const _StarterPromptSheet(),
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+
+    _controller.text = selected;
+    _controller.selection =
+        TextSelection.collapsed(offset: _controller.text.length);
+    // Persist as draft; do NOT auto-send. The user reviews/edits, then Sends.
+    widget.onDraftChanged?.call(selected);
   }
 
   @override
@@ -276,7 +353,7 @@ class _MessageComposerState extends State<MessageComposer> {
           children: [
             _CircleButton(
               icon: Icons.add_rounded,
-              onTap: () {},
+              onTap: widget.enableStarters ? _openStarters : () {},
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -285,7 +362,7 @@ class _MessageComposerState extends State<MessageComposer> {
                 minLines: 1,
                 maxLines: 5,
                 textInputAction: TextInputAction.send,
-                onChanged: widget.onDraftChanged,
+                onChanged: _handleChanged,
                 onSubmitted: (_) => _handleSend(),
                 decoration: const InputDecoration(
                   hintText: 'Message',
@@ -414,6 +491,172 @@ class ConversationIntro extends StatelessWidget {
             style: TextStyle(fontSize: 13, color: _kMuted),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A left-aligned "them" bubble containing the animated typing dots. Shown at
+/// the bottom of the thread while the other participant is typing. Purely a
+/// presentation widget — visibility is controlled by the conversation screen.
+class TypingBubble extends StatelessWidget {
+  const TypingBubble({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 48, 6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            color: const Color(0x14FFFFFF),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(22),
+              topRight: Radius.circular(22),
+              bottomLeft: Radius.circular(7),
+              bottomRight: Radius.circular(22),
+            ),
+            border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          ),
+          child: const TypingIndicator(color: _kSubtle),
+        ),
+      ),
+    );
+  }
+}
+
+/// The Conversation Starter sheet: a compact premium glass surface listing
+/// [kConversationStarters]. Tapping a prompt pops it back to the composer,
+/// which populates the text field (never auto-sends).
+class _StarterPromptSheet extends StatelessWidget {
+  const _StarterPromptSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        constraints: BoxConstraints(maxHeight: media.size.height * 0.62),
+        decoration: BoxDecoration(
+          color: const Color(0xFF141B2E),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .38),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: .16),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 2),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 18,
+                    color: Color(0xFFB7A5FF),
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Start a conversation',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFEAEEF9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 2, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Pick one to add it to your message.',
+                  style: TextStyle(fontSize: 12.5, color: _kMuted),
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+                itemCount: kConversationStarters.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
+                itemBuilder: (context, i) {
+                  final prompt = kConversationStarters[i];
+                  return _StarterTile(
+                    prompt: prompt,
+                    onTap: () => Navigator.of(context).pop(prompt),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StarterTile extends StatelessWidget {
+  const _StarterTile({required this.prompt, required this.onTap});
+
+  final String prompt;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        splashColor: _kAccent.withValues(alpha: .10),
+        highlightColor: Colors.white.withValues(alpha: .03),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: .05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  prompt,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFE7ECF9),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Icon(Icons.north_east_rounded, size: 16, color: _kSubtle),
+            ],
+          ),
+        ),
       ),
     );
   }

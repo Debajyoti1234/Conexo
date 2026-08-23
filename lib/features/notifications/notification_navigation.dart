@@ -146,6 +146,11 @@ class NotificationNavigation {
       return;
     }
 
+    final otherResult =
+        await chatRepository.resolveConnectionOtherUserId(connectionId);
+    if (!context.mounted) return;
+    final otherUserId = otherResult.value;
+
     final preview = ConversationPreview(
       id: conversationId,
       name: notification.title,
@@ -156,6 +161,7 @@ class NotificationNavigation {
       status: ConversationStatus.recentlyConnected,
       lastMessageType: LastMessageType.connectionAccepted,
       unreadCount: 0,
+      otherUserId: otherUserId,
     );
 
     Navigator.of(context).push(

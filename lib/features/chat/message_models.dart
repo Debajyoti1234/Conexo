@@ -75,6 +75,7 @@ class Message {
     this.senderAvatar,
     this.deliveryStatus = MessageDeliveryStatus.read,
     this.sharedContent,
+    this.isDeleted = false,
   });
 
   /// Stable identifier.
@@ -103,6 +104,33 @@ class Message {
 
   /// Optional embedded shared content (when [type] is [MessageType.shared]).
   final SharedContentPreview? sharedContent;
+
+  /// Whether this message was soft-deleted (backend `messages.deleted_at`).
+  /// A deleted message keeps its position + timestamp in the timeline but its
+  /// original content/media is never shown; the bubble renders a subtle
+  /// "This message was deleted" placeholder instead.
+  final bool isDeleted;
+
+  /// Returns a copy with selected fields overridden. Used to flip a message
+  /// into its deleted state locally after a successful soft delete without
+  /// rebuilding the whole list from the backend.
+  Message copyWith({
+    bool? isDeleted,
+    MessageDeliveryStatus? deliveryStatus,
+  }) {
+    return Message(
+      id: id,
+      author: author,
+      timestamp: timestamp,
+      type: type,
+      text: text,
+      senderName: senderName,
+      senderAvatar: senderAvatar,
+      deliveryStatus: deliveryStatus ?? this.deliveryStatus,
+      sharedContent: sharedContent,
+      isDeleted: isDeleted ?? this.isDeleted,
+    );
+  }
 }
 
 /// A participant in a group conversation.
