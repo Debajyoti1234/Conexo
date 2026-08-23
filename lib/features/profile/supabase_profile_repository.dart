@@ -195,8 +195,6 @@ class SupabaseProfileRepository implements ProfileRepository {
           .from(_bucket)
           .createSignedUrl(storagePath, 3600);
       if (kDebugMode) {
-        // Safe diagnostics: never logs the signed token, only whether a URL
-        // was produced. Helps trace Discovery remote-photo failures.
         debugPrint(
           '[PhotoSign] bucket=$_bucket path=$storagePath signed=${result.isNotEmpty}',
         );

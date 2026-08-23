@@ -14,8 +14,8 @@ const _kOnline = Color(0xFF47D7A5);
 const _kSubtle = Color(0xFF9DB2E8);
 const _kMuted = Color(0xFFB9C3DC);
 
-/// A local portrait avatar with a graceful letter fallback and an optional
-/// presence ring / dot. Never network.
+/// A portrait avatar that supports both local assets and remote HTTPS URLs,
+/// with a graceful letter fallback and an optional presence ring / dot.
 class ConversationAvatar extends StatelessWidget {
   const ConversationAvatar({
     required this.asset,
@@ -29,6 +29,67 @@ class ConversationAvatar extends StatelessWidget {
   final String name;
   final ConversationStatus status;
   final double size;
+
+  static bool _isNetwork(String value) {
+    return value.startsWith('http://') || value.startsWith('https://');
+  }
+
+  Widget _buildImage() {
+    if (asset.isEmpty) {
+      return Container(
+        color: _kAccent,
+        alignment: Alignment.center,
+        child: Text(
+          name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
+          style: TextStyle(
+            fontSize: size * .36,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+        ),
+      );
+    }
+
+    if (_isNetwork(asset)) {
+      return Image.network(
+        asset,
+        fit: BoxFit.cover,
+        width: size,
+        height: size,
+        errorBuilder: (context, error, stackTrace) => Container(
+          color: _kAccent,
+          alignment: Alignment.center,
+          child: Text(
+            name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
+            style: TextStyle(
+              fontSize: size * .36,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Image.asset(
+      asset,
+      fit: BoxFit.cover,
+      width: size,
+      height: size,
+      errorBuilder: (context, error, stackTrace) => Container(
+        color: _kAccent,
+        alignment: Alignment.center,
+        child: Text(
+          name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
+          style: TextStyle(
+            fontSize: size * .36,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,24 +114,7 @@ class ConversationAvatar extends StatelessWidget {
                 width: isNew ? 2 : 1.2,
               ),
             ),
-            child: ClipOval(
-              child: Image.asset(
-                asset,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: _kAccent,
-                  alignment: Alignment.center,
-                  child: Text(
-                    name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
-                    style: TextStyle(
-                      fontSize: size * .36,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            child: ClipOval(child: _buildImage()),
           ),
           if (isOnline)
             const Positioned(

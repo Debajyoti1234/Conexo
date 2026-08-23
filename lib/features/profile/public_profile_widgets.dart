@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_widgets.dart';
 import 'profile_data.dart';
+import 'profile_photo_resolver.dart';
 import 'public_profile_data.dart';
-import 'supabase_profile_repository.dart';
 
 
 /// Reusable, const, presentational widgets for Phase 4.5 — Public Profile
@@ -478,7 +478,13 @@ class _HeroPhotoState extends State<_HeroPhoto> {
     super.initState();
     final url = widget.remoteUrl;
     if (url != null && url.startsWith('profiles/')) {
-      _fetchSignedUrl();
+      final cached = ProfilePhotoResolver.instance.getSignedUrl(url);
+      if (cached != null) {
+        _signedUrl = cached;
+        _loadingSignedUrl = false;
+      } else {
+        _fetchSignedUrl();
+      }
     } else if (url != null &&
         (url.startsWith('http://') || url.startsWith('https://'))) {
       _signedUrl = url;
@@ -490,22 +496,24 @@ class _HeroPhotoState extends State<_HeroPhoto> {
 
   Future<void> _fetchSignedUrl() async {
     try {
-      final url = await const SupabaseProfileRepository()
-          .getSignedPhotoUrl(widget.remoteUrl!);
+      final resolved = await ProfilePhotoResolver.instance.resolvePhoto(
+        widget.remoteUrl!,
+      );
       if (!mounted) return;
       setState(() {
-        _signedUrl = url;
+        _signedUrl = resolved.signedUrl;
         _loadingSignedUrl = false;
       });
     } catch (e) {
       await Future.delayed(const Duration(milliseconds: 500));
       if (!mounted) return;
       try {
-        final url = await const SupabaseProfileRepository()
-            .getSignedPhotoUrl(widget.remoteUrl!);
+        final resolved = await ProfilePhotoResolver.instance.resolvePhoto(
+          widget.remoteUrl!,
+        );
         if (!mounted) return;
         setState(() {
-          _signedUrl = url;
+          _signedUrl = resolved.signedUrl;
           _loadingSignedUrl = false;
         });
       } catch (e2) {

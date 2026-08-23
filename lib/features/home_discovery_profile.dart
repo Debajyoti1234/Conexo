@@ -7,11 +7,10 @@ import 'package:flutter/services.dart';
 
 import '../../core/supabase/auth_service.dart';
 import 'home_discovery_animations.dart';
-import 'home_discovery_cache.dart';
 import 'profile/connection_data.dart';
 import 'profile/discovery_data.dart';
 import 'profile/profile_data.dart';
-import 'profile/supabase_profile_repository.dart';
+import 'profile/profile_photo_resolver.dart';
 
 const _kAccent = Color(0xFF8B5CF6);
 const _kAccent2 = Color(0xFF587BE2);
@@ -329,7 +328,7 @@ class _HeroPhotoState extends State<_HeroPhoto> {
       );
     }
     if (url != null && url.startsWith('profiles/')) {
-      final cached = DiscoveryPhotoCache.getSignedUrl(url);
+      final cached = ProfilePhotoResolver.instance.getSignedUrl(url);
       if (cached != null) {
         _signedUrl = cached;
         _loadingSignedUrl = false;
@@ -348,17 +347,10 @@ class _HeroPhotoState extends State<_HeroPhoto> {
   Future<void> _fetchSignedUrl() async {
     try {
       final remoteUrl = widget.photo.remoteUrl!;
-      final url = await const SupabaseProfileRepository().getSignedPhotoUrl(
-        remoteUrl,
-      );
+      final resolved = await ProfilePhotoResolver.instance.resolvePhoto(remoteUrl);
       if (!mounted) return;
-
-      if (url != null && url.isNotEmpty) {
-        DiscoveryPhotoCache.setSignedUrl(remoteUrl, url);
-      }
-
       setState(() {
-        _signedUrl = url;
+        _signedUrl = resolved.signedUrl;
         _loadingSignedUrl = false;
       });
     } catch (e) {
@@ -366,17 +358,10 @@ class _HeroPhotoState extends State<_HeroPhoto> {
       if (!mounted) return;
       try {
         final remoteUrl = widget.photo.remoteUrl!;
-        final url = await const SupabaseProfileRepository().getSignedPhotoUrl(
-          remoteUrl,
-        );
+        final resolved = await ProfilePhotoResolver.instance.resolvePhoto(remoteUrl);
         if (!mounted) return;
-
-        if (url != null && url.isNotEmpty) {
-          DiscoveryPhotoCache.setSignedUrl(remoteUrl, url);
-        }
-
         setState(() {
-          _signedUrl = url;
+          _signedUrl = resolved.signedUrl;
           _loadingSignedUrl = false;
         });
       } catch (e2) {

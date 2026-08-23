@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/supabase/auth_service.dart';
 import 'connection_data.dart';
 import 'connection_repository.dart';
+import 'profile_photo_resolver.dart';
 
 class ConnectionUiModel {
   const ConnectionUiModel({
@@ -71,8 +72,10 @@ class ConnectionsViewModel {
         .toList(growable: false);
 
     Map<String, Map<String, dynamic>> profiles;
+    Map<String, String?> signedPortraits;
     try {
       profiles = await _fetchProfiles(otherIds);
+      signedPortraits = await _resolvePortraits(otherIds, profiles);
     } catch (e) {
       return const [];
     }
@@ -85,7 +88,8 @@ class ConnectionsViewModel {
           final age = _profileAge(profile);
           final occupation = _profileString(profile, ['occupation']);
           final location = _profileString(profile, ['location']);
-          final portrait = _profilePortrait(profile);
+          final rawPortrait = _profilePortrait(profile);
+          final portrait = signedPortraits[otherId] ?? rawPortrait;
           final interests = _profileStringList(profile, ['interests']);
           final isVerified = _profileVerification(profile);
           final bio = _profileBio(profile);
@@ -131,6 +135,7 @@ class ConnectionsViewModel {
         .toList(growable: false);
 
     final profiles = await _fetchProfiles(requesterIds);
+    final signedPortraits = await _resolvePortraits(requesterIds, profiles);
 
     return incoming
         .map((c) {
@@ -139,7 +144,8 @@ class ConnectionsViewModel {
           final age = _profileAge(profile);
           final occupation = _profileString(profile, ['occupation']);
           final location = _profileString(profile, ['location']);
-          final portrait = _profilePortrait(profile);
+          final rawPortrait = _profilePortrait(profile);
+          final portrait = signedPortraits[c.requesterId] ?? rawPortrait;
           final interests = _profileStringList(profile, ['interests']);
           final isVerified = _profileVerification(profile);
           final bio = _profileBio(profile);
@@ -185,6 +191,7 @@ class ConnectionsViewModel {
         .toList(growable: false);
 
     final profiles = await _fetchProfiles(recipientIds);
+    final signedPortraits = await _resolvePortraits(recipientIds, profiles);
 
     return outgoing
         .map((c) {
@@ -193,7 +200,8 @@ class ConnectionsViewModel {
           final age = _profileAge(profile);
           final occupation = _profileString(profile, ['occupation']);
           final location = _profileString(profile, ['location']);
-          final portrait = _profilePortrait(profile);
+          final rawPortrait = _profilePortrait(profile);
+          final portrait = signedPortraits[c.recipientId] ?? rawPortrait;
           final interests = _profileStringList(profile, ['interests']);
           final isVerified = _profileVerification(profile);
           final bio = _profileBio(profile);
@@ -252,6 +260,56 @@ class ConnectionsViewModel {
     return map;
   }
 
+  Future<Map<String, String?>> _resolvePortraits(
+      List<String> userIds,
+      Map<String, Map<String, dynamic>> profiles,
+  ) async {
+    final rawByUser = <String, String>{};
+    for (final uid in userIds) {
+      final profile = profiles[uid];
+      final photos = profile?['photos'];
+      if (photos is! List || photos.isEmpty) continue;
+      final primary = photos.firstWhere(
+        (x) => x is Map && x['isPrimary'] == true,
+        orElse: () => photos.first,
+      );
+      if (primary is Map) {
+        final remote = (primary['remoteUrl'] as String?)?.trim();
+        if (remote != null && remote.isNotEmpty) {
+          rawByUser[uid] = remote;
+        }
+      }
+    }
+
+    final signedByUser = <String, String?>{};
+    final toSignUsers = <String>[];
+    final toSignPaths = <String>[];
+
+    rawByUser.forEach((uid, value) {
+      if (value.startsWith('http://') || value.startsWith('https://')) {
+        signedByUser[uid] = value;
+      } else if (value.startsWith('profiles/')) {
+        toSignUsers.add(uid);
+        toSignPaths.add(value);
+      }
+    });
+
+    if (toSignPaths.isNotEmpty) {
+      final resolver = ProfilePhotoResolver.instance;
+      final futures = toSignPaths.map((p) => resolver.resolvePhoto(p));
+      final signedResults = await Future.wait(futures);
+      for (var i = 0; i < toSignUsers.length; i++) {
+        signedByUser[toSignUsers[i]] = signedResults[i].signedUrl;
+      }
+    }
+
+    final result = <String, String?>{};
+    for (final uid in userIds) {
+      result[uid] = signedByUser[uid];
+    }
+    return result;
+  }
+
   String? _profileString(
       Map<String, dynamic>? profile, List<String> keys) {
     if (profile == null) return null;
@@ -271,10 +329,15 @@ class ConnectionsViewModel {
   String? _profilePortrait(Map<String, dynamic>? profile) {
     final photos = profile?['photos'];
     if (photos is! List || photos.isEmpty) return null;
-    final first = photos.first;
-    if (first is! Map) return null;
-    final assetPath = first['assetPath'];
-    if (assetPath is String && assetPath.isNotEmpty) return assetPath;
+    final primary = photos.firstWhere(
+      (x) => x is Map && x['isPrimary'] == true,
+      orElse: () => photos.first,
+    );
+    if (primary is! Map) return null;
+    final remote = (primary['remoteUrl'] as String?)?.trim();
+    if (remote != null && remote.isNotEmpty) return remote;
+    final asset = (primary['assetPath'] as String?)?.trim();
+    if (asset != null && asset.isNotEmpty) return asset;
     return null;
   }
 

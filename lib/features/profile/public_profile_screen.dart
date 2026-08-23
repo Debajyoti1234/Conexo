@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
 import 'profile_data.dart';
+import 'profile_photo_resolver.dart';
 import 'public_profile_data.dart';
 import 'public_profile_sections.dart';
 import 'public_profile_widgets.dart';
-import 'supabase_profile_repository.dart';
 
 /// The premium, read-only Public Profile Viewer (Phase 4.5).
 ///
@@ -70,17 +70,17 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
     UserProfile resolved = profile;
     if (storagePaths.isNotEmpty) {
-      final repo = const SupabaseProfileRepository();
-      final futures = storagePaths.map((p) => repo.getSignedPhotoUrl(p)).toList();
-      final signedUrls = await Future.wait(futures);
+      final resolver = ProfilePhotoResolver.instance;
+      final futures = storagePaths.map((p) => resolver.resolvePhoto(p)).toList();
+      final signedResults = await Future.wait(futures);
 
       final updatedPhotos = [...profile.photos];
       for (var i = 0; i < updatedPhotos.length; i++) {
         final remoteUrl = updatedPhotos[i].remoteUrl;
         if (remoteUrl != null && remoteUrl.startsWith('profiles/')) {
           final idx = storagePaths.indexOf(remoteUrl);
-          if (idx != -1 && signedUrls[idx] != null) {
-            updatedPhotos[i] = updatedPhotos[i].copyWith(remoteUrl: signedUrls[idx]);
+          if (idx != -1) {
+            updatedPhotos[i] = updatedPhotos[i].copyWith(remoteUrl: signedResults[idx].signedUrl);
           } else {
             updatedPhotos[i] = updatedPhotos[i].copyWith(remoteUrl: null);
           }
@@ -93,7 +93,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         if (url != null && (url.startsWith('http://') || url.startsWith('https://'))) {
           try {
             final provider = NetworkImage(url);
-            // ignore: use_build_context_synchronously
             await precacheImage(provider, context);
           } catch (_) {
             // Individual photo failure does not block the remaining gallery.

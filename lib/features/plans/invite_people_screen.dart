@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/supabase/auth_service.dart';
 import '../profile/connections_view_model.dart';
-import '../profile/supabase_profile_repository.dart';
+import '../profile/profile_photo_resolver.dart';
 import 'plan_repository.dart';
 import 'supabase_plan_repository.dart';
 
@@ -399,9 +399,11 @@ class _InviteeAvatarState extends State<_InviteeAvatar> {
 
   Future<void> _resolveSignedUrl() async {
     try {
-      final url = await const SupabaseProfileRepository().getSignedPhotoUrl(widget.photoUrl);
+      final resolved = await ProfilePhotoResolver.instance.resolvePhoto(
+        widget.photoUrl,
+      );
       if (!mounted) return;
-      setState(() => _signedUrl = url);
+      setState(() => _signedUrl = resolved.signedUrl);
     } catch (_) {
       // keep fallback
     }

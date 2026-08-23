@@ -11,12 +11,12 @@ import 'privacy_verification_screen.dart';
 import 'profile_data.dart';
 import 'profile_management_screen.dart';
 import 'profile_navigation_mapper.dart';
+import 'profile_photo_resolver.dart';
 import 'profile_repository.dart';
 import 'profile_strength_screen.dart';
 import 'public_profile_sections.dart';
 import 'safety_screen.dart';
 import 'session_aware_profile_repository.dart';
-import 'supabase_profile_repository.dart';
 
 /// The premium **My Profile** screen — the default destination of the Profile
 /// tab once a profile exists.
@@ -58,16 +58,17 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           .toList();
 
       if (storagePaths.isNotEmpty) {
-        final signedUrls = await const SupabaseProfileRepository()
-            .getSignedPhotoUrls(storagePaths);
+        final resolver = ProfilePhotoResolver.instance;
+        final futures = storagePaths.map((p) => resolver.resolvePhoto(p)).toList();
+        final signedResults = await Future.wait(futures);
 
         final updatedPhotos = [...resolved.photos];
         for (var i = 0; i < updatedPhotos.length; i++) {
           final remoteUrl = updatedPhotos[i].remoteUrl;
           if (remoteUrl != null && remoteUrl.startsWith('profiles/')) {
             final idx = storagePaths.indexOf(remoteUrl);
-            if (idx != -1 && signedUrls[idx] != null) {
-              updatedPhotos[i] = updatedPhotos[i].copyWith(remoteUrl: signedUrls[idx]);
+            if (idx != -1) {
+              updatedPhotos[i] = updatedPhotos[i].copyWith(remoteUrl: signedResults[idx].signedUrl);
             }
           }
         }

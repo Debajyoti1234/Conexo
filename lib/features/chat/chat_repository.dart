@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/auth_service.dart';
-import '../profile/supabase_profile_repository.dart';
+import '../profile/profile_photo_resolver.dart';
 import 'chat_dtos.dart';
 import 'chat_models.dart';
 import 'demo_chat_data.dart';
@@ -364,7 +364,7 @@ class ChatRepository {
       }
 
       final signedByUser = <String, String>{};
-      const profileRepo = SupabaseProfileRepository();
+      final resolver = ProfilePhotoResolver.instance;
       final toSignUsers = <String>[];
       final toSignPaths = <String>[];
       rawPhotoByUser.forEach((uid, value) {
@@ -376,10 +376,11 @@ class ChatRepository {
         }
       });
       if (toSignPaths.isNotEmpty) {
-        final signed = await profileRepo.getSignedPhotoUrls(toSignPaths);
+        final futures = toSignPaths.map((p) => resolver.resolvePhoto(p));
+        final signedResults = await Future.wait(futures);
         for (var i = 0; i < toSignUsers.length; i++) {
-          final url = signed[i];
-          if (url != null && url.isNotEmpty) {
+          final url = signedResults[i].signedUrl;
+          if (url.isNotEmpty) {
             signedByUser[toSignUsers[i]] = url;
           }
         }

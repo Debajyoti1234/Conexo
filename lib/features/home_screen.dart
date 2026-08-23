@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/supabase/auth_service.dart';
 import 'home_discovery_animations.dart';
-import 'home_discovery_cache.dart';
 import 'home_discovery_connect.dart';
 import 'home_discovery_profile.dart';
 import 'home_discovery_skeleton.dart';
@@ -13,7 +12,7 @@ import 'profile/connection_data.dart';
 import 'profile/connection_repository.dart';
 import 'profile/discovery_data.dart';
 import 'profile/discovery_repository.dart';
-import 'profile/supabase_profile_repository.dart';
+import 'profile/profile_photo_resolver.dart';
 import 'profile/session_aware_profile_repository.dart';
 
 class _DiscoveryPreparationState extends StatefulWidget {
@@ -190,7 +189,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadProfiles() async {
-    DiscoveryPhotoCache.clear();
     setState(() {
       _loading = true;
       _preparing = true;
@@ -220,7 +218,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       await _prefetchBatch(profiles, 0, _prefetchWindow);
-      await _waitForFirstBatchReady(profiles, 0, _prefetchWindow);
 
       await _loadConnectionStates(profiles);
 
@@ -259,60 +256,27 @@ class _HomeScreenState extends State<HomeScreen> {
     if (start >= end) return;
 
     final batch = profiles.sublist(start, end);
-    final repo = const SupabaseProfileRepository();
+    final resolver = ProfilePhotoResolver.instance;
 
     for (final profile in batch) {
-      if (DiscoveryPhotoCache.isPrefetched(profile.id)) continue;
-      DiscoveryPhotoCache.markPrefetched(profile.id);
-
       final photo = profile.photos.firstOrNull;
-      if (photo == null || photo.remoteUrl == null) {
-        DiscoveryPhotoCache.markReady(profile.id);
-        continue;
-      }
+      if (photo == null || photo.remoteUrl == null) continue;
+
+      final remoteUrl = photo.remoteUrl!;
+      if (!remoteUrl.startsWith('profiles/')) continue;
 
       try {
-        final signedUrl = await repo.getSignedPhotoUrl(photo.remoteUrl!);
-        if (signedUrl == null || signedUrl.isEmpty) {
-          DiscoveryPhotoCache.markReady(profile.id);
-          continue;
-        }
-        DiscoveryPhotoCache.setSignedUrl(photo.remoteUrl!, signedUrl);
-
+        final resolved = await resolver.resolvePhoto(remoteUrl);
         if (mounted) {
           try {
-            final provider = NetworkImage(signedUrl);
-            DiscoveryPhotoCache.setProvider(photo.remoteUrl!, provider);
-            await precacheImage(provider, context);
-            DiscoveryPhotoCache.markReady(profile.id);
+            await precacheImage(resolved.imageProvider, context);
           } catch (_) {
-            DiscoveryPhotoCache.markReady(profile.id);
+            // Individual photo failure does not block the remaining batch.
           }
-        } else {
-          DiscoveryPhotoCache.markReady(profile.id);
         }
       } catch (_) {
-        DiscoveryPhotoCache.markReady(profile.id);
+        // Individual photo failure does not block the remaining batch.
       }
-    }
-  }
-
-  Future<void> _waitForFirstBatchReady(
-    List<DiscoveryProfile> profiles,
-    int start,
-    int count, {
-    Duration timeout = const Duration(seconds: 10),
-  }) async {
-    final end = (start + count).clamp(0, profiles.length);
-    if (start >= end) return;
-
-    final batch = profiles.sublist(start, end);
-    final deadline = DateTime.now().add(timeout);
-
-    while (DateTime.now().isBefore(deadline)) {
-      final allReady = batch.every((p) => DiscoveryPhotoCache.isReady(p.id));
-      if (allReady) return;
-      await Future.delayed(const Duration(milliseconds: 80));
     }
   }
 
@@ -354,7 +318,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void _applyFilter(DiscoveryFilterState newState) {
     if (newState == _filterState) return;
     _loadTimer?.cancel();
-    DiscoveryPhotoCache.clear();
     setState(() {
       _filterState = newState;
       _direction = 1;

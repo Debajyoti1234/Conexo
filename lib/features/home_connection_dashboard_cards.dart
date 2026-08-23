@@ -37,28 +37,6 @@ class PortraitAvatar extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return Container(
-              width: size,
-              height: size,
-              color: color.withValues(alpha: .25),
-              child: Center(
-                child: SizedBox(
-                  width: size * .4,
-                  height: size * .4,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white.withValues(alpha: .7),
-                    value: progress.expectedTotalBytes != null
-                        ? progress.cumulativeBytesLoaded /
-                            progress.expectedTotalBytes!
-                        : null,
-                  ),
-                ),
-              ),
-            );
-          },
           errorBuilder: _buildFallback,
         );
       } else {

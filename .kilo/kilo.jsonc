@@ -6,5 +6,6 @@
       "lib/features/profile/profile_creation_widgets.dart": "allow",
       "lib/features/plans/**": "allow"
     }
-  }
+  },
+  "snapshot": false
 }

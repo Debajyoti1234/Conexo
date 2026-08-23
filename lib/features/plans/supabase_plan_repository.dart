@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/supabase/auth_service.dart';
 import '../chat/chat_repository.dart';
 import '../profile/discovery_helpers.dart';
-import '../profile/supabase_profile_repository.dart';
+import '../profile/profile_photo_resolver.dart';
 import 'create_plan_data.dart';
 import 'plan_details_data.dart';
 import 'plan_repository.dart';
@@ -820,9 +820,7 @@ class SupabasePlanRepository implements PlanRepository {
 
       if (rawByUser.isEmpty) return const {};
 
-      // Sign the storage paths in one batch using the canonical profile-photos
-      // signer. Already-signed http(s) values are kept as-is.
-      const profileRepo = SupabaseProfileRepository();
+      final resolver = ProfilePhotoResolver.instance;
       final result = <String, String>{};
       final toSignUsers = <String>[];
       final toSignPaths = <String>[];
@@ -838,12 +836,10 @@ class SupabasePlanRepository implements PlanRepository {
       });
 
       if (toSignPaths.isNotEmpty) {
-        final signed = await profileRepo.getSignedPhotoUrls(toSignPaths);
+        final futures = toSignPaths.map((p) => resolver.resolvePhoto(p));
+        final signedResults = await Future.wait(futures);
         for (var i = 0; i < toSignUsers.length; i++) {
-          final url = signed[i];
-          if (url != null && url.isNotEmpty) {
-            result[toSignUsers[i]] = url;
-          }
+          result[toSignUsers[i]] = signedResults[i].signedUrl;
         }
       }
 
