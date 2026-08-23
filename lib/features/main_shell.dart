@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'home_screen.dart';
 import 'notifications/activity_center_screen.dart';
-import 'notifications/demo_notification_data.dart';
+import 'notifications/notification_controller.dart';
 import 'notifications/notification_widgets.dart';
 import 'secondary_screens.dart';
 
@@ -15,14 +15,20 @@ import 'secondary_screens.dart';
 /// navigation dock — inspired by modern floating docks while keeping the
 /// Conexo violet identity. UI-only: no routing, backend, or feature logic
 /// lives here.
+final GlobalKey<MainShellState> mainShellKey = GlobalKey<MainShellState>();
+
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
+  static void switchToTab(int index) {
+    mainShellKey.currentState?.switchToTab(index);
+  }
+
   @override
-  State<MainShell> createState() => _MainShellState();
+  State<MainShell> createState() => MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class MainShellState extends State<MainShell> {
   // Plans (index 0) is the default landing tab.
   int _selectedIndex = 0;
 
@@ -38,7 +44,7 @@ class _MainShellState extends State<MainShell> {
   /// the only place that turns its changes into UI (bell pulse + live toast)
   /// and navigation. Swappable for a future backend controller without
   /// changing this widget.
-  final NotificationDemoController _notifications = NotificationDemoController();
+  final NotificationController _notifications = NotificationController();
 
   /// Tracks the last handled pulse so a rebuild does not re-show the toast.
   int _lastHandledPulse = 0;
@@ -47,8 +53,7 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _notifications.pulseTrigger.addListener(_onPulse);
-    // Demo work is started here, never inside the controller constructor.
-    _notifications.startDemo();
+    _notifications.start();
   }
 
   @override
@@ -69,7 +74,7 @@ class _MainShellState extends State<MainShell> {
     NotificationOverlay.show(context, list.first);
   }
 
-  void _onSelected(int index) {
+  void switchToTab(int index) {
     if (index == _selectedIndex) return;
     setState(() => _selectedIndex = index);
   }
@@ -124,7 +129,7 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: FloatingNavDock(
         selectedIndex: _selectedIndex,
-        onSelected: _onSelected,
+        onSelected: switchToTab,
       ),
     );
   }

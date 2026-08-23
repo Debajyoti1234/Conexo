@@ -60,6 +60,20 @@ class SupabaseProfileRepository implements ProfileRepository {
   }
 
   @override
+  Future<UserProfile?> loadProfileByUserId(String userId) async {
+    if (userId.isEmpty) return null;
+
+    final data = await Supabase.instance.client
+        .from('profiles')
+        .select()
+        .eq('id', userId)
+        .maybeSingle();
+
+    if (data == null) return null;
+    return UserProfile.fromJson(_snakeToCamel(data));
+  }
+
+  @override
   Future<void> saveProfile(UserProfile profile) async {
     final user = AuthService.currentUser;
     if (user == null) return;

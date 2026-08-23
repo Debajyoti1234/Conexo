@@ -422,6 +422,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Stack(
       children: [
         Positioned.fill(
+          child: Container(color: Colors.black),
+        ),
+        Positioned.fill(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 420),
             switchInCurve: Curves.easeOutCubic,

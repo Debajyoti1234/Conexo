@@ -24,13 +24,13 @@ class AuthGate {
           repository: repo,
           onComplete: (context) {
             Navigator.of(context).pushAndRemoveUntil(
-              AppRouter.slideRoute(const MainShell()),
+              AppRouter.slideRoute(MainShell(key: mainShellKey)),
               (route) => false,
             );
           },
         );
       case ProfileStatus.complete:
-        return const MainShell();
+        return MainShell(key: mainShellKey);
       case ProfileStatus.error:
         return null;
     }

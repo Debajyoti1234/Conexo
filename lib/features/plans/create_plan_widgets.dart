@@ -200,7 +200,7 @@ class _StageItem extends StatelessWidget {
 /// The cover selection area.
 ///
 /// When no cover is chosen, shows two equal premium glass cards side by side:
-///   • "Add Your Cover" — opens the device gallery
+///   • "From Device" — opens the device image picker
 ///   • "Conexo Gallery" — opens the built-in cover gallery
 ///
 /// When a cover is already selected, shows the cover image with a subtle
@@ -210,11 +210,13 @@ class CoverPickerHero extends StatelessWidget {
   const CoverPickerHero({
     required this.coverAsset,
     required this.onPickGallery,
+    required this.onPickDevice,
     super.key,
   });
 
   final String? coverAsset;
   final VoidCallback onPickGallery;
+  final VoidCallback onPickDevice;
 
   @override
   Widget build(BuildContext context) {
@@ -233,9 +235,9 @@ class CoverPickerHero extends StatelessWidget {
           children: [
             Expanded(
               child: _CoverActionCard(
-                onTap: onPickGallery,
+                onTap: onPickDevice,
                 icon: Icons.add_photo_alternate_rounded,
-                label: 'Add Your Cover',
+                label: 'From Device',
               ),
             ),
             const SizedBox(width: 12),
@@ -430,7 +432,7 @@ class _GalleryTile extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              PlanCover(asset: option.asset, accent: _kAccent),
+               PlanCover(asset: option.asset, accent: _kAccent),
               Positioned(
                 left: 10,
                 right: 10,
@@ -746,6 +748,7 @@ class GlassTextField extends StatelessWidget {
     this.maxLines = 1,
     this.onChanged,
     this.leadingIcon,
+    this.focusNode,
   });
 
   final TextEditingController controller;
@@ -753,6 +756,7 @@ class GlassTextField extends StatelessWidget {
   final int maxLines;
   final ValueChanged<String>? onChanged;
   final IconData? leadingIcon;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -768,6 +772,7 @@ class GlassTextField extends StatelessWidget {
       ),
       child: TextField(
         controller: controller,
+        focusNode: focusNode,
         onChanged: onChanged,
         maxLines: maxLines,
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),

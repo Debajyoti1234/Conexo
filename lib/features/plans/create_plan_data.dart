@@ -15,7 +15,7 @@ import 'plans_data.dart';
 /// The live preview reuses the exact Phase 3.1 [Experience] card via
 /// [draftToPlan]; no second preview design exists.
 
-// ── Cover gallery (local Conexo assets only, no network) ────────────────
+// ── Cover gallery (local assets) ──────────────────────────────────────────
 
 /// A selectable local cover for the premium Conexo Gallery grid.
 class PlanCoverOption {
@@ -110,16 +110,42 @@ PlanMoodOption? moodByLabel(String? label) {
 /// Maximum participant options for the luxury chips (last is Custom).
 const participantOptions = <int>[2, 4, 6, 8, 10, 15, 20];
 
+// ── Structured place selection ──────────────────────────────────────────
+
+/// The smallest structured representation of a place selected in Create Plan.
+///
+/// Sourced from the existing OS geocoding provider ([LocationService]). The
+/// provider supplies a readable [name], a formatted [address], and real
+/// [latitude]/[longitude]. [placeId] is reserved for a future Places provider
+/// that exposes stable IDs; the OS geocoder does not, so it is null today.
+class PlanLocation {
+  const PlanLocation({
+    required this.name,
+    this.address,
+    this.placeId,
+    this.latitude,
+    this.longitude,
+  });
+
+  final String name;
+  final String? address;
+  final String? placeId;
+  final double? latitude;
+  final double? longitude;
+}
+
 // ── The editable draft ──────────────────────────────────────────────────
 
 class PlanDraft {
-  const PlanDraft({
+  PlanDraft({
+    String? draftId,
     this.coverAsset,
     this.title = '',
     this.mood,
     this.customMood = '',
     this.visibility,
     this.location = '',
+    this.locationAddress = '',
     this.latitude,
     this.longitude,
     this.createdAt,
@@ -128,14 +154,16 @@ class PlanDraft {
     this.participants,
     this.customParticipants,
     this.description = '',
-  });
+  }) : draftId = draftId ?? 'draft_${DateTime.now().microsecondsSinceEpoch}';
 
+  final String? draftId;
   final String? coverAsset;
   final String title;
   final String? mood;
   final String customMood;
   final PlanVisibility? visibility;
   final String location;
+  final String locationAddress;
   final double? latitude; // future distance-first (unused in UI today)
   final double? longitude; // future distance-first (unused in UI today)
   final DateTime? createdAt;
@@ -174,12 +202,14 @@ class PlanDraft {
       hasParticipants;
 
   PlanDraft copyWith({
+    String? draftId,
     String? coverAsset,
     String? title,
     String? mood,
     String? customMood,
     PlanVisibility? visibility,
     String? location,
+    String? locationAddress,
     double? latitude,
     double? longitude,
     DateTime? createdAt,
@@ -188,16 +218,20 @@ class PlanDraft {
     int? participants,
     int? customParticipants,
     String? description,
+    bool clearCoordinates = false,
   }) {
     return PlanDraft(
+      draftId: draftId ?? this.draftId,
       coverAsset: coverAsset ?? this.coverAsset,
       title: title ?? this.title,
       mood: mood ?? this.mood,
       customMood: customMood ?? this.customMood,
       visibility: visibility ?? this.visibility,
       location: location ?? this.location,
-      latitude: latitude ?? this.latitude,
-      longitude: longitude ?? this.longitude,
+      locationAddress:
+          clearCoordinates ? '' : (locationAddress ?? this.locationAddress),
+      latitude: clearCoordinates ? null : (latitude ?? this.latitude),
+      longitude: clearCoordinates ? null : (longitude ?? this.longitude),
       createdAt: createdAt ?? this.createdAt,
       date: date ?? this.date,
       time: time ?? this.time,
@@ -208,12 +242,14 @@ class PlanDraft {
   }
 
   Map<String, dynamic> toJson() => {
+        'draftId': draftId,
         'coverAsset': coverAsset,
         'title': title,
         'mood': mood,
         'customMood': customMood,
         'visibility': visibility?.name,
         'location': location,
+        'locationAddress': locationAddress,
         'latitude': latitude,
         'longitude': longitude,
         'createdAt': createdAt?.toIso8601String(),
@@ -240,12 +276,14 @@ class PlanDraft {
         raw is String ? DateTime.tryParse(raw) : null;
 
     return PlanDraft(
+      draftId: json['draftId'] as String?,
       coverAsset: json['coverAsset'] as String?,
       title: (json['title'] as String?) ?? '',
       mood: json['mood'] as String?,
       customMood: (json['customMood'] as String?) ?? '',
       visibility: visibility,
       location: (json['location'] as String?) ?? '',
+      locationAddress: (json['locationAddress'] as String?) ?? '',
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       createdAt: parseDate(json['createdAt']),
@@ -279,6 +317,7 @@ class PlanDraft {
       customMood: isCustomMood ? plan.category ?? '' : '',
       visibility: plan.visibility,
       location: plan.location,
+      locationAddress: plan.locationAddress,
       latitude: plan.latitude,
       longitude: plan.longitude,
       createdAt: plan.createdAt,
@@ -304,6 +343,8 @@ class PublishedPlan {
     required this.mood,
     required this.location,
     required this.visibility,
+    this.locationAddress = '',
+    this.isFeatured = false,
     this.latitude,
     this.longitude,
     this.date,
@@ -324,6 +365,8 @@ class PublishedPlan {
   final String mood;
   final String location;
   final PlanVisibility visibility;
+  final String locationAddress;
+  final bool isFeatured;
   final double? latitude;
   final double? longitude;
   final DateTime? date;
@@ -353,6 +396,8 @@ class PublishedPlan {
     String? status,
     DateTime? startsAt,
     String? category,
+    String? locationAddress,
+    bool? isFeatured,
   }) {
     return PublishedPlan(
       id: id ?? this.id,
@@ -373,6 +418,8 @@ class PublishedPlan {
       status: status ?? this.status,
       startsAt: startsAt ?? this.startsAt,
       category: category ?? this.category,
+      locationAddress: locationAddress ?? this.locationAddress,
+      isFeatured: isFeatured ?? this.isFeatured,
     );
   }
 
@@ -395,6 +442,8 @@ class PublishedPlan {
         'status': status,
         'startsAt': startsAt?.toIso8601String(),
         'category': category,
+        'locationAddress': locationAddress,
+        'isFeatured': isFeatured,
       };
 
   factory PublishedPlan.fromJson(Map<String, dynamic> json) {
@@ -426,6 +475,8 @@ class PublishedPlan {
       status: (json['status'] as String?) ?? 'active',
       startsAt: parseNullable(json['startsAt']),
       category: json['category'] as String?,
+      locationAddress: (json['locationAddress'] as String?) ?? '',
+      isFeatured: (json['isFeatured'] as bool?) ?? false,
     );
   }
 
@@ -472,6 +523,7 @@ class PublishedPlan {
       status: 'active',
       startsAt: startsAt,
       category: category,
+      locationAddress: draft.locationAddress.trim(),
     );
   }
 
@@ -500,7 +552,7 @@ class PublishedPlan {
       coverAsset: (row['cover_url'] as String?) ?? '',
       title: (row['title'] as String?) ?? '',
       mood: (row['mood'] as String?) ?? '',
-      location: '',
+      location: (row['location_name'] as String?) ?? '',
       visibility: visibility,
       latitude: (row['latitude'] as num?)?.toDouble(),
       longitude: (row['longitude'] as num?)?.toDouble(),
@@ -511,6 +563,8 @@ class PublishedPlan {
       status: (row['status'] as String?) ?? 'active',
       startsAt: startsAt,
       category: row['category'] as String?,
+      locationAddress: (row['location_address'] as String?) ?? '',
+      isFeatured: (row['is_featured'] as bool?) ?? false,
     );
   }
 }
@@ -537,11 +591,18 @@ String _formatTime(TimeOfDay? time) {
 /// Builds the Phase 3.1 [Experience] used to render the live preview card.
 /// Plan terminology is used for the helper; the underlying model is reused
 /// unchanged until a future refactor.
-Experience draftToPlan(PlanDraft draft) {
+///
+/// [coverPreviewUrl] is an optional resolved display URL for the cover. When
+/// provided, it overrides the raw [draft.coverAsset] so remote storage paths
+/// can be shown in the preview without mutating the canonical draft value.
+Experience draftToPlan(PlanDraft draft, {String? coverPreviewUrl}) {
   final mood = moodByLabel(draft.mood);
   final accent = mood?.accent ?? _violet;
   final effectiveMood = draft.effectiveMood;
   final limit = draft.effectiveParticipants;
+
+  final cover = coverPreviewUrl ??
+      (draft.coverAsset ?? planCoverGallery.first.asset);
 
   return Experience(
     id: 'draft_preview',
@@ -549,7 +610,7 @@ Experience draftToPlan(PlanDraft draft) {
     host: 'You',
     hostId: 'local_user',
     hostPortrait: 'assets/images/portraits/demo1.jpeg',
-    coverAsset: draft.coverAsset ?? planCoverGallery.first.asset,
+    coverAsset: cover,
     category: effectiveMood.isEmpty ? 'Plan' : effectiveMood,
     mood: effectiveMood.isEmpty ? 'Mood' : effectiveMood,
     moodEmoji: mood?.emoji ?? '✨',
@@ -567,5 +628,7 @@ Experience draftToPlan(PlanDraft draft) {
     visibility: draft.visibility ?? PlanVisibility.public,
     description: draft.description.trim(),
     capacity: limit ?? 0,
+    locationAddress: draft.locationAddress.trim(),
+    status: 'active',
   );
 }

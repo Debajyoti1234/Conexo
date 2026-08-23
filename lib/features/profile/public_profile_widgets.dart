@@ -38,8 +38,6 @@ class PublicProfileHeader extends StatelessWidget {
     return Row(
       children: [
         _GlassIconButton(icon: Icons.arrow_back_rounded, onTap: onBack),
-        const Spacer(),
-        const _GlassIconButton(icon: Icons.more_horiz_rounded, onTap: null),
       ],
     );
   }

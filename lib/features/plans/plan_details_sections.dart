@@ -510,6 +510,7 @@ class OwnPlanManagementCard extends StatelessWidget {
     required this.onEdit,
     required this.onShare,
     required this.onArchive,
+    required this.onInvite,
     super.key,
   });
 
@@ -517,6 +518,7 @@ class OwnPlanManagementCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onShare;
   final VoidCallback onArchive;
+  final VoidCallback onInvite;
 
   @override
   Widget build(BuildContext context) {
@@ -584,6 +586,15 @@ class OwnPlanManagementCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: _ManageAction(
+              icon: Icons.person_add_rounded,
+              label: 'Invite People',
+              onTap: onInvite,
+            ),
           ),
         ],
       ),
@@ -695,6 +706,7 @@ class LocationSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final e = experience;
+    final hasAddress = e.locationAddress.trim().isNotEmpty;
     return GlassPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -708,6 +720,7 @@ class LocationSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(
                 Icons.place_rounded,
@@ -715,12 +728,30 @@ class LocationSection extends StatelessWidget {
                 color: Color(0xFF9DB2E8),
               ),
               const SizedBox(width: 6),
-              Text(
-                '${e.city} • ${e.distance} away',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFFC7D0E6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      e.city,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFC7D0E6),
+                      ),
+                    ),
+                    if (hasAddress) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        e.locationAddress.trim(),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF9DB2E8),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],

@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'create_plan_screen.dart';
+import 'invite_people_screen.dart';
 import 'plan_details_data.dart';
 import 'plan_details_sections.dart';
 import 'plan_join_controller.dart';
@@ -14,6 +17,7 @@ import '../chat/chat_repository.dart';
 import '../chat/conversation_screen.dart';
 import '../profile/profile_navigation_mapper.dart';
 import '../profile/public_profile_screen.dart';
+import '../profile/supabase_profile_repository.dart';
 
 /// The premium, cinematic Plan Details experience.
 ///
@@ -54,6 +58,18 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
       repository: widget.repository,
       initial: _isHost ? JoinStatus.hosting : JoinStatus.notJoined,
     );
+
+    final asset = _experience.coverAsset;
+    if (asset.startsWith('http://') || asset.startsWith('https://')) {
+      // ignore: use_build_context_synchronously
+      precacheImage(NetworkImage(asset), context);
+    } else if (asset.startsWith('assets/')) {
+    } else if (asset.startsWith('plans/')) {
+    } else if (asset.isNotEmpty) {
+      // ignore: use_build_context_synchronously
+      precacheImage(FileImage(File(asset)), context);
+    }
+
     if (!_isHost) {
       _join.loadMembership(widget.experience.id);
     }
@@ -122,34 +138,44 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
 
   /// Opens the canonical Public Profile for a joined participant.
   void _viewParticipant(PlanMembership m) {
-    final name = m.displayName?.trim().isNotEmpty ?? false
-        ? m.displayName!.trim()
-        : 'User ${m.userId.substring(0, 8)}';
-    Navigator.of(context).push(
-      premiumPublicProfileRoute(
-        data: mapPlanParticipantToProfile(
-          userId: m.userId,
-          name: name,
-          photoUrl: m.photoUrl ?? '',
-        ),
-      ),
-    );
+    () async {
+      final repo = const SupabaseProfileRepository();
+      final profile = await repo.loadProfileByUserId(m.userId);
+      if (!mounted) return;
+      if (profile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile not available'),
+            backgroundColor: Color(0xFFFF4D8D),
+          ),
+        );
+        return;
+      }
+      final data = mapUserProfileToPublicProfile(profile);
+      if (!mounted) return;
+      Navigator.of(context).push(premiumPublicProfileRoute(data: data));
+    }();
   }
 
   void _viewHostProfile() {
     final e = widget.experience;
-    final name = e.host.trim().isNotEmpty
-        ? e.host.trim()
-        : 'User ${e.hostId.substring(0, 8)}';
-    Navigator.of(context).push(
-      premiumPublicProfileRoute(
-        data: mapPlanParticipantToProfile(
-          userId: e.hostId,
-          name: name,
-          photoUrl: e.hostPortrait,
-        ),
-      ),
-    );
+    () async {
+      final repo = const SupabaseProfileRepository();
+      final profile = await repo.loadProfileByUserId(e.hostId);
+      if (!mounted) return;
+      if (profile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile not available'),
+            backgroundColor: Color(0xFFFF4D8D),
+          ),
+        );
+        return;
+      }
+      final data = mapUserProfileToPublicProfile(profile);
+      if (!mounted) return;
+      Navigator.of(context).push(premiumPublicProfileRoute(data: data));
+    }();
   }
 
   /// Own-plan Edit: reuses CreatePlanScreen(existingPlan:) — never inserts a new
@@ -236,19 +262,33 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
                       // Other user's plan → social host glass card.
                       RevealSection(
                         delayMs: 60,
-                        child: isHost
-                            ? OwnPlanManagementCard(
-                                experience: e,
-                                onEdit: _editPlan,
-                                onShare: () =>
-                                    _comingSoon(context, 'Sharing coming soon'),
-                                onArchive: () => _comingSoon(
-                                    context, 'Manage archive from My Plans'),
-                              )
-                            : HostSection(
-                                experience: e,
-                                onViewProfile: _viewHostProfile,
-                              ),
+                      child: isHost
+                          ? OwnPlanManagementCard(
+                              experience: e,
+                              onEdit: _editPlan,
+                              onShare: () =>
+                                  _comingSoon(context, 'Sharing coming soon'),
+                              onArchive: () => _comingSoon(
+                                  context, 'Manage archive from My Plans'),
+                              onInvite: () async {
+                                final result = await Navigator.of(context).push<bool>(
+                                  MaterialPageRoute(
+                                    builder: (_) => InvitePeopleScreen(
+                                      planId: e.id,
+                                      planTitle: e.title,
+                                      repository: widget.repository,
+                                    ),
+                                  ),
+                                );
+                                if (result == true && mounted) {
+                                  setState(() {});
+                                }
+                              },
+                            )
+                          : HostSection(
+                              experience: e,
+                              onViewProfile: _viewHostProfile,
+                            ),
                       ),
                       const SizedBox(height: 26),
                       RevealSection(
@@ -350,6 +390,16 @@ class _JoinActionBar extends StatelessWidget {
       return _HostingBar(experience: e, onOpenGroupChat: onOpenGroupChat);
     }
 
+    // Invited users have an explicit pending invitation. Accepting IS the
+    // authorization to join — never a second discovery join request.
+    if (status == JoinStatus.invited) {
+      return _InvitedBar(
+        controller: controller,
+        planId: e.id,
+        onError: onError,
+      );
+    }
+
     String label;
     IconData icon;
     bool enabled;
@@ -371,6 +421,11 @@ class _JoinActionBar extends StatelessWidget {
         case JoinStatus.cancelled:
           label = e.isPublic ? 'Join Plan' : 'Request to Join';
           icon = e.isPublic ? Icons.bolt_rounded : Icons.lock_open_rounded;
+          enabled = true;
+        case JoinStatus.invited:
+          // Handled by the early return above.
+          label = 'Accept Invitation';
+          icon = Icons.mail_rounded;
           enabled = true;
         case JoinStatus.hosting:
           label = "You're Hosting";
@@ -443,6 +498,137 @@ class _JoinActionBar extends StatelessWidget {
               enabled: enabled,
               onPressed: enabled ? onPressed : null,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The sticky bottom bar for a user who has a pending Plan Invitation. Accepting
+/// the invitation is the authorization to join — it calls the invitation accept
+/// path directly and never sends a discovery join request.
+class _InvitedBar extends StatelessWidget {
+  const _InvitedBar({
+    required this.controller,
+    required this.planId,
+    this.onError,
+  });
+
+  final PlanJoinController controller;
+  final String planId;
+  final void Function(String message)? onError;
+
+  @override
+  Widget build(BuildContext context) {
+    final loading = controller.isLoading;
+
+    Future<void> onAccept() async {
+      try {
+        await controller.acceptInvitation(planId);
+      } on AuthFailure catch (err) {
+        onError?.call(err.message);
+      }
+    }
+
+    Future<void> onDecline() async {
+      try {
+        await controller.declineInvitation(planId);
+      } on AuthFailure catch (err) {
+        onError?.call(err.message);
+      }
+    }
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        18,
+        14,
+        18,
+        14 + MediaQuery.of(context).padding.bottom,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1020).withValues(alpha: .92),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: .08)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .45),
+            blurRadius: 26,
+            offset: const Offset(0, -8),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'You are invited',
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: OutlinedButton(
+                    onPressed: loading ? null : onDecline,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFFF4D8D),
+                      side: const BorderSide(color: Color(0xFFFF4D8D)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text(
+                      'Decline',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: SizedBox(
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: loading ? null : onAccept,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF47D7A5),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: loading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Accept Invitation',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

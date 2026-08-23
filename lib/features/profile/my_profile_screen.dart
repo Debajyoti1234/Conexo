@@ -183,7 +183,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
         body: Center(
           child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
         ),
@@ -193,7 +193,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     final profile = _profile;
     if (profile == null) {
       return const Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.black,
         body: Center(
           child: Text(
             'No profile found',
@@ -206,7 +206,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     final data = mapUserProfileToPublicProfile(profile);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
           ListView(

@@ -23,6 +23,8 @@ Color _kindColor(NotificationKind kind) {
       return const Color(0xFFFFB86B);
     case NotificationKind.message:
       return const Color(0xFF6EA8FE);
+    case NotificationKind.planInvitation:
+      return const Color(0xFFFF6B8A);
     case NotificationKind.system:
       return _kAccentSoft;
   }

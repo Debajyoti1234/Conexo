@@ -209,6 +209,78 @@ abstract final class LocationService {
       return [];
     }
   }
+
+  /// Richer place search for the Plan location picker.
+  ///
+  /// Forward-geocodes [query] to real coordinates, then reverse-geocodes each
+  /// result to derive a readable place name + formatted address. Reuses the
+  /// existing OS geocoding provider (no API key). placeId is not provided by
+  /// the OS geocoder, so [LocationSuggestion.address] carries the formatted
+  /// address and the coordinates are always real. Never throws — returns an
+  /// empty list on failure so the caller can fall back to manual entry.
+  static Future<List<LocationSuggestion>> searchPlaces(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
+    if (kIsWeb) {
+      // Web has no reverse-geocode enrichment here; fall back to coords-only.
+      return searchLocations(trimmed);
+    }
+    try {
+      final geocoding = Geocoding();
+      final locations = await geocoding.locationFromAddress(trimmed);
+      final results = <LocationSuggestion>[];
+      for (final loc in locations.take(5)) {
+        String name = trimmed;
+        String? address;
+        try {
+          final placemarks = await geocoding.placemarkFromCoordinates(
+            loc.latitude,
+            loc.longitude,
+          );
+          if (placemarks.isNotEmpty) {
+            final p = placemarks.first;
+            name = _placeName(p) ?? trimmed;
+            address = _placeAddress(p);
+          }
+        } catch (_) {
+          // Keep the query text as the name; no address enrichment.
+        }
+        results.add(
+          LocationSuggestion(
+            displayName: name,
+            address: address,
+            latitude: loc.latitude,
+            longitude: loc.longitude,
+          ),
+        );
+      }
+      return results;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// A concise place name, preferring the most specific populated field.
+  static String? _placeName(pi.Placemark p) {
+    return _firstNonEmpty([p.name, p.street, p.subLocality, p.locality]);
+  }
+
+  /// A formatted "Locality, Region, Country" address, de-duplicated.
+  static String? _placeAddress(pi.Placemark p) {
+    final parts = <String>[];
+    void addUnique(String? value) {
+      final v = value?.trim();
+      if (v == null || v.isEmpty) return;
+      if (parts.any((e) => e.toLowerCase() == v.toLowerCase())) return;
+      parts.add(v);
+    }
+
+    addUnique(_firstNonEmpty([p.locality, p.subAdministrativeArea]));
+    addUnique(p.administrativeArea);
+    addUnique(p.country);
+    if (parts.isEmpty) return null;
+    return parts.join(', ');
+  }
 }
 
 /// A clean location suggestion returned by forward-geocoding search.
@@ -217,10 +289,15 @@ class LocationSuggestion {
     required this.displayName,
     required this.latitude,
     required this.longitude,
+    this.address,
   });
 
   final String displayName;
   final double latitude;
   final double longitude;
+
+  /// Optional formatted address (populated by [LocationService.searchPlaces];
+  /// null for the coordinate-only [LocationService.searchLocations]).
+  final String? address;
 }
 

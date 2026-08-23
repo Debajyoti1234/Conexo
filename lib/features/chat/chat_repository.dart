@@ -220,6 +220,9 @@ class ChatRepository {
       if (message.contains('plan not found')) {
         return const ChatResult.failure('This plan is no longer available.');
       }
+      if (message.contains('chat temporarily revoked by host')) {
+        return const ChatResult.failure('Chat temporarily revoked by host');
+      }
       if (code == 'PGRST202' ||
           message.contains('could not find the function') ||
           message.contains('schema cache')) {

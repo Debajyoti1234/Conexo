@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/auth_service.dart';
 import '../home_discovery_animations.dart';
@@ -15,11 +16,11 @@ import 'realtime_messages_service.dart';
 import '../plans/plan_details_screen.dart';
 import '../plans/plan_members_screen.dart';
 import '../plans/supabase_plan_repository.dart';
-import '../profile/profile_data.dart';
-import '../profile/public_profile_data.dart';
+import '../profile/profile_navigation_mapper.dart';
 import '../profile/public_profile_screen.dart';
 import '../profile/report_problem_screen.dart';
 import '../profile/safety_repository.dart';
+import '../profile/supabase_profile_repository.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({
@@ -49,6 +50,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   SharedPreferences? _prefs;
   String _draftText = '';
   bool _isBlocked = false;
+  bool _chatRevoked = false;
 
   String get _draftKey => 'chat_draft_${widget.conversation.id}';
 
@@ -189,6 +191,30 @@ class _ConversationScreenState extends State<ConversationScreen> {
           }
         }
 
+        if (isGroup) {
+          final conv = await Supabase.instance.client
+              .from('conversations')
+              .select('plan_id')
+              .eq('id', widget.conversation.id)
+              .maybeSingle();
+          final planId = conv?['plan_id'] as String?;
+          if (planId != null) {
+            final plan = await Supabase.instance.client
+                .from('plans')
+                .select('status')
+                .eq('id', planId)
+                .maybeSingle();
+            if (plan != null && plan['status'] == 'archived') {
+              if (!mounted) return;
+              setState(() {
+                _chatRevoked = true;
+                _loading = false;
+              });
+              return;
+            }
+          }
+        }
+
         final messagesResult = await widget.chatRepository!.loadMessages(
           widget.conversation.id,
         );
@@ -322,33 +348,25 @@ class _ConversationScreenState extends State<ConversationScreen> {
     }
 
     if (actionId == 'view_profile') {
-      final profile = UserProfile(
-        id: c.id,
-        photos: [
-          ProfilePhoto(
-            id: 'chat_${c.id}',
-            assetPath: c.avatarAsset,
-            isPrimary: true,
-          ),
-        ],
-        bio: '',
-        interests: const [],
-        languages: const [],
-        gender: '',
-        location: '',
-        socialLinks: const [],
-        occupation: '',
-        displayName: c.name,
-        verificationStatus: c.isVerified
-            ? VerificationStatus.verified
-            : VerificationStatus.notVerified,
-      );
-      final data = PublicProfileViewData(
-        profile: profile,
-        displayName: c.name,
-        viewerInterests: const [],
-      );
-      Navigator.of(context).push(premiumPublicProfileRoute(data: data));
+      final otherId = widget.conversation.otherUserId;
+      if (otherId == null || otherId.isEmpty) return;
+      () async {
+        final repo = const SupabaseProfileRepository();
+        final profile = await repo.loadProfileByUserId(otherId);
+        if (!mounted) return;
+        if (profile == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Profile not available'),
+              backgroundColor: Color(0xFFFF4D8D),
+            ),
+          );
+          return;
+        }
+        final data = mapUserProfileToPublicProfile(profile);
+        if (!mounted) return;
+        Navigator.of(context).push(premiumPublicProfileRoute(data: data));
+      }();
       return;
     }
 
@@ -473,7 +491,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Widget build(BuildContext context) {
     final c = widget.conversation;
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1020),
+      backgroundColor: Colors.black,
       resizeToAvoidBottomInset: false,
       appBar: ConversationAppBar(
         conversation: c,
@@ -485,40 +503,42 @@ class _ConversationScreenState extends State<ConversationScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
             )
-          : _error != null
-              ? _ErrorState(
-                  message: _error!,
-                  onRetry: _load,
-                )
-              : _isBlocked
-                  ? _BlockedState(name: c.name)
-                  : Column(
-                      children: [
-                        Expanded(
-                          child: _messages.isEmpty
-                              ? _EmptyThread(name: c.name)
-                              : _MessageList(
-                                  messages: _messages,
-                                  conversation: c,
-                                  group: _group,
-                                ),
+          : _chatRevoked
+              ? const _RevokedChatState()
+              : _error != null
+                  ? _ErrorState(
+                      message: _error!,
+                      onRetry: _load,
+                    )
+                  : _isBlocked
+                      ? _BlockedState(name: c.name)
+                      : Column(
+                          children: [
+                            Expanded(
+                              child: _messages.isEmpty
+                                  ? _EmptyThread(name: c.name)
+                                  : _MessageList(
+                                      messages: _messages,
+                                      conversation: c,
+                                      group: _group,
+                                    ),
+                            ),
+                            AnimatedPadding(
+                              duration: const Duration(milliseconds: 240),
+                              curve: Curves.easeOutCubic,
+                              padding: EdgeInsets.only(
+                                bottom: MediaQuery.of(context).viewInsets.bottom,
+                              ),
+                              child: MessageComposer(
+                                initialText: _draftText,
+                                onDraftChanged: _onDraftChanged,
+                                onSend: widget.chatRepository != null
+                                    ? _sendMessage
+                                    : null,
+                              ),
+                            ),
+                          ],
                         ),
-                        AnimatedPadding(
-                          duration: const Duration(milliseconds: 240),
-                          curve: Curves.easeOutCubic,
-                          padding: EdgeInsets.only(
-                            bottom: MediaQuery.of(context).viewInsets.bottom,
-                          ),
-                          child: MessageComposer(
-                            initialText: _draftText,
-                            onDraftChanged: _onDraftChanged,
-                            onSend: widget.chatRepository != null
-                                ? _sendMessage
-                                : null,
-                          ),
-                        ),
-                      ],
-                    ),
     );
   }
 
@@ -763,6 +783,54 @@ class _BlockedState extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF8B5CF6),
                 side: const BorderSide(color: Color(0xFF8B5CF6)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RevokedChatState extends StatelessWidget {
+  const _RevokedChatState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 72, horizontal: 28),
+        child: Column(
+          children: [
+            Container(
+              height: 58,
+              width: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFF09A65).withValues(alpha: .12),
+              ),
+              child: const Icon(
+                Icons.lock_outline_rounded,
+                size: 27,
+                color: Color(0xFFF09A65),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Chat temporarily revoked by host',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This chat will become available again if the host restores the plan.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                color: Color(0xFFB9C3DC),
               ),
             ),
           ],

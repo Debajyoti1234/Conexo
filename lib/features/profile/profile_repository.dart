@@ -17,6 +17,8 @@ abstract class ProfileRepository {
 
   Future<UserProfile?> loadProfile();
 
+  Future<UserProfile?> loadProfileByUserId(String userId);
+
   Future<void> saveProfile(UserProfile profile);
 
   Future<bool> hasProfile();
@@ -91,6 +93,11 @@ class LocalProfileRepository implements ProfileRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  Future<UserProfile?> loadProfileByUserId(String userId) async {
+    return null;
   }
 
   @override

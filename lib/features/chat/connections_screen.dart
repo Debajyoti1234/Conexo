@@ -339,6 +339,10 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
     _suppressUnreadIncrement = false;
   }
 
+  Future<void> _refresh() async {
+    await _load();
+  }
+
   /// P1.2B.9: builds real Plan group-chat previews from the backend. RLS on
   /// `conversations` guarantees only conversations the user belongs to (creator
   /// + joined participants) are returned. No demo data is used.
@@ -619,15 +623,33 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 860),
-            child: ListView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/plans/chat.PNG',
+                fit: BoxFit.cover,
               ),
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              children: [
+            ),
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: .35),
+              ),
+            ),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 860),
+                child: RefreshIndicator(
+              onRefresh: _refresh,
+              color: const Color(0xFF8B5CF6),
+              strokeWidth: 2.2,
+              displacement: 8,
+              child: ListView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                children: [
                 ConnectionsHeader(
                   title: isConnections ? 'Connections' : 'Plans',
                   subtitle: isConnections
@@ -668,11 +690,14 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
                   ),
                 ),
               ],
+              ),
             ),
           ),
         ),
-      ),
-    );
+      ],
+    ),
+  ),
+);
   }
 
   Widget _buildBody({

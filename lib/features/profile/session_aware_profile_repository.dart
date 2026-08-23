@@ -30,6 +30,10 @@ class SessionAwareProfileRepository implements ProfileRepository {
   Future<UserProfile?> loadProfile() => _delegate.loadProfile();
 
   @override
+  Future<UserProfile?> loadProfileByUserId(String userId) =>
+      _delegate.loadProfileByUserId(userId);
+
+  @override
   Future<void> saveProfile(UserProfile profile) => _delegate.saveProfile(profile);
 
   @override

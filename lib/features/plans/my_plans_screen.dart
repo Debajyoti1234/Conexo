@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'create_plan_data.dart';
@@ -6,6 +8,7 @@ import 'my_plans_data.dart';
 import 'my_plans_sections.dart';
 import 'my_plans_widgets.dart';
 import 'plan_details_screen.dart';
+import 'plan_details_widgets.dart';
 import 'plan_repository.dart';
 import 'plans_data.dart';
 import 'plans_widgets.dart';
@@ -38,7 +41,6 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   MyPlansTab _tab = MyPlansTab.hosting;
   MyPlansFilter? _filter;
 
-  final Set<String> _archivedIds = {};
   final Set<String> _leftIds = {};
 
   List<Experience> _publishedExperiences = const [];
@@ -61,6 +63,29 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       final requestedExperiences = await widget.repository.getRequestedExperiences();
       final draft = await widget.repository.loadDraft();
       if (!mounted) return;
+
+      final allExperiences = [
+        ...publishedExperiences,
+        ...joinedExperiences,
+        ...requestedExperiences,
+      ];
+      for (final e in allExperiences.take(8)) {
+        final asset = e.coverAsset;
+        if (asset.startsWith('http://') || asset.startsWith('https://')) {
+          try {
+            // ignore: use_build_context_synchronously
+            await precacheImage(NetworkImage(asset), context);
+          } catch (_) {}
+        } else if (asset.startsWith('assets/')) {
+        } else if (asset.startsWith('plans/')) {
+        } else if (asset.isNotEmpty) {
+          try {
+            // ignore: use_build_context_synchronously
+            await precacheImage(FileImage(File(asset)), context);
+          } catch (_) {}
+        }
+      }
+
       setState(() {
         _publishedExperiences = publishedExperiences;
         _joinedExperiences = joinedExperiences;
@@ -89,21 +114,21 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   List<Experience> get _hosting {
     final published = _publishedExperiences;
     final all = published
-        .where((e) => !_archivedIds.contains(e.id))
+        .where((e) => e.status == 'active')
         .toList();
     return _applyTimeFilter(sortMyPlans(all));
   }
 
   List<Experience> get _joined {
     final all = _joinedExperiences
-        .where((e) => !_leftIds.contains(e.id) && !_archivedIds.contains(e.id))
+        .where((e) => !_leftIds.contains(e.id) && e.status == 'active')
         .toList();
     return _applyTimeFilter(sortMyPlans(all));
   }
 
   List<Experience> get _requested {
     final all = _requestedExperiences
-        .where((e) => !_archivedIds.contains(e.id))
+        .where((e) => e.status == 'active')
         .toList();
     return _applyTimeFilter(sortMyPlans(all));
   }
@@ -111,7 +136,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   List<Experience> get _archived {
     final published = _publishedExperiences;
     final all = published
-        .where((e) => _archivedIds.contains(e.id))
+        .where((e) => e.status == 'archived')
         .toList();
     return _applyTimeFilter(sortMyPlans(all));
   }
@@ -141,11 +166,85 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
           'You can restore it anytime.',
       confirmLabel: 'Archive',
     );
-    if (ok) setState(() => _archivedIds.add(e.id));
+    if (ok != true || !mounted) return;
+    try {
+      await widget.repository.archivePlan(e.id);
+      if (!mounted) return;
+      await _load();
+    } on AuthFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to archive plan. Please try again.'),
+          backgroundColor: Color(0xFFFF4D8D),
+        ),
+      );
+    }
   }
 
-  void _restore(Experience e) {
-    setState(() => _archivedIds.remove(e.id));
+  Future<void> _restore(Experience e) async {
+    try {
+      await widget.repository.restorePlan(e.id);
+      if (!mounted) return;
+      await _load();
+    } on AuthFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to restore plan. Please try again.'),
+          backgroundColor: Color(0xFFFF4D8D),
+        ),
+      );
+    }
+  }
+
+  Future<void> _delete(Experience e) async {
+    final ok = await showConfirmDialog(
+      context,
+      title: 'Delete plan permanently?',
+      message: '"${e.title}" and its Plan Chat history will be permanently removed. '
+          'This action cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await widget.repository.deletePlan(e.id);
+      if (!mounted) return;
+      await _load();
+    } on AuthFailure catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to delete plan. Please try again.'),
+          backgroundColor: Color(0xFFFF4D8D),
+        ),
+      );
+    }
   }
 
   Future<void> _leave(Experience e) async {
@@ -231,43 +330,62 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          CustomScrollView(
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            slivers: [
-              const SliverToBoxAdapter(child: _Header()),
-              SliverToBoxAdapter(child: InsightsRow(insights: _insights)),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-              SliverToBoxAdapter(
-                child: MyPlansTabBar(
-                  selected: _tab,
-                  onSelected: (t) => setState(() => _tab = t),
-                ),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/plans/myplan.PNG',
+                fit: BoxFit.cover,
               ),
-              // The time filter is only relevant for plan lists, not drafts.
-              if (_tab != MyPlansTab.drafts) ...[
-                const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                SliverToBoxAdapter(
-                  child: MyPlansFilterBar(
-                    selected: _filter,
-                    onSelected: (f) => setState(() => _filter = f),
-                  ),
+            ),
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: .35),
+              ),
+            ),
+            RefreshIndicator(
+              onRefresh: _load,
+              color: const Color(0xFF8B5CF6),
+              strokeWidth: 2.2,
+              displacement: 8,
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
-              ],
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-              SliverToBoxAdapter(child: _buildBody()),
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
-            ],
-          ),
-          Positioned(
-            right: 20,
-            bottom: 24,
-            child: CreatePlanButton(onTap: _createPlan),
-          ),
-        ],
+                slivers: [
+                  const SliverToBoxAdapter(child: _Header()),
+                  SliverToBoxAdapter(child: InsightsRow(insights: _insights)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  SliverToBoxAdapter(
+                    child: MyPlansTabBar(
+                      selected: _tab,
+                      onSelected: (t) => setState(() => _tab = t),
+                    ),
+                  ),
+                  // The time filter is only relevant for plan lists, not drafts.
+                  if (_tab != MyPlansTab.drafts) ...[
+                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                    SliverToBoxAdapter(
+                      child: MyPlansFilterBar(
+                        selected: _filter,
+                        onSelected: (f) => setState(() => _filter = f),
+                      ),
+                    ),
+                  ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                  SliverToBoxAdapter(child: _buildBody()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                ],
+              ),
+            ),
+            Positioned(
+              right: 20,
+              bottom: 24,
+              child: CreatePlanButton(onTap: _createPlan),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -346,12 +464,14 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
           items: _archived,
           onOpen: _open,
           onRestore: _restore,
+          onDelete: _delete,
         );
       case MyPlansTab.drafts:
         return DraftsList(
           draft: _draft,
           onResume: _resumeDraft,
           onDelete: _deleteDraft,
+          resolveCoverUrl: widget.repository.getCoverSignedUrl,
         );
     }
   }
@@ -362,23 +482,25 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(20, 8, 20, 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 16, 20, 22),
+      child: Row(
         children: [
-          Text(
-            'My Plans',
-            style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-            ),
+          CircleGlassButton(
+            icon: Icons.arrow_back_rounded,
+            onTap: () => Navigator.of(context).pop(),
+            semanticLabel: 'Back',
           ),
-          SizedBox(height: 6),
-          Text(
-            'Everything you host, join, and save — all in one place.',
-            style: TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'My Plans',
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.6,
+              ),
+            ),
           ),
         ],
       ),

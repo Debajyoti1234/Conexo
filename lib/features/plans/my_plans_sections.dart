@@ -253,18 +253,20 @@ class RequestedList extends StatelessWidget {
   }
 }
 
-/// Archived plans: dimmed compact cards with a Restore action.
+/// Archived plans: dimmed compact cards with Restore and Delete actions.
 class ArchivedList extends StatelessWidget {
   const ArchivedList({
     required this.items,
     required this.onOpen,
     required this.onRestore,
+    required this.onDelete,
     super.key,
   });
 
   final List<Experience> items;
   final ValueChanged<Experience> onOpen;
   final ValueChanged<Experience> onRestore;
+  final ValueChanged<Experience> onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -293,14 +295,30 @@ class ArchivedList extends StatelessWidget {
                       onTap: () => onOpen(items[i]),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  PlanActionBar(
-                    onEdit: () => onOpen(items[i]),
-                    onShare: () => onOpen(items[i]),
-                    trailingLabel: 'Restore',
-                    trailingIcon: Icons.unarchive_rounded,
-                    onTrailing: () => onRestore(items[i]),
-                  ),
+                   const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: PlanActionBar(
+                            onEdit: null,
+                            onShare: null,
+                            trailingLabel: 'Restore',
+                            trailingIcon: Icons.unarchive_rounded,
+                            onTrailing: () => onRestore(items[i]),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: PlanActionBar(
+                            onEdit: null,
+                            onShare: null,
+                            trailingLabel: 'Delete',
+                            trailingIcon: Icons.delete_outline_rounded,
+                            onTrailing: () => onDelete(items[i]),
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -312,21 +330,66 @@ class ArchivedList extends StatelessWidget {
 
 /// The saved-draft section. A single locally-persisted [PlanDraft] is shown
 /// with resume / delete. Empty state when there is nothing in progress.
-class DraftsList extends StatelessWidget {
+class DraftsList extends StatefulWidget {
   const DraftsList({
     required this.draft,
     required this.onResume,
     required this.onDelete,
+    this.resolveCoverUrl,
     super.key,
   });
 
   final PlanDraft? draft;
   final VoidCallback onResume;
   final VoidCallback onDelete;
+  final Future<String?> Function(String? coverAsset)? resolveCoverUrl;
+
+  @override
+  State<DraftsList> createState() => _DraftsListState();
+}
+
+class _DraftsListState extends State<DraftsList> {
+  String? _coverPreviewUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveCover();
+  }
+
+  @override
+  void didUpdateWidget(covariant DraftsList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.draft?.coverAsset != widget.draft?.coverAsset) {
+      _resolveCover();
+    }
+  }
+
+  void _resolveCover() {
+    final asset = widget.draft?.coverAsset;
+    if (asset == null || asset.isEmpty) {
+      setState(() => _coverPreviewUrl = null);
+      return;
+    }
+    if (asset.startsWith('assets/') ||
+        asset.startsWith('http://') ||
+        asset.startsWith('https://')) {
+      setState(() => _coverPreviewUrl = null);
+      return;
+    }
+    final resolver = widget.resolveCoverUrl;
+    if (resolver == null) {
+      setState(() => _coverPreviewUrl = null);
+      return;
+    }
+    resolver(asset).then((url) {
+      if (mounted) setState(() => _coverPreviewUrl = url);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final d = draft;
+    final d = widget.draft;
     if (d == null || (!d.hasCover && !d.hasTitle)) {
       return const MyPlansEmptyState(
         icon: Icons.drafts_rounded,
@@ -348,9 +411,10 @@ class DraftsList extends StatelessWidget {
         child: DraftCard(
           title: d.hasTitle ? d.title.trim() : 'Untitled plan',
           coverAsset: d.coverAsset,
+          coverPreviewUrl: _coverPreviewUrl,
           subtitle: subtitle,
-          onResume: onResume,
-          onDelete: onDelete,
+          onResume: widget.onResume,
+          onDelete: widget.onDelete,
         ),
       ),
     );

@@ -43,6 +43,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   PlanDraft _draft = PlanDraft(createdAt: DateTime.now());
   PlanDraft? _restorableDraft;
   bool _showRestorePrompt = false;
+  String? _coverPreviewUrl;
 
   /// The draft as first loaded when editing an existing published plan. Used
   /// purely for dirty-tracking so "Save Changes" enables the moment ANY
@@ -138,6 +139,26 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       _draft = saved;
       _showRestorePrompt = false;
     });
+    _resolveCoverPreviewUrl();
+  }
+
+  Future<void> _resolveCoverPreviewUrl() async {
+    final asset = _draft.coverAsset;
+    if (asset == null || asset.isEmpty) {
+      setState(() => _coverPreviewUrl = null);
+      return;
+    }
+    if (asset.startsWith('http://') || asset.startsWith('https://')) {
+      setState(() => _coverPreviewUrl = asset);
+      return;
+    }
+    if (asset.startsWith('assets/')) {
+      setState(() => _coverPreviewUrl = null);
+      return;
+    }
+    final signed = await _repo.getCoverSignedUrl(asset);
+    if (!mounted) return;
+    setState(() => _coverPreviewUrl = signed);
   }
 
   Future<void> _discardDraft() async {
@@ -159,6 +180,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     _saveDebounce = Timer(const Duration(milliseconds: 600), () {
       _repo.saveDraft(_draft);
     });
+    _resolveCoverPreviewUrl();
   }
 
   Future<void> _publish() async {
@@ -228,6 +250,17 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         body: SafeArea(
           child: Stack(
             children: [
+              Positioned.fill(
+                child: Image.asset(
+                  'assets/images/plans/myplan.PNG',
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: .35),
+                ),
+              ),
               _buildForm(stage),
               Positioned(
                 left: 20,
@@ -506,7 +539,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         ),
 
         // Live preview evolves from the moment a cover is chosen.
-        _reveal(d.hasCover, PlanPreviewSection(draft: d)),
+        _reveal(d.hasCover, PlanPreviewSection(
+          draft: d,
+          coverPreviewUrl: _coverPreviewUrl,
+        )),
       ],
     );
   }

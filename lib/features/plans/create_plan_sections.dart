@@ -1,5 +1,13 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/supabase/auth_service.dart';
+import '../../core/services/image_normalizer.dart';
+import '../../core/services/location_service.dart';
 import 'create_plan_data.dart';
 import 'create_plan_widgets.dart';
 
@@ -51,6 +59,55 @@ class CoverSection extends StatefulWidget {
 
 class _CoverSectionState extends State<CoverSection> {
   bool _galleryOpen = false;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickDevicePhoto() async {
+    try {
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+        maxHeight: 800,
+        imageQuality: 88,
+      );
+      if (picked == null || !mounted) return;
+
+      final user = AuthService.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please sign in to upload a cover photo.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Color(0xFF1A1F2E),
+          ),
+        );
+        return;
+      }
+
+      final rawBytes = await File(picked.path).readAsBytes();
+      final normalized = await ConexoImageNormalizer.normalize(rawBytes);
+      final draftId = widget.draft.draftId;
+      final storagePath = 'plans/${user.id}/$draftId/cover.${normalized.extension}';
+
+      await Supabase.instance.client.storage
+          .from('plan-covers')
+          .uploadBinary(
+            storagePath,
+            normalized.bytes,
+            fileOptions: FileOptions(contentType: normalized.contentType),
+          );
+
+      widget.onChanged(widget.draft.copyWith(coverAsset: storagePath));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not upload photo. Please try again.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Color(0xFF1A1F2E),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +120,7 @@ class _CoverSectionState extends State<CoverSection> {
           CoverPickerHero(
             coverAsset: widget.draft.coverAsset,
             onPickGallery: () => setState(() => _galleryOpen = !_galleryOpen),
+            onPickDevice: _pickDevicePhoto,
           ),
           _Reveal(
             visible: _galleryOpen,
@@ -204,7 +262,12 @@ class VisibilitySection extends StatelessWidget {
 
 // ── Section 5: Location ─────────────────────────────────────────────────
 
-class LocationSection extends StatelessWidget {
+/// Real place search backed by the existing OS geocoding provider
+/// ([LocationService]). Typing shows live suggestions (name + address); the
+/// selected place captures real latitude/longitude into the draft. Manual
+/// typing clears any previously selected coordinates. A "Use current location"
+/// chip captures GPS coordinates + a reverse-geocoded area name.
+class LocationSection extends StatefulWidget {
   const LocationSection({
     required this.controller,
     required this.draft,
@@ -216,7 +279,118 @@ class LocationSection extends StatelessWidget {
   final ValueChanged<PlanDraft> onChanged;
 
   @override
+  State<LocationSection> createState() => _LocationSectionState();
+}
+
+class _LocationSectionState extends State<LocationSection> {
+  final FocusNode _focusNode = FocusNode();
+  Timer? _debounce;
+  List<LocationSuggestion> _suggestions = const [];
+  bool _searching = false;
+  bool _showSuggestions = false;
+  bool _detecting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (!_focusNode.hasFocus) {
+      setState(() => _showSuggestions = false);
+    }
+  }
+
+  void _onTextChanged(String value) {
+    // Manual typing keeps the text but clears any previously selected place
+    // coordinates so stale lat/long never persists with a different label.
+    widget.onChanged(
+      widget.draft.copyWith(location: value, clearCoordinates: true),
+    );
+    _debounce?.cancel();
+    if (value.trim().isEmpty) {
+      setState(() {
+        _suggestions = const [];
+        _showSuggestions = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      final results = await LocationService.searchPlaces(value);
+      if (!mounted) return;
+      setState(() {
+        _suggestions = results;
+        _searching = false;
+        _showSuggestions = results.isNotEmpty && _focusNode.hasFocus;
+      });
+    });
+  }
+
+  void _select(LocationSuggestion s) {
+    widget.controller.text = s.displayName;
+    widget.controller.selection =
+        TextSelection.collapsed(offset: s.displayName.length);
+    widget.onChanged(
+      widget.draft.copyWith(
+        location: s.displayName,
+        locationAddress: s.address ?? '',
+        latitude: s.latitude,
+        longitude: s.longitude,
+      ),
+    );
+    setState(() {
+      _showSuggestions = false;
+      _suggestions = const [];
+    });
+    _focusNode.unfocus();
+  }
+
+  Future<void> _useCurrentLocation() async {
+    if (_detecting) return;
+    setState(() => _detecting = true);
+    final result = await LocationService.detectCurrentLocation();
+    if (!mounted) return;
+    setState(() => _detecting = false);
+
+    if (result.isSuccess) {
+      final name = (result.areaName != null && result.areaName!.isNotEmpty)
+          ? result.areaName!
+          : 'Current location';
+      widget.controller.text = name;
+      widget.controller.selection =
+          TextSelection.collapsed(offset: name.length);
+      widget.onChanged(
+        widget.draft.copyWith(
+          location: name,
+          locationAddress: result.areaName ?? '',
+          latitude: result.latitude,
+          longitude: result.longitude,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Could not detect location. Type it instead.'),
+          ),
+        );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final draft = widget.draft;
     return CreateSection(
       title: 'Location',
       subtitle: 'Where is this happening?',
@@ -225,11 +399,7 @@ class LocationSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
-            onTap: () {
-              if (!draft.hasLocation) {
-                onChanged(draft.copyWith(location: 'Near you'));
-              }
-            },
+            onTap: _detecting ? null : _useCurrentLocation,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -240,16 +410,25 @@ class LocationSection extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.near_me_rounded, size: 14, color: const Color(0xFF9DB2E8)),
+                  if (_detecting)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF9DB2E8),
+                      ),
+                    )
+                  else
+                    const Icon(Icons.near_me_rounded,
+                        size: 14, color: Color(0xFF9DB2E8)),
                   const SizedBox(width: 6),
-                  Text(
-                    'Near you',
+                  const Text(
+                    'Use current location',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: draft.hasLocation
-                          ? const Color(0xFF6B7799)
-                          : Colors.white,
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -258,12 +437,137 @@ class LocationSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           GlassTextField(
-            controller: controller,
-            hint: 'Café, park, your place…',
+            controller: widget.controller,
+            focusNode: _focusNode,
+            hint: 'Search a café, park, address…',
             leadingIcon: Icons.location_on_rounded,
-            onChanged: (v) => onChanged(draft.copyWith(location: v)),
+            onChanged: _onTextChanged,
           ),
+          if (_showSuggestions && _suggestions.isNotEmpty)
+            _PlaceSuggestionsPanel(
+              suggestions: _suggestions,
+              searching: _searching,
+              onSelect: _select,
+            ),
+          if (draft.latitude != null && draft.longitude != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.check_circle_rounded,
+                    size: 14, color: Color(0xFF47D7A5)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    draft.locationAddress.trim().isNotEmpty
+                        ? draft.locationAddress.trim()
+                        : 'Location pinned',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF9DB2E8),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// Suggestions dropdown for the Plan location search (name + address rows).
+class _PlaceSuggestionsPanel extends StatelessWidget {
+  const _PlaceSuggestionsPanel({
+    required this.suggestions,
+    required this.searching,
+    required this.onSelect,
+  });
+
+  final List<LocationSuggestion> suggestions;
+  final bool searching;
+  final ValueChanged<LocationSuggestion> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: .1)),
+        color: const Color(0xFF141A2E),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: searching ? 1 : suggestions.length,
+          separatorBuilder: (_, _) =>
+              Divider(height: 1, color: Colors.white.withValues(alpha: .08)),
+          itemBuilder: (context, index) {
+            if (searching) {
+              return const SizedBox(
+                height: 52,
+                child: Center(
+                  child: SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF8B5CF6),
+                    ),
+                  ),
+                ),
+              );
+            }
+            final s = suggestions[index];
+            return InkWell(
+              onTap: () => onSelect(s),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.place_outlined,
+                        size: 18, color: Color(0xFFB7A5FF)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFEAEEF9),
+                            ),
+                          ),
+                          if (s.address != null && s.address!.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              s.address!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF8A96B4),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -48,6 +48,11 @@ abstract class PlanRepository {
   /// [Experience] objects ready for the existing Plan UI.
   Future<List<Experience>> getDiscoveryExperiences();
 
+  /// Returns the viewer's saved discovery distance preference in kilometres
+  /// (`profiles.discovery_distance_km`), or null for "Any". Reused to bound
+  /// the geographic "Near You" rail; never creates a second preference.
+  Future<int?> getDiscoveryDistanceKm();
+
   /// Returns the current viewer's membership for the given plan, or `null` if
   /// none exists.
   Future<PlanMembership?> getMyMembership(String planId);
@@ -82,6 +87,13 @@ abstract class PlanRepository {
   /// and declined. Used by hosts to manage their plan participants.
   Future<List<PlanMembership>> getPlanMembers(String planId);
 
+  /// Resolves each user's canonical primary profile photo to a displayable
+  /// signed URL, using the existing private profile-photos + signed-URL
+  /// pipeline. Users without a usable photo are omitted so the UI shows its
+  /// graceful fallback. Reused by any screen that needs real profile photos
+  /// for a set of user ids (e.g. Invite People).
+  Future<Map<String, String>> getProfilePhotoUrls(List<String> userIds);
+
   /// Returns the current user's published plans as [Experience] objects with
   /// real participant counts.
   Future<List<Experience>> getPublishedExperiences();
@@ -110,7 +122,47 @@ abstract class PlanRepository {
   /// when the plan cannot be found or the viewer lacks access.
   Future<Experience?> getPlanExperience(String planId);
 
+  /// Removes the current user's membership from the given plan (joined -> left).
+  /// Only the member themselves may perform this action; authorization is
+  /// enforced server-side.
   Future<void> leavePlan(String planId);
+
+  /// Archives a plan for the current creator. Only the creator may perform
+  /// this action; authorization is enforced server-side. The plan remains in
+  /// the database with status = 'archived' and can be restored later.
+  Future<void> archivePlan(String planId);
+
+  /// Restores an archived plan to active status. Only the creator may perform
+  /// this action; authorization is enforced server-side.
+  Future<void> restorePlan(String planId);
+
+  /// Permanently deletes an archived plan and all associated data. Only the
+  /// creator may perform this action; authorization is enforced server-side.
+  /// This operation is irreversible.
+  Future<void> deletePlan(String planId);
+
+  /// Sends a plan invitation to an accepted connection. Only the plan creator
+  /// may perform this action; authorization is enforced server-side.
+  Future<void> inviteToPlan(String planId, String inviteeId);
+
+  /// Accepts a pending plan invitation. Only the invitee may perform this
+  /// action; authorization is enforced server-side.
+  Future<void> acceptInvitation(String inviteId);
+
+  /// Declines a pending plan invitation. Only the invitee may perform this
+  /// action; authorization is enforced server-side.
+  Future<void> declineInvitation(String inviteId);
+
+  /// Returns pending invitations received by the current user.
+  Future<List<PlanInvitation>> getPendingInvitations();
+
+  /// Returns invitations sent by the current user for a plan.
+  Future<List<PlanInvitation>> getSentInvitations(String planId);
+
+  /// Resolves a single cover storage path or local asset to a displayable URL.
+  /// For `plans/` storage paths this returns a signed URL; for local assets
+  /// it returns the asset path unchanged; for unknown paths it returns null.
+  Future<String?> getCoverSignedUrl(String? coverPath);
 }
 
 /// The local, on-device implementation backed by [SharedPreferences].
@@ -192,10 +244,37 @@ class LocalPlanRepository implements PlanRepository {
   Future<void> leavePlan(String planId) async {}
 
   @override
+  Future<void> archivePlan(String planId) async {}
+
+  @override
+  Future<void> restorePlan(String planId) async {}
+
+  @override
+  Future<void> deletePlan(String planId) async {}
+
+  @override
+  Future<void> inviteToPlan(String planId, String inviteeId) async {}
+
+  @override
+  Future<void> acceptInvitation(String inviteId) async {}
+
+  @override
+  Future<void> declineInvitation(String inviteId) async {}
+
+  @override
+  Future<List<PlanInvitation>> getPendingInvitations() async => const [];
+
+  @override
+  Future<List<PlanInvitation>> getSentInvitations(String planId) async => const [];
+
+  @override
   Future<List<PublishedPlan>> getDiscoveryPlans() async => [];
 
   @override
   Future<List<Experience>> getDiscoveryExperiences() async => const [];
+
+  @override
+  Future<int?> getDiscoveryDistanceKm() async => null;
 
   @override
   Future<PlanMembership?> getMyMembership(String planId) async => null;
@@ -208,6 +287,10 @@ class LocalPlanRepository implements PlanRepository {
 
   @override
   Future<List<PlanMembership>> getPlanMembers(String planId) async => const [];
+
+  @override
+  Future<Map<String, String>> getProfilePhotoUrls(List<String> userIds) async =>
+      const {};
 
   @override
   Future<void> approvePlanMember(String planId, String memberId) async {}
@@ -238,4 +321,14 @@ class LocalPlanRepository implements PlanRepository {
 
   @override
   Future<Experience?> getPlanExperience(String planId) async => null;
+
+  @override
+  Future<String?> getCoverSignedUrl(String? coverPath) async {
+    if (coverPath == null || coverPath.isEmpty) return null;
+    if (coverPath.startsWith('assets/')) return coverPath;
+    if (coverPath.startsWith('http://') || coverPath.startsWith('https://')) {
+      return coverPath;
+    }
+    return null;
+  }
 }

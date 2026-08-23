@@ -70,7 +70,12 @@ class ConnectionsViewModel {
         .map((c) => c.otherUserId(user.id))
         .toList(growable: false);
 
-    final profiles = await _fetchProfiles(otherIds);
+    Map<String, Map<String, dynamic>> profiles;
+    try {
+      profiles = await _fetchProfiles(otherIds);
+    } catch (e) {
+      return const [];
+    }
 
     return accepted
         .map((c) {

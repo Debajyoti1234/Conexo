@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -38,6 +39,7 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
   Timer? _debounce;
 
   List<Experience> _allPlans = const [];
+  int? _maxDistanceKm;
   bool _loading = true;
   String? _error;
 
@@ -57,9 +59,29 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
   Future<void> _load() async {
     try {
       final experiences = await widget.repository.getDiscoveryExperiences();
+      final maxKm = await widget.repository.getDiscoveryDistanceKm();
       if (!mounted) return;
+
+      for (final e in experiences.take(5)) {
+        final asset = e.coverAsset;
+        if (asset.startsWith('http://') || asset.startsWith('https://')) {
+          try {
+            // ignore: use_build_context_synchronously
+            await precacheImage(NetworkImage(asset), context);
+          } catch (_) {}
+        } else if (asset.startsWith('assets/')) {
+        } else if (asset.startsWith('plans/')) {
+        } else if (asset.isNotEmpty) {
+          try {
+            // ignore: use_build_context_synchronously
+            await precacheImage(FileImage(File(asset)), context);
+          } catch (_) {}
+        }
+      }
+
       setState(() {
         _allPlans = experiences;
+        _maxDistanceKm = maxKm;
         _loading = false;
         _error = null;
       });
@@ -157,7 +179,7 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
     }
 
     final processed = applyPipeline(_allPlans, _filter);
-    final sections = sectionsFor(processed);
+    final sections = sectionsFor(processed, maxDistanceKm: _maxDistanceKm);
     final hasResults = processed.isNotEmpty;
 
     return [
@@ -187,8 +209,11 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
             ),
             const SizedBox(width: 12),
             _MyPlansPill(
-              onTap: () =>
-                  Navigator.of(context).push<void>(myPlansRoute()),
+              onTap: () async {
+                await Navigator.of(context).push<void>(myPlansRoute());
+                if (!mounted) return;
+                await _refresh();
+              },
             ),
           ],
         ),
@@ -232,6 +257,17 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/plans/plan.PNG',
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: .35),
+            ),
+          ),
           RefreshIndicator(
             onRefresh: _refresh,
             color: const Color(0xFF8B5CF6),

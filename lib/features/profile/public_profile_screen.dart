@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
+import 'profile_data.dart';
 import 'public_profile_data.dart';
-
 import 'public_profile_sections.dart';
 import 'public_profile_widgets.dart';
+import 'supabase_profile_repository.dart';
 
 /// The premium, read-only Public Profile Viewer (Phase 4.5).
 ///
 /// Shown when another user opens someone's profile anywhere in Conexo. It is
 /// pure presentation:
-///  • Accepts an immutable [PublicProfileViewData] — never loads
-///    SharedPreferences, never uses ProfileRepository, never touches a backend.
+///  • Accepts an immutable [PublicProfileViewData] — pre-resolves all uploaded
+///    photo storage paths to signed URLs and precaches the entire gallery
+///    before the hero is displayed.
 ///  • Computes the strength tier/completion via the pure
 ///    [computeProfileStrength] engine.
 ///  • Computes mutual interests locally through the view model.
@@ -20,7 +22,7 @@ import 'public_profile_widgets.dart';
 /// Motion is limited to the approved widgets (here: staggered [EntranceFade]
 /// reveals + a fade/slide route transition) with easeOutCubic / easeInOutCubic
 /// — no bounce.
-class PublicProfileScreen extends StatelessWidget {
+class PublicProfileScreen extends StatefulWidget {
   const PublicProfileScreen({required this.data, super.key});
 
   final PublicProfileViewData data;
@@ -45,9 +47,92 @@ class PublicProfileScreen extends StatelessWidget {
   ];
 
   @override
+  State<PublicProfileScreen> createState() => _PublicProfileScreenState();
+}
+
+class _PublicProfileScreenState extends State<PublicProfileScreen> {
+  bool _ready = false;
+  UserProfile? _resolvedProfile;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolvedProfile = widget.data.profile;
+    _preload();
+  }
+
+  Future<void> _preload() async {
+    final profile = widget.data.profile;
+    final storagePaths = profile.photos
+        .where((p) => p.remoteUrl != null && p.remoteUrl!.startsWith('profiles/'))
+        .map((p) => p.remoteUrl!)
+        .toList();
+
+    UserProfile resolved = profile;
+    if (storagePaths.isNotEmpty) {
+      final repo = const SupabaseProfileRepository();
+      final futures = storagePaths.map((p) => repo.getSignedPhotoUrl(p)).toList();
+      final signedUrls = await Future.wait(futures);
+
+      final updatedPhotos = [...profile.photos];
+      for (var i = 0; i < updatedPhotos.length; i++) {
+        final remoteUrl = updatedPhotos[i].remoteUrl;
+        if (remoteUrl != null && remoteUrl.startsWith('profiles/')) {
+          final idx = storagePaths.indexOf(remoteUrl);
+          if (idx != -1 && signedUrls[idx] != null) {
+            updatedPhotos[i] = updatedPhotos[i].copyWith(remoteUrl: signedUrls[idx]);
+          } else {
+            updatedPhotos[i] = updatedPhotos[i].copyWith(remoteUrl: null);
+          }
+        }
+      }
+      resolved = profile.copyWith(photos: updatedPhotos);
+
+      for (final photo in updatedPhotos) {
+        final url = photo.remoteUrl;
+        if (url != null && (url.startsWith('http://') || url.startsWith('https://'))) {
+          try {
+            final provider = NetworkImage(url);
+            // ignore: use_build_context_synchronously
+            await precacheImage(provider, context);
+          } catch (_) {
+            // Individual photo failure does not block the remaining gallery.
+          }
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _resolvedProfile = resolved;
+        _ready = true;
+      });
+    }
+  }
+
+  UserProfile get _profile => _resolvedProfile ?? widget.data.profile;
+
+  @override
   Widget build(BuildContext context) {
-    final profile = data.profile;
-    final mutual = data.mutualInterests;
+    final profile = _profile;
+    final mutual = widget.data.mutualInterests;
+
+    if (!_ready) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              const Positioned.fill(child: ColoredBox(color: Colors.black)),
+              const Center(
+                child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+              ),
+              _floatingBack(context),
+            ],
+          ),
+        ),
+      );
+    }
 
     // A profile with no primary photo AND no meaningful content → empty state.
     final hasAnyContent = profile.primaryPhoto != null ||
@@ -60,10 +145,10 @@ class PublicProfileScreen extends StatelessWidget {
       body: hasAnyContent
           ? _buildContent(context, mutual)
           : SafeArea(
-
               child: Stack(
                 children: [
-                  PublicProfileEmptyState(displayName: data.displayName),
+                  const Positioned.fill(child: ColoredBox(color: Colors.black)),
+                  PublicProfileEmptyState(displayName: widget.data.displayName),
                   _floatingBack(context),
                 ],
               ),
@@ -75,9 +160,10 @@ class PublicProfileScreen extends StatelessWidget {
     BuildContext context,
     List<String> mutual,
   ) {
-    final profile = data.profile;
+    final profile = _profile;
     return Stack(
       children: [
+        const Positioned.fill(child: ColoredBox(color: Colors.black)),
         ListView(
           padding: const EdgeInsets.only(bottom: 40),
           physics: const BouncingScrollPhysics(
@@ -86,7 +172,15 @@ class PublicProfileScreen extends StatelessWidget {
           children: [
             // Hero is full-bleed (no horizontal padding).
             RepaintBoundary(
-              child: HeroSection(data: data),
+              child: HeroSection(
+                data: PublicProfileViewData(
+                  profile: profile,
+                  displayName: widget.data.displayName,
+                  username: widget.data.username,
+                  age: widget.data.age,
+                  viewerInterests: widget.data.viewerInterests,
+                ),
+              ),
             ),
 
             const SizedBox(height: 20),
@@ -122,7 +216,7 @@ class PublicProfileScreen extends StatelessWidget {
                   const SizedBox(height: 20),
                   EntranceFade(
                     child: RepaintBoundary(
-                      child: HostedPlansSection(plans: _placeholderPlans),
+                      child: HostedPlansSection(plans: PublicProfileScreen._placeholderPlans),
                     ),
                   ),
                   const SizedBox(height: 20),

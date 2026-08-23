@@ -1,19 +1,14 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 /// Immutable model + pure grouping helpers for the Activity Center.
 ///
-/// This file is intentionally UI-agnostic and backend-agnostic: it defines the
-/// shape of a demo notification and pure functions to bucket a list into
-/// Today / Yesterday / Earlier. No Firebase, realtime, persistence, or UI.
+/// Backend-agnostic shape: the [fromSupabase] factory maps real notification
+/// rows from the `notifications` table onto this model. The UI layer never
+/// touches the raw map.
 
-/// The semantic kind of a notification, used only for a subtle accent tint on
-/// its leading icon. Presentation-only — never persisted or sent anywhere.
-enum NotificationKind { join, request, plan, message, system }
+/// The semantic kind of a notification, used for routing + accent tint.
+enum NotificationKind { join, request, plan, message, system, planInvitation }
 
-/// An immutable demo notification.
-///
-/// [icon] is a Material/Cupertino [IconData]; [timestamp] drives the
-/// Today/Yesterday/Earlier grouping. [unread] reflects local demo state only.
 @immutable
 class AppNotification {
   const AppNotification({
@@ -24,6 +19,9 @@ class AppNotification {
     required this.timestamp,
     this.kind = NotificationKind.system,
     this.unread = false,
+    this.entityId,
+    this.entityType,
+    this.actorId,
   });
 
   final String id;
@@ -33,18 +31,87 @@ class AppNotification {
   final DateTime timestamp;
   final NotificationKind kind;
   final bool unread;
+  final String? entityId;
+  final String? entityType;
+  final String? actorId;
 
-  /// Returns a copy with the provided overrides (used for local unread toggles).
-  AppNotification copyWith({bool? unread}) {
+  factory AppNotification.fromSupabase(Map<String, dynamic> row) {
+    final kind = _parseKind(row['kind'] as String? ?? 'system');
+    final icon = _iconForKind(kind);
+    final title = (row['title'] as String? ?? '').trim();
+    final body = (row['body'] as String? ?? '').trim();
+    final createdAt = row['created_at'] as String?;
+    final timestamp = createdAt != null
+        ? DateTime.parse(createdAt).toLocal()
+        : DateTime.now();
+    final read = row['read'] as bool? ?? false;
+
+    return AppNotification(
+      id: row['id'] as String? ?? '',
+      icon: icon,
+      title: title,
+      subtitle: body,
+      timestamp: timestamp,
+      kind: kind,
+      unread: !read,
+      entityId: row['entity_id'] as String?,
+      entityType: row['entity_type'] as String?,
+      actorId: row['actor_id'] as String?,
+    );
+  }
+
+  AppNotification copyWith({
+    bool? unread,
+    String? title,
+    String? subtitle,
+  }) {
     return AppNotification(
       id: id,
       icon: icon,
-      title: title,
-      subtitle: subtitle,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
       timestamp: timestamp,
       kind: kind,
       unread: unread ?? this.unread,
+      entityId: entityId,
+      entityType: entityType,
+      actorId: actorId,
     );
+  }
+
+  static NotificationKind _parseKind(String raw) {
+    switch (raw) {
+      case 'join':
+        return NotificationKind.join;
+      case 'request':
+        return NotificationKind.request;
+      case 'plan':
+        return NotificationKind.plan;
+      case 'message':
+        return NotificationKind.message;
+      case 'plan_invitation':
+        return NotificationKind.planInvitation;
+      case 'system':
+      default:
+        return NotificationKind.system;
+    }
+  }
+
+  static IconData _iconForKind(NotificationKind kind) {
+    switch (kind) {
+      case NotificationKind.join:
+        return Icons.group_add_rounded;
+      case NotificationKind.request:
+        return Icons.handshake_rounded;
+      case NotificationKind.plan:
+        return Icons.event_available_rounded;
+      case NotificationKind.message:
+        return Icons.forum_rounded;
+      case NotificationKind.planInvitation:
+        return Icons.mail_rounded;
+      case NotificationKind.system:
+        return Icons.verified_rounded;
+    }
   }
 }
 
@@ -52,10 +119,6 @@ class AppNotification {
 enum NotificationBucket { today, yesterday, earlier }
 
 /// A pure grouping of [notifications] into ordered [NotificationBucket]s.
-///
-/// Groups are computed against [now] (defaults to `DateTime.now()`), sorted
-/// newest-first within each bucket, and empty buckets are omitted. This is a
-/// pure function — no side effects, no I/O.
 Map<NotificationBucket, List<AppNotification>> groupNotifications(
   List<AppNotification> notifications, {
   DateTime? now,
@@ -83,7 +146,6 @@ Map<NotificationBucket, List<AppNotification>> groupNotifications(
   return result;
 }
 
-/// A short human label for a bucket header (e.g. "Today").
 String notificationBucketLabel(NotificationBucket bucket) {
   switch (bucket) {
     case NotificationBucket.today:
@@ -95,7 +157,6 @@ String notificationBucketLabel(NotificationBucket bucket) {
   }
 }
 
-/// A compact relative timestamp label (e.g. "Just now", "5m", "3h", "2d").
 String notificationTimeLabel(DateTime timestamp, {DateTime? now}) {
   final reference = now ?? DateTime.now();
   final diff = reference.difference(timestamp);

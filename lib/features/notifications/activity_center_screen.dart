@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'demo_notification_data.dart';
+import 'notification_controller.dart';
 import 'notification_models.dart';
 import 'notification_navigation.dart';
 import 'notification_widgets.dart';
@@ -10,13 +10,13 @@ import 'notification_widgets.dart';
 
 /// The premium Activity Center page.
 ///
-/// PASSIVE by design: it renders the [NotificationDemoController]'s current
+/// PASSIVE by design: it renders the [NotificationController]'s current
 /// notifications grouped into Today / Yesterday / Earlier. It never mutates
 /// unread state and never calls `markAllRead()` — the shell owns that.
 class ActivityCenterScreen extends StatefulWidget {
   const ActivityCenterScreen({required this.controller, super.key});
 
-  final NotificationDemoController controller;
+  final NotificationController controller;
 
   @override
   State<ActivityCenterScreen> createState() => _ActivityCenterScreenState();
@@ -165,7 +165,7 @@ class _ActivityRow {
 /// A premium fade + slide route into the Activity Center, matching the
 /// Conexo transition language.
 Route<void> premiumActivityCenterRoute({
-  required NotificationDemoController controller,
+  required NotificationController controller,
 }) {
   return PageRouteBuilder<void>(
     transitionDuration: const Duration(milliseconds: 320),

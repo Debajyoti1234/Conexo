@@ -107,7 +107,10 @@ List<Experience> applyPipeline(
   // 1) Category filter (null = All).
   if (state.selectedCategory != null) {
     final cat = state.selectedCategory!.toLowerCase();
-    result = result.where((e) => e.category.toLowerCase() == cat);
+    result = result.where((e) {
+      final canonical = categoryForMood(e.category)?.toLowerCase();
+      return canonical == cat;
+    });
   }
 
   // 1.5) Visibility filter (null = all; PlanVisibility.private = private only).

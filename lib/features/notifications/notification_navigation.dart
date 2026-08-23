@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import '../chat/chat_models.dart';
 import '../chat/chat_repository.dart';
 import '../chat/conversation_screen.dart';
+import '../main_shell.dart';
+import '../plans/invitation_details_screen.dart';
+import '../plans/plan_details_data.dart';
+import '../plans/supabase_plan_repository.dart';
 import '../profile/privacy_verification_widgets.dart';
 import 'notification_models.dart';
 
@@ -16,44 +20,45 @@ import 'notification_models.dart';
 class NotificationNavigation {
   const NotificationNavigation._();
 
-  static const _repo = LocalChatRepository();
-
   /// Opens the appropriate screen for a notification, or shows the coming-soon
   /// dialog when the destination is not yet wired.
   static void open(BuildContext context, AppNotification notification) {
     switch (notification.kind) {
       case NotificationKind.request:
-        // Connection request accepted → coming soon (no profile reference yet)
-        ComingSoonDialog.show(
-          context,
-          title: 'Connection details',
-          message:
-              'View their profile and start a conversation when this feature arrives.',
-        );
+        Navigator.of(context).pop();
+        MainShell.switchToTab(2);
         break;
 
       case NotificationKind.message:
-        // Message received → find the conversation or show coming soon
-        final conversation = _repo.findConversationForConnection(notification.id);
-        if (conversation != null) {
-          Navigator.of(context).push(conversationRoute(conversation));
-        } else {
-          ComingSoonDialog.show(
-            context,
-            title: 'Conversation',
-            message:
-                'Your conversation will appear after your first interaction.',
-          );
-        }
+        // Message received → open the connection conversation.
+        _openConnectionChat(context, notification);
         break;
 
       case NotificationKind.join:
       case NotificationKind.plan:
         // Plan joined / plan activity → open the REAL plan group chat.
-        _openPlanChat(context, notification.id);
+        _openPlanChat(context, notification.entityId ?? notification.id);
+        break;
+
+      case NotificationKind.planInvitation:
+        // The accepted-plan notification reuses the plan_invitation kind but
+        // carries entity_type = 'plan_chat' and must open the existing Plan
+        // Chat directly. A true pending invitation carries entity_type = 'plan'
+        // and opens the invitation preview.
+        if (notification.entityType == 'plan_chat' &&
+            notification.entityId != null) {
+          _openPlanChat(context, notification.entityId!);
+        } else {
+          _openInvitationDetails(context, notification);
+        }
         break;
 
       case NotificationKind.system:
+        if (notification.entityType == 'plan_chat' &&
+            notification.entityId != null) {
+          _openPlanChat(context, notification.entityId!);
+          break;
+        }
         // System notification → coming soon
         ComingSoonDialog.show(
           context,
@@ -115,6 +120,109 @@ class NotificationNavigation {
 
     Navigator.of(context).push(
       conversationRoute(preview, chatRepository: chatRepository),
+    );
+  }
+
+  static Future<void> _openConnectionChat(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
+    final connectionId = notification.entityId ?? notification.id;
+    final chatRepository = ChatRepository();
+
+    final result = await chatRepository.getOrCreateConnectionConversation(connectionId);
+    if (!context.mounted) return;
+
+    final conversationId = result.value;
+    final errorMessage = result.error;
+
+    if (conversationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(errorMessage ?? 'Could not open the conversation.'),
+        ),
+      );
+      return;
+    }
+
+    final preview = ConversationPreview(
+      id: conversationId,
+      name: notification.title,
+      avatarAsset: '',
+      lastMessage: notification.subtitle,
+      timestamp: notificationTimeLabel(notification.timestamp),
+      type: ConversationType.private,
+      status: ConversationStatus.recentlyConnected,
+      lastMessageType: LastMessageType.connectionAccepted,
+      unreadCount: 0,
+    );
+
+    Navigator.of(context).push(
+      conversationRoute(preview, chatRepository: chatRepository),
+    );
+  }
+
+  static Future<void> _openInvitationDetails(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
+    final planId = notification.entityId;
+    if (planId == null) {
+      _showInvitationUnavailable(context);
+      return;
+    }
+
+    final repo = const SupabasePlanRepository();
+    List<PlanInvitation> invitations;
+    try {
+      invitations = await repo.getPendingInvitations();
+    } catch (_) {
+      if (!context.mounted) return;
+      _showInvitationUnavailable(context);
+      return;
+    }
+    if (!context.mounted) return;
+
+    PlanInvitation? match;
+    for (final invite in invitations) {
+      if (invite.planId == planId) {
+        match = invite;
+        break;
+      }
+    }
+
+    // The invitation may have already been accepted, declined, or withdrawn.
+    if (match == null) {
+      _showInvitationUnavailable(context);
+      return;
+    }
+
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => InvitationDetailsScreen(
+          invitation: match!,
+          repository: repo,
+        ),
+      ),
+    );
+
+    if (result == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invitation updated'),
+          backgroundColor: Color(0xFF47D7A5),
+        ),
+      );
+    }
+  }
+
+  static void _showInvitationUnavailable(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('This invitation is no longer available.'),
+      ),
     );
   }
 }

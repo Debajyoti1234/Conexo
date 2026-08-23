@@ -12,9 +12,10 @@ import 'plans_filter.dart';
 
 /// The local join lifecycle for a plan.
 ///
-/// The UI only surfaces `notJoined → requested → joined` today. [cancelled]
-/// exists now so adding leave/cancel later needs no model change.
-enum JoinStatus { notJoined, requested, joined, cancelled, hosting }
+/// The UI surfaces `notJoined → requested → joined` for discovery, plus
+/// [invited] for users with a pending Plan Invitation (accept = direct join).
+/// [cancelled] exists now so adding leave/cancel later needs no model change.
+enum JoinStatus { notJoined, requested, joined, cancelled, hosting, invited }
 
 class PlanMembership {
   const PlanMembership({
@@ -50,6 +51,50 @@ class PlanMembership {
       updatedAt: parseNullable(row['updated_at']) ?? DateTime.now(),
       displayName: row['display_name'] as String?,
       photoUrl: row['photo_url'] as String?,
+    );
+  }
+}
+
+class PlanInvitation {
+  const PlanInvitation({
+    required this.id,
+    required this.planId,
+    required this.inviterId,
+    required this.inviteeId,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+    this.planTitle,
+    this.inviterName,
+    this.inviteeName,
+  });
+
+  final String id;
+  final String planId;
+  final String inviterId;
+  final String inviteeId;
+  final String status;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String? planTitle;
+  final String? inviterName;
+  final String? inviteeName;
+
+  factory PlanInvitation.fromSupabase(Map<String, dynamic> row) {
+    DateTime? parseNullable(Object? raw) =>
+        raw is String ? DateTime.tryParse(raw) : null;
+
+    return PlanInvitation(
+      id: (row['id'] as String?) ?? '',
+      planId: (row['plan_id'] as String?) ?? '',
+      inviterId: (row['inviter_id'] as String?) ?? '',
+      inviteeId: (row['invitee_id'] as String?) ?? '',
+      status: (row['status'] as String?) ?? 'pending',
+      createdAt: parseNullable(row['created_at']) ?? DateTime.now(),
+      updatedAt: parseNullable(row['updated_at']) ?? DateTime.now(),
+      planTitle: row['plan_title'] as String?,
+      inviterName: row['inviter_name'] as String?,
+      inviteeName: row['invitee_name'] as String?,
     );
   }
 }

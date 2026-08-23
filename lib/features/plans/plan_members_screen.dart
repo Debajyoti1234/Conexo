@@ -8,6 +8,7 @@ import 'plan_details_widgets.dart';
 import 'supabase_plan_repository.dart';
 import '../profile/profile_navigation_mapper.dart';
 import '../profile/public_profile_screen.dart';
+import '../profile/supabase_profile_repository.dart';
 
 class PlanMembersScreen extends StatefulWidget {
   const PlanMembersScreen({required this.planId, super.key});
@@ -128,18 +129,23 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
   }
 
   void _viewMember(PlanMembership member) {
-    final name = member.displayName?.trim().isNotEmpty ?? false
-        ? member.displayName!.trim()
-        : 'User ${member.userId.substring(0, 8)}';
-    Navigator.of(context).push(
-      premiumPublicProfileRoute(
-        data: mapPlanParticipantToProfile(
-          userId: member.userId,
-          name: name,
-          photoUrl: member.photoUrl ?? '',
-        ),
-      ),
-    );
+    () async {
+      final repo = const SupabaseProfileRepository();
+      final profile = await repo.loadProfileByUserId(member.userId);
+      if (!mounted) return;
+      if (profile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile not available'),
+            backgroundColor: Color(0xFFFF4D8D),
+          ),
+        );
+        return;
+      }
+      final data = mapUserProfileToPublicProfile(profile);
+      if (!mounted) return;
+      Navigator.of(context).push(premiumPublicProfileRoute(data: data));
+    }();
   }
 
   @override

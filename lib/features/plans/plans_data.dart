@@ -62,6 +62,10 @@ class Experience {
     this.description = '',
     this.hostId = '',
     this.capacity = 2,
+    this.locationAddress = '',
+    this.distanceKm,
+    this.trendingScore = 0,
+    this.status = 'active',
   });
 
   final String id;
@@ -91,6 +95,22 @@ class Experience {
   final String hostId;
   final int capacity;
 
+  /// Optional formatted address for the plan location (e.g. "Bhubaneswar,
+  /// Odisha"). Empty when no structured location is available.
+  final String locationAddress;
+
+  /// Real geographic distance from the viewer, in kilometres. Null when the
+  /// viewer's location is unknown or the plan has no coordinates. Used only to
+  /// rank the "Near You" rail; the display string lives in [distance].
+  final double? distanceKm;
+
+  /// Deterministic engagement score for the "Trending" rail: real joined-member
+  /// count blended with plan recency. Higher = stronger recent activity. 0 when
+  /// the plan does not qualify. Used only to order Trending.
+  final double trendingScore;
+
+  final String status;
+
   Experience copyWith({
     String? id,
     String? title,
@@ -116,6 +136,10 @@ class Experience {
     String? description,
     String? hostId,
     int? capacity,
+    String? locationAddress,
+    double? distanceKm,
+    double? trendingScore,
+    String? status,
   }) {
     return Experience(
       id: id ?? this.id,
@@ -142,6 +166,10 @@ class Experience {
       description: description ?? this.description,
       hostId: hostId ?? this.hostId,
       capacity: capacity ?? this.capacity,
+      locationAddress: locationAddress ?? this.locationAddress,
+      distanceKm: distanceKm ?? this.distanceKm,
+      trendingScore: trendingScore ?? this.trendingScore,
+      status: status ?? this.status,
     );
   }
 }
@@ -174,8 +202,78 @@ const privateCategory = PlanCategory(
   'Private',
   '🔒',
   Icons.lock_rounded,
-Color(0xFF8B5CF6),
+  Color(0xFF8B5CF6),
 );
+
+// ── Mood → canonical Discovery category mapping ──────────────────────────
+
+/// Maps a stored plan mood/category value to the broad Discovery category
+/// label used by [planCategories]. Returns `null` for unknown values so they
+/// remain visible in "All" but do not falsely match a specific category tab.
+String? categoryForMood(String mood) {
+  final normalized = mood.trim().toLowerCase();
+  switch (normalized) {
+    // Chill
+    case 'movie night':
+    case 'netflix & chill':
+    case 'uno night':
+      return 'Chill';
+
+    // House
+    case 'house party':
+      return 'House';
+
+    // Music
+    case 'music jamming':
+      return 'Music';
+
+    // Food
+    case 'chai & chuski':
+    case 'cafe hunting':
+      return 'Food';
+
+    // Outdoors
+    case 'long drive':
+    case 'beach walk':
+    case 'camping':
+    case 'sunset ride':
+      return 'Outdoors';
+
+    // Creative
+    case 'photography walk':
+      return 'Creative';
+
+    // Professional
+    case 'study together':
+    case 'coding session':
+      return 'Professional';
+
+    // Sports
+    case 'football':
+    case 'badminton':
+      return 'Sports';
+
+    // Custom
+    case 'custom':
+      return 'Custom';
+
+    // Already a canonical category (defensive — preserves direct matches).
+    case 'chill':
+    case 'house':
+    case 'music':
+    case 'nightlife':
+    case 'food':
+    case 'outdoors':
+    case 'creative':
+    case 'professional':
+    case 'sports':
+    case 'spontaneous':
+      return mood;
+
+    default:
+      return null;
+  }
+}
 
 // ── Pure parse helpers (used by the central distance-first comparator) ──
 
@@ -226,15 +324,37 @@ List<Experience> avoidAdjacentDuplicateHighlights(List<Experience> items) {
 /// Builds every rail's slice from one already-filtered + sorted list, so no
 /// rail ever filters or sorts independently. Empty rails are hidden by the
 /// UI. Highlight de-duplication keeps each rail feeling curated.
-Map<String, List<Experience>> sectionsFor(List<Experience> processed) {
+///
+/// The "Near You" rail is the one exception: it is ordered by real geographic
+/// distance (closest first) using [Experience.distanceKm], and — when the
+/// viewer has a saved distance preference — restricted to plans within
+/// [maxDistanceKm] (null = "Any"). Plans without a known distance are excluded
+/// from Near You but remain available in the other rails.
+Map<String, List<Experience>> sectionsFor(
+  List<Experience> processed, {
+  int? maxDistanceKm,
+}) {
   List<Experience> slice(String key) => avoidAdjacentDuplicateHighlights(
         processed.where((e) => e.sections.contains(key)).toList(),
       );
+
+  final near = processed
+      .where((e) => e.distanceKm != null)
+      .where((e) => maxDistanceKm == null || e.distanceKm! <= maxDistanceKm)
+      .toList()
+    ..sort((a, b) => a.distanceKm!.compareTo(b.distanceKm!));
+
+  // Trending: ordered by real engagement + recency score (strongest first).
+  final trending = processed
+      .where((e) => e.sections.contains('trending'))
+      .toList()
+    ..sort((a, b) => b.trendingScore.compareTo(a.trendingScore));
+
   return {
     'featured': slice('featured'),
     'today': slice('today'),
-    'trending': slice('trending'),
-    'near': slice('near'),
+    'trending': trending,
+    'near': near,
     'friends': slice('friends'),
     'new': slice('new'),
   };

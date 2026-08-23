@@ -105,6 +105,7 @@ Experience publishedToExperience(PublishedPlan plan) {
     visibility: plan.visibility,
     description: plan.description,
     capacity: plan.participants ?? 10,
+    status: plan.status,
   );
 }
 

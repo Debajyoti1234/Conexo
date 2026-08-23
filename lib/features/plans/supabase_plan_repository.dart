@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/auth_service.dart';
 import '../chat/chat_repository.dart';
+import '../profile/discovery_helpers.dart';
 import '../profile/supabase_profile_repository.dart';
 import 'create_plan_data.dart';
 import 'plan_details_data.dart';
@@ -49,6 +50,9 @@ class SupabasePlanRepository implements PlanRepository {
             visibility,
             latitude,
             longitude,
+            location_name,
+            location_address,
+            is_featured,
             starts_at,
             capacity,
             status,
@@ -78,6 +82,93 @@ class SupabasePlanRepository implements PlanRepository {
 
   @override
   Future<void> removePublished(String id) async {}
+
+  @override
+  Future<void> archivePlan(String planId) async {
+    final user = AuthService.currentUser;
+    if (user == null) throw const AuthFailure('Not authenticated');
+
+    try {
+      await Supabase.instance.client
+          .from('plans')
+          .update({'status': 'archived'})
+          .eq('id', planId)
+          .eq('creator_id', user.id);
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } on PostgrestException catch (error) {
+      throw AuthFailure(_mapPostgrestException(error));
+    } catch (_) {
+      throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
+  @override
+  Future<void> restorePlan(String planId) async {
+    final user = AuthService.currentUser;
+    if (user == null) throw const AuthFailure('Not authenticated');
+
+    try {
+      await Supabase.instance.client
+          .from('plans')
+          .update({'status': 'active'})
+          .eq('id', planId)
+          .eq('creator_id', user.id);
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } on PostgrestException catch (error) {
+      throw AuthFailure(_mapPostgrestException(error));
+    } catch (_) {
+      throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
+  @override
+  Future<void> deletePlan(String planId) async {
+    final user = AuthService.currentUser;
+    if (user == null) throw const AuthFailure('Not authenticated');
+
+    String? coverPath;
+    try {
+      final plan = await Supabase.instance.client
+          .from('plans')
+          .select('cover_url')
+          .eq('id', planId)
+          .eq('creator_id', user.id)
+          .maybeSingle();
+      if (plan != null) {
+        coverPath = plan['cover_url'] as String?;
+      }
+    } catch (_) {
+      coverPath = null;
+    }
+
+    try {
+      final result = await Supabase.instance.client.rpc(
+        'delete_plan',
+        params: {'p_plan_id': planId},
+      );
+      if (result == null) {
+        throw const AuthFailure('Failed to delete plan.');
+      }
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } on PostgrestException catch (error) {
+      throw AuthFailure(_mapPostgrestException(error));
+    } catch (_) {
+      throw const AuthFailure('Network error. Please try again.');
+    }
+
+    if (coverPath != null && coverPath.startsWith('plans/')) {
+      try {
+        await Supabase.instance.client.storage
+            .from('plan-covers')
+            .remove([coverPath]);
+      } catch (_) {
+        // Best-effort cleanup: do not fail the delete if storage removal fails.
+      }
+    }
+  }
 
   @override
   Future<List<PublishedPlan>> getDiscoveryPlans() async {
@@ -115,6 +206,9 @@ class SupabasePlanRepository implements PlanRepository {
             visibility,
             latitude,
             longitude,
+            location_name,
+            location_address,
+            is_featured,
             starts_at,
             capacity,
             status,
@@ -289,6 +383,11 @@ class SupabasePlanRepository implements PlanRepository {
     } catch (_) {
       throw const AuthFailure('Network error. Please try again.');
     }
+  }
+
+  @override
+  Future<Map<String, String>> getProfilePhotoUrls(List<String> userIds) async {
+    return _fetchProfilePhotoUrls(userIds);
   }
 
   @override
@@ -499,10 +598,12 @@ class SupabasePlanRepository implements PlanRepository {
           .from('plans')
           .select('''
             id, creator_id, title, description, category, mood, cover_url,
-            visibility, latitude, longitude, starts_at, capacity, status,
+            visibility, latitude, longitude, location_name, location_address, is_featured,
+            starts_at, capacity, status,
             created_at, updated_at
           ''')
-          .inFilter('id', planIds);
+          .inFilter('id', planIds)
+          .eq('status', 'active');
 
       final plans = <PublishedPlan>[];
       for (final row in plansData) {
@@ -559,10 +660,12 @@ class SupabasePlanRepository implements PlanRepository {
           .from('plans')
           .select('''
             id, creator_id, title, description, category, mood, cover_url,
-            visibility, latitude, longitude, starts_at, capacity, status,
+            visibility, latitude, longitude, location_name, location_address, is_featured,
+            starts_at, capacity, status,
             created_at, updated_at
           ''')
-          .inFilter('id', planIds);
+          .inFilter('id', planIds)
+          .eq('status', 'active');
 
       final plans = <PublishedPlan>[];
       for (final row in plansData) {
@@ -614,13 +717,43 @@ class SupabasePlanRepository implements PlanRepository {
     final planIds = plans.map((p) => p.id).toList();
     final counts = await getJoinedCounts(planIds);
 
+    // Resolve the viewer's coordinates ONCE (not per plan) so Near You can be
+    // ranked by real distance. Null when the viewer's location is unknown —
+    // Discovery still loads and Near You simply has no distance-ranked plans.
+    final user = AuthService.currentUser;
+    final viewerCoords =
+        user == null ? null : await _resolveViewerCoords(user.id);
+
+    // Resolve Friends Joined ONCE for the whole authorized set (no per-plan
+    // connection queries): which of these plans an accepted connection joined.
+    final friendsJoined = await _fetchFriendsJoinedPlanIds(planIds);
+
     return List.generate(plans.length, (i) {
       final plan = plans[i];
       final signedUrl = signedUrls[i];
       final joinedCount = counts[plan.id] ?? 1;
       return _planToExperience(plan, displayNames[plan.hostId], signedUrl, joinedCount,
-          hostPhotoUrl: profilePhotoUrls[plan.hostId]);
+          hostPhotoUrl: profilePhotoUrls[plan.hostId],
+          viewerLat: viewerCoords?.lat,
+          viewerLng: viewerCoords?.lng,
+          friendsJoinedPlanIds: friendsJoined);
     });
+  }
+
+  @override
+  Future<int?> getDiscoveryDistanceKm() async {
+    final user = AuthService.currentUser;
+    if (user == null) return null;
+    try {
+      final row = await Supabase.instance.client
+          .from('profiles')
+          .select('discovery_distance_km')
+          .eq('id', user.id)
+          .maybeSingle();
+      return (row?['discovery_distance_km'] as num?)?.toInt();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<Map<String, String>> _fetchDisplayNames(List<String> userIds) async {
@@ -722,7 +855,10 @@ class SupabasePlanRepository implements PlanRepository {
 
   Experience _planToExperience(
       PublishedPlan plan, String? displayName, String? signedCoverUrl, int joinedCount,
-      {String? hostPhotoUrl}) {
+      {String? hostPhotoUrl,
+      double? viewerLat,
+      double? viewerLng,
+      Set<String> friendsJoinedPlanIds = const <String>{}}) {
     final now = DateTime.now();
     final mood = moodByLabel(plan.mood);
     final accent = mood?.accent ?? const Color(0xFF8B5CF6);
@@ -762,16 +898,45 @@ class SupabasePlanRepository implements PlanRepository {
       sections.add('new');
     }
 
-    final coverAsset = signedCoverUrl ??
-        (_isLocalAsset(plan.coverAsset) ? plan.coverAsset : '');
+    final coverAsset = signedCoverUrl ?? plan.coverAsset;
 
     final capacity = plan.participants ?? 2;
     final safeCount = joinedCount.clamp(0, capacity);
     final spotsLeft = capacity - safeCount;
 
+    // Featured: real curated flag only (never fabricated / randomised).
+    if (plan.isFeatured) sections.add('featured');
+
+    // Friends Joined: at least one accepted connection is a joined member.
+    // The set is computed once by the caller via a SECURITY DEFINER helper so
+    // no per-plan connection query happens here.
+    if (friendsJoinedPlanIds.contains(plan.id)) sections.add('friends');
+
+    // Trending: real traction beyond the creator (>= 2 joined) blended with
+    // recency. Deterministic + transparent: engagement dominates, newer plans
+    // get a small recency bonus, older/inactive plans rank lower.
+    final ageInDays = now.difference(plan.createdAt).inDays;
+    final recencyBonus = (14 - ageInDays).clamp(0, 14);
+    final trendingScore = (safeCount * 5 + recencyBonus).toDouble();
+    if (safeCount >= 2) sections.add('trending');
+
     final resolvedHostPhoto = plan.hostId == currentUserId
         ? (hostPhotoUrl?.trim().isEmpty ?? true ? '' : hostPhotoUrl!.trim())
         : (hostPhotoUrl?.trim().isEmpty ?? true ? '' : hostPhotoUrl!.trim());
+
+    // Real geographic distance from the viewer, when both the viewer's and the
+    // plan's coordinates are known. Never fabricated: unknown → empty label +
+    // null distanceKm (excluded from Near You, shown as unavailable).
+    double? distanceKm;
+    String distanceLabel = '';
+    if (viewerLat != null &&
+        viewerLng != null &&
+        isValidCoordinate(plan.latitude, plan.longitude)) {
+      final meters =
+          haversine(viewerLat, viewerLng, plan.latitude!, plan.longitude!);
+      distanceKm = meters / 1000;
+      distanceLabel = _formatPlanDistance(meters);
+    }
 
     return Experience(
       id: plan.id,
@@ -783,10 +948,10 @@ class SupabasePlanRepository implements PlanRepository {
       category: plan.category ?? effectiveMood,
       mood: effectiveMood,
       moodEmoji: moodEmoji,
-      city: plan.location,
+      city: plan.location.isNotEmpty ? plan.location : 'Nearby',
       date: dateLabel,
       time: timeLabel,
-      distance: plan.location,
+      distance: distanceLabel,
       goingCount: safeCount,
       spotsLeft: spotsLeft,
       accent: accent,
@@ -800,7 +965,87 @@ class SupabasePlanRepository implements PlanRepository {
       sections: sections,
       description: plan.description,
       capacity: plan.participants ?? 2,
+      locationAddress: plan.locationAddress,
+      distanceKm: distanceKm,
+      trendingScore: trendingScore,
+      status: plan.status,
     );
+  }
+
+  /// Formats a raw metre distance into a compact label ("850 m", "1.2 km",
+  /// "12 km"). No decimals at or above 10 km. Never shows raw coordinates.
+  String _formatPlanDistance(double meters) {
+    if (meters < 1000) return '${meters.round()} m';
+    final km = meters / 1000;
+    if (km < 10) return '${km.toStringAsFixed(1)} km';
+    return '${km.round()} km';
+  }
+
+  /// Resolves the viewer's coordinates ONCE for distance ranking, reusing the
+  /// same source as People discovery: a fresh `live_locations` row if present,
+  /// otherwise the persisted `profiles.latitude/longitude`. Returns null when
+  /// no usable location exists (Near You then falls back safely). Never prompts
+  /// for GPS here so discovery never blocks on a permission dialog.
+  Future<({double lat, double lng})?> _resolveViewerCoords(String userId) async {
+    try {
+      final live = await Supabase.instance.client
+          .from('live_locations')
+          .select()
+          .eq('user_id', userId)
+          .maybeSingle();
+      if (live != null) {
+        final lat = (live['latitude'] as num?)?.toDouble();
+        final lng = (live['longitude'] as num?)?.toDouble();
+        final updatedAt = DateTime.tryParse(live['updated_at'] as String? ?? '');
+        if (isValidCoordinate(lat, lng) && isLocationFresh(updatedAt)) {
+          return (lat: lat!, lng: lng!);
+        }
+      }
+    } catch (_) {
+      // fall through to profile coordinates
+    }
+
+    try {
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('latitude, longitude')
+          .eq('id', userId)
+          .maybeSingle();
+      final lat = (profile?['latitude'] as num?)?.toDouble();
+      final lng = (profile?['longitude'] as num?)?.toDouble();
+      if (isValidCoordinate(lat, lng)) {
+        return (lat: lat!, lng: lng!);
+      }
+    } catch (_) {
+      // no usable viewer location
+    }
+    return null;
+  }
+
+  /// Returns the subset of [planIds] where at least one of the viewer's
+  /// ACCEPTED connections is a joined member. Uses a SECURITY DEFINER RPC
+  /// because the viewer is not a member of discovery plans and cannot read
+  /// their plan_members rows under RLS. Input is the already-authorized
+  /// discovery plan ids, so no unauthorized plan is ever revealed. Returns an
+  /// empty set on any failure (Friends Joined then shows its empty state).
+  Future<Set<String>> _fetchFriendsJoinedPlanIds(List<String> planIds) async {
+    if (planIds.isEmpty) return const <String>{};
+    try {
+      final data = await Supabase.instance.client.rpc(
+        'get_friends_joined_plan_ids',
+        params: {'p_plan_ids': planIds},
+      );
+      final result = <String>{};
+      if (data is List) {
+        for (final row in data) {
+          final id = row is Map ? row['plan_id'] as String? : null;
+          if (id != null) result.add(id);
+        }
+      }
+      return result;
+    } catch (_) {
+      return const <String>{};
+    }
   }
 
   @override
@@ -822,10 +1067,13 @@ class SupabasePlanRepository implements PlanRepository {
       'description': plan.description.trim().isEmpty ? null : plan.description.trim(),
       'category': category,
       'mood': plan.mood.isEmpty ? null : plan.mood,
-      'cover_url': _isLocalAsset(plan.coverAsset) ? plan.coverAsset : null,
+      'cover_url': _resolveCoverUrl(plan.coverAsset),
       'visibility': plan.visibility.name,
       'latitude': plan.latitude,
       'longitude': plan.longitude,
+      'location_name': plan.location.trim().isEmpty ? null : plan.location.trim(),
+      'location_address':
+          plan.locationAddress.trim().isEmpty ? null : plan.locationAddress.trim(),
       'starts_at': plan.startsAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'capacity': plan.participants ?? 2,
       'status': plan.status,
@@ -848,28 +1096,15 @@ class SupabasePlanRepository implements PlanRepository {
       throw const AuthFailure('Failed to publish plan. Please try again.');
     }
 
-    if (plan.coverAsset.isNotEmpty && !_isLocalAsset(plan.coverAsset)) {
+    if (plan.coverAsset.isNotEmpty) {
       try {
-        final ext = _fileExtension(plan.coverAsset);
-        if (ext.isEmpty) return;
-
-        final storagePath = 'plans/${user.id}/$planId/cover.$ext';
-        final bytes = await File(plan.coverAsset).readAsBytes();
-
-        await client.storage
-            .from(_bucket)
-            .uploadBinary(
-              storagePath,
-              bytes,
-              fileOptions: FileOptions(
-                contentType: 'image/$ext',
-              ),
-            );
-
-        await client
-            .from('plans')
-            .update({'cover_url': storagePath})
-            .eq('id', planId);
+        final uploaded = await _uploadCoverIfNeeded(user.id, planId, plan.coverAsset);
+        if (uploaded != null && uploaded != _resolveCoverUrl(plan.coverAsset)) {
+          await client
+              .from('plans')
+              .update({'cover_url': uploaded})
+              .eq('id', planId);
+        }
       } on AuthException catch (error) {
         throw AuthFailure(_mapAuthException(error.message));
       } catch (_) {
@@ -896,7 +1131,16 @@ class SupabasePlanRepository implements PlanRepository {
       throw const AuthFailure('You don\'t have permission to edit this plan');
     }
 
-    final client = Supabase.instance.client;
+    String? uploadedCover;
+    if (plan.coverAsset.isNotEmpty) {
+      try {
+        uploadedCover = await _uploadCoverIfNeeded(user.id, plan.id, plan.coverAsset);
+      } on AuthException catch (error) {
+        throw AuthFailure(_mapAuthException(error.message));
+      } catch (_) {
+        throw const AuthFailure('Failed to upload cover. Please try again.');
+      }
+    }
 
     final category = plan.mood.isEmpty
         ? (plan.title.trim().isEmpty ? 'Custom' : plan.title.trim())
@@ -907,10 +1151,13 @@ class SupabasePlanRepository implements PlanRepository {
       'description': plan.description.trim().isEmpty ? null : plan.description.trim(),
       'category': category,
       'mood': plan.mood.isEmpty ? null : plan.mood,
-      'cover_url': _isLocalAsset(plan.coverAsset) ? plan.coverAsset : null,
+      'cover_url': uploadedCover ?? _resolveCoverUrl(plan.coverAsset),
       'visibility': plan.visibility.name,
       'latitude': plan.latitude,
       'longitude': plan.longitude,
+      'location_name': plan.location.trim().isEmpty ? null : plan.location.trim(),
+      'location_address':
+          plan.locationAddress.trim().isEmpty ? null : plan.locationAddress.trim(),
       'starts_at': plan.startsAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
       'capacity': plan.participants ?? 2,
       'status': plan.status,
@@ -918,7 +1165,7 @@ class SupabasePlanRepository implements PlanRepository {
     };
 
     try {
-      await client
+      await Supabase.instance.client
           .from('plans')
           .update(payload)
           .eq('id', plan.id)
@@ -932,9 +1179,11 @@ class SupabasePlanRepository implements PlanRepository {
     }
   }
 
+  @override
   Future<String?> getCoverSignedUrl(String? coverPath) async {
     if (coverPath == null || coverPath.isEmpty) return null;
     if (_isLocalAsset(coverPath)) return coverPath;
+    if (!coverPath.startsWith('plans/')) return coverPath;
 
     try {
       return await Supabase.instance.client.storage
@@ -948,12 +1197,78 @@ class SupabasePlanRepository implements PlanRepository {
   }
 
   Future<List<String?>> getCoverSignedUrls(List<String?> coverPaths) async {
-    final futures = coverPaths.map(getCoverSignedUrl).toList();
-    return Future.wait(futures);
+    final result = <String?>[];
+    for (final path in coverPaths) {
+      try {
+        result.add(await getCoverSignedUrl(path));
+      } catch (_) {
+        result.add(null);
+      }
+    }
+    return result;
   }
 
   bool _isLocalAsset(String asset) {
     return asset.startsWith('assets/');
+  }
+
+  String? _resolveCoverUrl(String? coverAsset) {
+    if (coverAsset == null || coverAsset.isEmpty) return null;
+    if (_isLocalAsset(coverAsset)) return coverAsset;
+    if (coverAsset.startsWith('plans/')) return null;
+    return null;
+  }
+
+  Future<String?> _uploadCoverIfNeeded(
+      String userId, String planId, String? coverAsset) async {
+    if (coverAsset == null || coverAsset.isEmpty) return null;
+    if (_isLocalAsset(coverAsset)) return coverAsset;
+
+    if (coverAsset.startsWith('plans/')) {
+      final segments = coverAsset.split('/');
+      if (segments.length >= 4 && segments[1] == userId) {
+        final pathId = segments[2];
+        if (pathId != planId) {
+          final ext = _fileExtension(coverAsset);
+          if (ext.isEmpty) return null;
+          final finalPath = 'plans/$userId/$planId/cover.$ext';
+          try {
+            final bytes = await Supabase.instance.client.storage
+                .from(_bucket)
+                .download(coverAsset);
+            await Supabase.instance.client.storage
+                .from(_bucket)
+                .uploadBinary(
+                  finalPath,
+                  bytes,
+                  fileOptions: const FileOptions(contentType: 'image/jpeg'),
+                );
+          } on AuthException {
+            rethrow;
+          } catch (_) {
+            return null;
+          }
+          return finalPath;
+        }
+      }
+      return coverAsset;
+    }
+
+    final ext = _fileExtension(coverAsset);
+    if (ext.isEmpty) return null;
+
+    final storagePath = 'plans/$userId/$planId/cover.$ext';
+    final bytes = await File(coverAsset).readAsBytes();
+
+    await Supabase.instance.client.storage
+        .from(_bucket)
+        .uploadBinary(
+          storagePath,
+          bytes,
+          fileOptions: FileOptions(contentType: 'image/$ext'),
+        );
+
+    return storagePath;
   }
 
   @override
@@ -966,7 +1281,8 @@ class SupabasePlanRepository implements PlanRepository {
           .from('plans')
           .select('''
             id, creator_id, title, description, category, mood, cover_url,
-            visibility, latitude, longitude, starts_at, capacity, status,
+            visibility, latitude, longitude, location_name, location_address, is_featured,
+            starts_at, capacity, status,
             created_at, updated_at
           ''')
           .eq('id', id)
@@ -994,7 +1310,8 @@ class SupabasePlanRepository implements PlanRepository {
           .from('plans')
           .select('''
             id, creator_id, title, description, category, mood, cover_url,
-            visibility, latitude, longitude, starts_at, capacity, status,
+            visibility, latitude, longitude, location_name, location_address, is_featured,
+            starts_at, capacity, status,
             created_at, updated_at
           ''')
           .eq('id', planId)
@@ -1011,13 +1328,233 @@ class SupabasePlanRepository implements PlanRepository {
       final signedUrls = await getCoverSignedUrls(coverPaths);
 
       final joinedCount = counts[plan.id] ?? 1;
+      final viewerCoords = await _resolveViewerCoords(user.id);
       return _planToExperience(
         plan,
         displayNames[plan.hostId],
         signedUrls[0],
         joinedCount,
         hostPhotoUrl: profilePhotoUrls[plan.hostId],
+        viewerLat: viewerCoords?.lat,
+        viewerLng: viewerCoords?.lng,
       );
+    } on PostgrestException catch (error) {
+      throw AuthFailure(_mapPostgrestException(error));
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } catch (_) {
+      throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
+  @override
+  Future<void> inviteToPlan(String planId, String inviteeId) async {
+    final user = AuthService.currentUser;
+    if (user == null) {
+      throw const AuthFailure('Please sign in to send invitations');
+    }
+
+    try {
+      await Supabase.instance.client.rpc(
+        'invite_to_plan',
+        params: {'p_plan_id': planId, 'p_invitee_id': inviteeId},
+      );
+    } on PostgrestException catch (error) {
+      final code = error.code?.toUpperCase() ?? '';
+      final message = error.message.toLowerCase();
+      if (code == 'PGRST202' ||
+          message.contains('could not find the function') ||
+          message.contains('schema cache')) {
+        throw const AuthFailure(
+          'Server action "invite_to_plan" is unavailable. '
+          'Apply the latest database migrations, then retry.',
+        );
+      }
+      if (message.contains('only the plan creator') ||
+          message.contains('not authorized') ||
+          code == '42501') {
+        throw const AuthFailure('Only the plan creator can send invitations.');
+      }
+      if (message.contains('already a member')) {
+        throw const AuthFailure('This user is already a member of the plan.');
+      }
+      if (message.contains('only invite accepted connections')) {
+        throw const AuthFailure('You can only invite accepted connections.');
+      }
+      throw AuthFailure(_mapPostgrestException(error));
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } catch (error) {
+      throw AuthFailure('Invite failed: $error');
+    }
+  }
+
+  @override
+  Future<void> acceptInvitation(String inviteId) async {
+    final user = AuthService.currentUser;
+    if (user == null) {
+      throw const AuthFailure('Please sign in to accept invitations');
+    }
+
+    try {
+      await Supabase.instance.client.rpc(
+        'accept_plan_invitation',
+        params: {'p_invite_id': inviteId},
+      );
+    } on PostgrestException catch (error) {
+      final code = error.code?.toUpperCase() ?? '';
+      final message = error.message.toLowerCase();
+      if (code == 'PGRST202' ||
+          message.contains('could not find the function') ||
+          message.contains('schema cache')) {
+        throw const AuthFailure(
+          'Server action "accept_plan_invitation" is unavailable. '
+          'Apply the latest database migrations, then retry.',
+        );
+      }
+      throw AuthFailure(_mapPostgrestException(error));
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } catch (error) {
+      throw AuthFailure('Accept failed: $error');
+    }
+  }
+
+  @override
+  Future<void> declineInvitation(String inviteId) async {
+    final user = AuthService.currentUser;
+    if (user == null) {
+      throw const AuthFailure('Please sign in to decline invitations');
+    }
+
+    try {
+      await Supabase.instance.client.rpc(
+        'decline_plan_invitation',
+        params: {'p_invite_id': inviteId},
+      );
+    } on PostgrestException catch (error) {
+      final code = error.code?.toUpperCase() ?? '';
+      final message = error.message.toLowerCase();
+      if (code == 'PGRST202' ||
+          message.contains('could not find the function') ||
+          message.contains('schema cache')) {
+        throw const AuthFailure(
+          'Server action "decline_plan_invitation" is unavailable. '
+          'Apply the latest database migrations, then retry.',
+        );
+      }
+      throw AuthFailure(_mapPostgrestException(error));
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } catch (error) {
+      throw AuthFailure('Decline failed: $error');
+    }
+  }
+
+  @override
+  Future<List<PlanInvitation>> getPendingInvitations() async {
+    final user = AuthService.currentUser;
+    if (user == null) return const [];
+
+    try {
+      final data = await Supabase.instance.client
+          .from('plan_invites')
+          .select('''
+            id, plan_id, inviter_id, invitee_id, status, created_at, updated_at
+          ''')
+          .eq('invitee_id', user.id)
+          .eq('status', 'pending')
+          .order('created_at', ascending: false);
+
+      if (data.isEmpty) return const [];
+
+      final planIds = data
+          .map((row) => row['plan_id'] as String)
+          .toSet()
+          .toList();
+
+      final inviterIds = data
+          .map((row) => row['inviter_id'] as String)
+          .toSet()
+          .toList();
+
+      final plans = await Supabase.instance.client
+          .from('plans')
+          .select('id, title')
+          .inFilter('id', planIds);
+
+      final displayNames = await _fetchDisplayNames(inviterIds);
+
+      final planTitles = <String, String>{};
+      for (final row in plans) {
+        final id = row['id'] as String?;
+        final title = row['title'] as String?;
+        if (id != null && title != null) {
+          planTitles[id] = title;
+        }
+      }
+
+      return data.map((row) {
+        final planId = row['plan_id'] as String;
+        final inviterId = row['inviter_id'] as String;
+        return PlanInvitation(
+          id: row['id'] as String,
+          planId: planId,
+          inviterId: inviterId,
+          inviteeId: row['invitee_id'] as String,
+          status: row['status'] as String,
+          createdAt: DateTime.parse(row['created_at'] as String),
+          updatedAt: DateTime.parse(row['updated_at'] as String),
+          planTitle: planTitles[planId],
+          inviterName: displayNames[inviterId],
+        );
+      }).toList();
+    } on PostgrestException catch (error) {
+      throw AuthFailure(_mapPostgrestException(error));
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } catch (_) {
+      throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
+  @override
+  Future<List<PlanInvitation>> getSentInvitations(String planId) async {
+    final user = AuthService.currentUser;
+    if (user == null) return const [];
+
+    try {
+      final data = await Supabase.instance.client
+          .from('plan_invites')
+          .select('''
+            id, plan_id, inviter_id, invitee_id, status, created_at, updated_at
+          ''')
+          .eq('plan_id', planId)
+          .eq('inviter_id', user.id)
+          .order('created_at', ascending: false);
+
+      if (data.isEmpty) return const [];
+
+      final inviteeIds = data
+          .map((row) => row['invitee_id'] as String)
+          .toSet()
+          .toList();
+
+      final displayNames = await _fetchDisplayNames(inviteeIds);
+
+      return data.map((row) {
+        final inviteeId = row['invitee_id'] as String;
+        return PlanInvitation(
+          id: row['id'] as String,
+          planId: row['plan_id'] as String,
+          inviterId: row['inviter_id'] as String,
+          inviteeId: inviteeId,
+          status: row['status'] as String,
+          createdAt: DateTime.parse(row['created_at'] as String),
+          updatedAt: DateTime.parse(row['updated_at'] as String),
+          inviteeName: displayNames[inviteeId],
+        );
+      }).toList();
     } on PostgrestException catch (error) {
       throw AuthFailure(_mapPostgrestException(error));
     } on AuthException catch (error) {

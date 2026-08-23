@@ -15,12 +15,17 @@ import 'plans_cards.dart';
 ///  • built-in AnimatedScale press feedback from ExperienceCard
 ///  • onTap is null → no navigation occurs
 class LivePlanPreview extends StatelessWidget {
-  const LivePlanPreview({required this.draft, super.key});
+  const LivePlanPreview({
+    required this.draft,
+    this.coverPreviewUrl,
+    super.key,
+  });
   final PlanDraft draft;
+  final String? coverPreviewUrl;
 
   @override
   Widget build(BuildContext context) {
-    final experience = draftToPlan(draft);
+    final experience = draftToPlan(draft, coverPreviewUrl: coverPreviewUrl);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
       child: Column(
@@ -134,14 +139,22 @@ class _LiveBadgeState extends State<_LiveBadge>
 
 /// Wraps the preview in an [EntranceFade] for the first reveal.
 class PlanPreviewSection extends StatelessWidget {
-  const PlanPreviewSection({required this.draft, super.key});
+  const PlanPreviewSection({
+    required this.draft,
+    this.coverPreviewUrl,
+    super.key,
+  });
   final PlanDraft draft;
+  final String? coverPreviewUrl;
 
   @override
   Widget build(BuildContext context) {
     return EntranceFade(
       delay: const Duration(milliseconds: 80),
-      child: LivePlanPreview(draft: draft),
+      child: LivePlanPreview(
+        draft: draft,
+        coverPreviewUrl: coverPreviewUrl,
+      ),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'plans_data.dart';
@@ -29,7 +31,9 @@ class PlanCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget image;
-    if (asset.startsWith('http://') || asset.startsWith('https://')) {
+    if (asset.isEmpty) {
+      image = _buildRemoteFallback();
+    } else if (asset.startsWith('http://') || asset.startsWith('https://')) {
       image = Image.network(
         asset,
         height: height,
@@ -58,9 +62,19 @@ class PlanCover extends StatelessWidget {
         },
         errorBuilder: _buildFallback,
       );
-    } else {
+    } else if (asset.startsWith('assets/')) {
       image = Image.asset(
         asset,
+        height: height,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: _buildFallback,
+      );
+    } else if (asset.startsWith('plans/')) {
+      image = _buildRemoteFallback();
+    } else {
+      image = Image.file(
+        File(asset),
         height: height,
         width: double.infinity,
         fit: BoxFit.cover,
@@ -112,6 +126,10 @@ class PlanCover extends StatelessWidget {
   }
 
   Widget _buildFallback(BuildContext context, Object error, StackTrace? stackTrace) {
+    return _buildRemoteFallback();
+  }
+
+  Widget _buildRemoteFallback() {
     return Container(
       height: height,
       decoration: BoxDecoration(

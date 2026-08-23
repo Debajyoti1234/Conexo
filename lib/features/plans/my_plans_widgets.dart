@@ -8,7 +8,7 @@ import 'my_plans_data.dart';
 /// Everything reuses the established Conexo dark-glass language (glass fills,
 /// soft borders, layered shadows, EntranceFade). Motion stays limited to
 /// AnimatedSwitcher / AnimatedScale / Fade with easeOutCubic / easeInOutCubic
-/// — no bounce, elastic, or overshoot. Local assets only, no network images.
+/// — no bounce, elastic, or overshoot. Local assets and resolved remote URLs.
 
 const _kAccent = Color(0xFF8B5CF6);
 const _kSecondary = Color(0xFF587BE2);
@@ -280,40 +280,44 @@ class StatusBadge extends StatelessWidget {
 /// screen so behaviour stays local and testable.
 class PlanActionBar extends StatelessWidget {
   const PlanActionBar({
-    required this.onEdit,
-    required this.onShare,
+    this.onEdit,
+    this.onShare,
     required this.trailingLabel,
     required this.trailingIcon,
     required this.onTrailing,
     super.key,
   });
 
-  final VoidCallback onEdit;
-  final VoidCallback onShare;
+  final VoidCallback? onEdit;
+  final VoidCallback? onShare;
   final String trailingLabel;
   final IconData trailingIcon;
   final VoidCallback onTrailing;
 
-  @override
+   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          child: _ActionButton(
-            label: 'Edit',
-            icon: Icons.edit_rounded,
-            onTap: onEdit,
+        if (onEdit != null)
+          Expanded(
+            child: _ActionButton(
+              label: 'Edit',
+              icon: Icons.edit_rounded,
+              onTap: onEdit!,
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _ActionButton(
-            label: 'Share',
-            icon: Icons.ios_share_rounded,
-            onTap: onShare,
+        if (onEdit != null && onShare != null)
+          const SizedBox(width: 10),
+        if (onShare != null)
+          Expanded(
+            child: _ActionButton(
+              label: 'Share',
+              icon: Icons.ios_share_rounded,
+              onTap: onShare!,
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
+        if (onShare != null)
+          const SizedBox(width: 10),
         Expanded(
           child: _ActionButton(
             label: trailingLabel,
@@ -401,6 +405,7 @@ class DraftCard extends StatelessWidget {
   const DraftCard({
     required this.title,
     required this.coverAsset,
+    this.coverPreviewUrl,
     required this.subtitle,
     required this.onResume,
     required this.onDelete,
@@ -409,6 +414,7 @@ class DraftCard extends StatelessWidget {
 
   final String title;
   final String? coverAsset;
+  final String? coverPreviewUrl;
   final String subtitle;
   final VoidCallback onResume;
   final VoidCallback onDelete;
@@ -436,14 +442,7 @@ class DraftCard extends StatelessWidget {
             child: SizedBox(
               width: 64,
               height: 64,
-              child: coverAsset != null && coverAsset!.isNotEmpty
-                  ? Image.asset(
-                      coverAsset!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _coverFallback(),
-
-                    )
-                  : _coverFallback(),
+              child: _buildCoverImage(),
             ),
           ),
           const SizedBox(width: 14),
@@ -491,6 +490,58 @@ class DraftCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildCoverImage() {
+    final asset = coverAsset;
+    if (asset == null || asset.isEmpty) return _coverFallback();
+
+    final previewUrl = coverPreviewUrl;
+    if (previewUrl != null && previewUrl.isNotEmpty) {
+      return Image.network(
+        previewUrl,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Container(
+            color: _kGlassPanel,
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white.withValues(alpha: .7),
+                  value: progress.expectedTotalBytes != null
+                      ? progress.cumulativeBytesLoaded /
+                          progress.expectedTotalBytes!
+                      : null,
+                ),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (_, _, _) => _coverFallback(),
+      );
+    }
+
+    if (asset.startsWith('http://') || asset.startsWith('https://')) {
+      return Image.network(
+        asset,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _coverFallback(),
+      );
+    }
+
+    if (asset.startsWith('assets/')) {
+      return Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _coverFallback(),
+      );
+    }
+
+    return _coverFallback();
   }
 
   Widget _coverFallback() => const DecoratedBox(
