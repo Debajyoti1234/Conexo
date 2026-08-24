@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Conexo brand purple. Used to tint the monochrome notification small
+         icon and the notification accent (app name / icon) on Android. -->
+    <color name="conexo_notification">#FF7C3AED</color>
+</resources>

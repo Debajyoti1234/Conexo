@@ -1,0 +1,46 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!--
+      Conexo notification mark (monochrome).
+
+      Android renders the status-bar small icon as an alpha mask and tints it
+      with the notification color, so this asset is pure white on a transparent
+      background: no full-color logo, no rectangular background, no gradients.
+
+      It is a simplified silhouette of the existing Conexo brand mark:
+        - an open crescent "C" (opening on the right)
+        - two heads (dots) sitting inside the C
+        - a smile / embrace curve beneath them
+      i.e. "two people connecting", legible at status-bar size.
+    -->
+
+    <!-- Crescent "C", open on the right -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:pathData="M18.78,6.70 A8.6,8.6 0 1 0 18.78,17.30" />
+
+    <!-- Left head -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M9.7,9.3 m-1.65,0 a1.65,1.65 0 1,0 3.3,0 a1.65,1.65 0 1,0 -3.3,0 Z" />
+
+    <!-- Right head -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M14.3,9.3 m-1.65,0 a1.65,1.65 0 1,0 3.3,0 a1.65,1.65 0 1,0 -3.3,0 Z" />
+
+    <!-- Smile / embrace beneath the two heads -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:pathData="M8.7,12.5 Q12,15.7 15.3,12.5" />
+</vector>

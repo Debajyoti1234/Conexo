@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "733658775964",
+    "project_id": "conexoapp-8eeb2",
+    "storage_bucket": "conexoapp-8eeb2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:733658775964:android:57bd8591b61a6abff5c859",
+        "android_client_info": {
+          "package_name": "com.conexo.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "733658775964-6jhgr3esv1qr2t6p5fqbmpolte2kobeg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAgluaBvXFDTadmNYPQHerp2Z_7WEX47Rg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "733658775964-6jhgr3esv1qr2t6p5fqbmpolte2kobeg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
