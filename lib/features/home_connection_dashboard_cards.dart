@@ -101,8 +101,8 @@ class PortraitAvatar extends StatelessWidget {
 
 /// The action pill used inside dashboard cards (e.g. Accept / Decline /
 /// Cancel / View Profile). Smooth press feedback via [AnimatedScale].
-class _ActionPill extends StatefulWidget {
-  const _ActionPill({
+class ActionPill extends StatefulWidget {
+  const ActionPill({
     required this.label,
     required this.icon,
     required this.onTap,
@@ -117,10 +117,10 @@ class _ActionPill extends StatefulWidget {
   final bool danger;
 
   @override
-  State<_ActionPill> createState() => _ActionPillState();
+  State<ActionPill> createState() => ActionPillState();
 }
 
-class _ActionPillState extends State<_ActionPill> {
+class ActionPillState extends State<ActionPill> {
   bool _pressed = false;
 
   @override
@@ -363,7 +363,7 @@ class NetworkConnectionCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _ActionPill(
+                child: ActionPill(
                   label: 'View Profile',
                   icon: Icons.person_outline_rounded,
                   onTap: onViewProfile,
@@ -371,7 +371,7 @@ class NetworkConnectionCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _ActionPill(
+                child: ActionPill(
                   label: 'Open Room',
                   icon: Icons.chat_bubble_outline_rounded,
                   primary: true,
@@ -487,7 +487,7 @@ class IncomingRequestCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _ActionPill(
+                child: ActionPill(
                   label: 'Accept Connection',
                   icon: Icons.check_rounded,
                   primary: true,
@@ -496,7 +496,7 @@ class IncomingRequestCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _ActionPill(
+                child: ActionPill(
                   label: 'Decline',
                   icon: Icons.close_rounded,
                   danger: true,
@@ -578,7 +578,7 @@ class PendingRequestCard extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             Flexible(
-              child: _ActionPill(
+              child: ActionPill(
                 label: 'Cancel',
                 icon: Icons.close_rounded,
                 danger: true,
@@ -715,7 +715,7 @@ class JoinRequestRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Flexible(
-            child: _ActionPill(
+            child: ActionPill(
               label: 'Approve',
               icon: Icons.check_rounded,
               primary: true,
@@ -724,7 +724,7 @@ class JoinRequestRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Flexible(
-            child: _ActionPill(
+            child: ActionPill(
               label: 'Decline',
               icon: Icons.close_rounded,
               danger: true,

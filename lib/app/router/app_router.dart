@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../features/connections/hosted_plans_page.dart';
+import '../../features/connections/network_page.dart';
+import '../../features/connections/pending_page.dart';
+import '../../features/connections/requests_page.dart';
+
 class AppRouter {
   const AppRouter._();
 
@@ -44,4 +49,10 @@ class AppRouter {
       );
     },
   );
+
+  static Route<T> networkPageRoute<T>() => slideRoute<T>(const NetworkPage());
+  static Route<T> requestsPageRoute<T>() => slideRoute<T>(const RequestsPage());
+  static Route<T> pendingPageRoute<T>() => slideRoute<T>(const PendingPage());
+  static Route<T> hostedPlansPageRoute<T>() =>
+      slideRoute<T>(const HostedPlansPage());
 }

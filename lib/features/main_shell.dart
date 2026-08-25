@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'home_screen.dart';
-import 'notifications/activity_center_screen.dart';
 import 'notifications/notification_controller.dart';
 import 'notifications/notification_widgets.dart';
 import 'secondary_screens.dart';
@@ -23,6 +22,9 @@ class MainShell extends StatefulWidget {
   static void switchToTab(int index) {
     mainShellKey.currentState?.switchToTab(index);
   }
+
+  static NotificationController? get notifications =>
+      mainShellKey.currentState?._notifications;
 
   @override
   State<MainShell> createState() => MainShellState();
@@ -79,54 +81,12 @@ class MainShellState extends State<MainShell> {
     setState(() => _selectedIndex = index);
   }
 
-  /// Opens the Activity Center, then clears unread — only after the push has
-  /// succeeded (never before navigation).
-  Future<void> _openActivityCenter() async {
-    await Navigator.of(context).push(
-      premiumActivityCenterRoute(controller: _notifications),
-    );
-    _notifications.markAllRead();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       // The dock floats over the content instead of pushing it up.
       extendBody: true,
-      body: Stack(
-        children: [
-          IndexedStack(index: _selectedIndex, children: _screens),
-          // Shell-owned bell: shown ONLY on the Connections tab (index 2) so it
-          // never overlaps other screens (e.g. the Profile overflow menu).
-          if (_selectedIndex == 2)
-            SafeArea(
-              child: Stack(
-                children: [
-                  Positioned(
-                    top: 10,
-                    right: 14,
-                    child: ValueListenableBuilder<bool>(
-                      valueListenable: _notifications.hasUnread,
-                      builder: (context, hasUnread, _) {
-                        return ValueListenableBuilder<int>(
-                          valueListenable: _notifications.pulseTrigger,
-                          builder: (context, pulse, _) {
-                            return NotificationBell(
-                              hasUnread: hasUnread,
-                              pulseTrigger: pulse,
-                              onTap: _openActivityCenter,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-        ],
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: FloatingNavDock(
         selectedIndex: _selectedIndex,
         onSelected: switchToTab,

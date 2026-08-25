@@ -72,9 +72,9 @@ class ConnectionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _ScreenFrame(
+    return _ScreenFrame(
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
         child: ConnectionsDashboard(),
       ),
     );
