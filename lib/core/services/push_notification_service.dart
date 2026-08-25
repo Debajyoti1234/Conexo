@@ -14,6 +14,7 @@ import 'app_navigator.dart';
 import 'fcm_token_service.dart';
 import 'firebase_initializer.dart';
 import 'permission_manager.dart';
+import 'web_fcm_diagnostics.dart';
 import 'web_notification_presenter.dart';
 
 abstract final class PushNotificationService {
@@ -67,6 +68,14 @@ abstract final class PushNotificationService {
   /// FCM `notification` payload) — exactly one per state, no duplicates.
   static Future<void> _initializeWeb() async {
     try {
+      debugPrint('CONEXO_IOS_WEB_FCM_DIAG firebase_initialized=YES');
+      try {
+        final supported = await FirebaseMessaging.instance.isSupported();
+        debugPrint('CONEXO_IOS_WEB_FCM_DIAG is_supported=$supported');
+      } catch (e) {
+        debugPrint('CONEXO_IOS_WEB_FCM_DIAG is_supported_error=$e');
+      }
+
       final settings = await FirebaseMessaging.instance.requestPermission(
         alert: true,
         badge: true,
@@ -76,8 +85,13 @@ abstract final class PushNotificationService {
           '${settings.authorizationStatus}');
 
       // Claim/register the web token for the CURRENT Supabase user (same
-      // register_user_device() claim path as Android).
+      // register_user_device() claim path as Android). platform='web' on iOS too.
       await FcmTokenService.start();
+
+      // Environment diagnostics AFTER token registration so the push
+      // subscription (created by getToken) is reflected. Pinpoints iOS/PWA
+      // setup gaps (standalone, SW active, push subscription).
+      await logWebFcmDiagnostics();
 
       // Foreground: the browser does not auto-display while the tab is focused,
       // so surface exactly one notification here.
@@ -96,6 +110,8 @@ abstract final class PushNotificationService {
     final data = message.data;
     final type = data['type'];
     debugPrint('CONEXO_WEB_FCM_DIAG foreground_message_received type=$type');
+    debugPrint('CONEXO_IOS_WEB_FCM_DIAG foreground message_received type=$type '
+        'conversation_id_present=${data['conversation_id'] is String}');
     if (type != 'connection_message' && type != 'plan_message') return;
 
     final conversationId = data['conversation_id'];

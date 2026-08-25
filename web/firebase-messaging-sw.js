@@ -27,14 +27,22 @@ firebase.initializeApp({
   storageBucket: 'conexoapp-8eeb2.firebasestorage.app',
 });
 
+console.log('IOS_WEB_FCM_SW service_worker_loaded');
+
 const messaging = firebase.messaging();
+console.log('IOS_WEB_FCM_SW messaging_initialized firebase_initialized=true');
 
 // Background messages. The Edge Function sends a `notification` + `data`
 // payload; the browser normally auto-renders the `notification` block, so we
 // only add an explicit render here as a safeguard, reusing the SAME payload.
 messaging.onBackgroundMessage(function (payload) {
+  console.log('IOS_WEB_FCM_SW background_message_received');
   const n = payload.notification || {};
   const d = payload.data || {};
+  console.log(
+    'IOS_WEB_FCM_SW notification_payload_present=' + (!!payload.notification) +
+    ' data_payload_present=' + (!!payload.data)
+  );
   const title = n.title || d.title || 'Conexo';
   const options = {
     body: n.body || d.body || 'You have a new message',
@@ -50,7 +58,12 @@ messaging.onBackgroundMessage(function (payload) {
       plan_id: d.plan_id || '',
     },
   };
-  self.registration.showNotification(title, options);
+  console.log('IOS_WEB_FCM_SW show_notification_started');
+  return self.registration.showNotification(title, options).then(function () {
+    console.log('IOS_WEB_FCM_SW show_notification_success');
+  }).catch(function (e) {
+    console.log('IOS_WEB_FCM_SW show_notification_failed ' + e);
+  });
 });
 
 // Notification click: focus an existing Conexo tab (it will route internally
