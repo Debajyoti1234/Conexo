@@ -95,6 +95,7 @@ abstract final class PushNotificationService {
   static Future<void> _onForegroundMessageWeb(RemoteMessage message) async {
     final data = message.data;
     final type = data['type'];
+    debugPrint('CONEXO_WEB_FCM_DIAG foreground_message_received type=$type');
     if (type != 'connection_message' && type != 'plan_message') return;
 
     final conversationId = data['conversation_id'];
