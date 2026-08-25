@@ -14,6 +14,7 @@ import 'app_navigator.dart';
 import 'fcm_token_service.dart';
 import 'firebase_initializer.dart';
 import 'permission_manager.dart';
+import 'web_notification_presenter.dart';
 
 abstract final class PushNotificationService {
   static final FlutterLocalNotificationsPlugin _localNotifications =
@@ -42,7 +43,10 @@ abstract final class PushNotificationService {
       return false;
     }
 
-    if (kIsWeb) return true;
+    if (kIsWeb) {
+      await _initializeWeb();
+      return true;
+    }
 
     try {
       await _initLocalNotifications();
@@ -55,6 +59,64 @@ abstract final class PushNotificationService {
     }
 
     return true;
+  }
+
+  /// Web-only FCM setup. flutter_local_notifications is unsupported on web:
+  /// foreground notifications are shown via the browser Notification API and
+  /// background/closed notifications by web/firebase-messaging-sw.js (from the
+  /// FCM `notification` payload) — exactly one per state, no duplicates.
+  static Future<void> _initializeWeb() async {
+    try {
+      final settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      debugPrint('CONEXO_FCM_WEB_DIAG web_permission='
+          '${settings.authorizationStatus}');
+
+      // Claim/register the web token for the CURRENT Supabase user (same
+      // register_user_device() claim path as Android).
+      await FcmTokenService.start();
+
+      // Foreground: the browser does not auto-display while the tab is focused,
+      // so surface exactly one notification here.
+      FirebaseMessaging.onMessage.listen(_onForegroundMessageWeb);
+
+      // Tap routing when a background/closed notification opens the app.
+      FirebaseMessaging.onMessageOpenedApp.listen((m) => _handleTap(m.data));
+      final initial = await FirebaseMessaging.instance.getInitialMessage();
+      if (initial != null) _handleTap(initial.data);
+    } catch (e) {
+      debugPrint('CONEXO_FCM_WEB_DIAG web_init_error=$e');
+    }
+  }
+
+  static Future<void> _onForegroundMessageWeb(RemoteMessage message) async {
+    final data = message.data;
+    final type = data['type'];
+    if (type != 'connection_message' && type != 'plan_message') return;
+
+    final conversationId = data['conversation_id'];
+    if (conversationId is String && conversationId == _activeConversationId) {
+      return;
+    }
+
+    final notification = message.notification;
+    final rawTitle = notification?.title ?? data['title'];
+    final title = (rawTitle is String && rawTitle.trim().isNotEmpty)
+        ? rawTitle.trim()
+        : 'Conexo';
+    final rawBody = notification?.body ?? data['body'];
+    final body = (rawBody is String && rawBody.trim().isNotEmpty)
+        ? rawBody.trim()
+        : 'You have a new message';
+
+    await showWebNotification(
+      title: title,
+      body: body,
+      tag: conversationId is String ? conversationId : null,
+    );
   }
 
   static Future<void> _initLocalNotifications() async {

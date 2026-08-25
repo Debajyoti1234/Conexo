@@ -4,5 +4,8 @@
   "FACE_VERIFICATION_API_URL": "https://conexo-production-de49.up.railway.app",
   "GOOGLE_SERVER_CLIENT_ID": "733658775964-6jhgr3esv1qr2t6p5fqbmpolte2kobeg.apps.googleusercontent.com",
   "GOOGLE_WEB_CLIENT_ID": "733658775964-6jhgr3esv1qr2t6p5fqbmpolte2kobeg.apps.googleusercontent.com",
-  "WEB_OAUTH_REDIRECT_URL": "https://conexo-seven.vercel.app/"
+  "WEB_OAUTH_REDIRECT_URL": "https://conexo-seven.vercel.app/",
+  "WEB_FIREBASE_API_KEY": "AIzaSyBTSq-7yw3A0-qF8R6wunjc0gckxedcl3E",
+  "WEB_FIREBASE_APP_ID": "1:733658775964:web:d3dc6df3f9f6a132f5c859",
+  "WEB_FCM_VAPID_KEY": "BDT-kA5VDPbx_KzYcZ3VrkClCaQ8Hjinu-KpzD1ww8pEXPXxbCws9PF4BxyRk4Kb4C3mqfsgcIQ5XsFc3IBs2W0"
 }

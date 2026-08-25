@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'fcm_token_repository.dart';
 import 'firebase_initializer.dart';
+import 'web_push_config.dart';
 import '../../core/supabase/auth_service.dart';
 
 abstract final class FcmTokenService {
@@ -17,11 +18,9 @@ abstract final class FcmTokenService {
   static bool _subscribed = false;
 
   static Future<void> start() async {
-    if (kIsWeb) return;
-
-    // FCM requires the Firebase DEFAULT app. Ensure it exists BEFORE touching
-    // FirebaseMessaging, otherwise getToken() throws [core/no-app]. If Firebase
-    // is unavailable we return so a later call can retry once it is ready.
+    // Web is supported: FirebaseInitializer is web-aware (initializes with web
+    // FirebaseOptions when configured, and returns false on web when the web
+    // config/VAPID is absent, so we simply skip). Android/iOS are unchanged.
     final firebaseReady = await FirebaseInitializer.ensureInitialized();
     if (!firebaseReady) {
       debugPrint('CONEXO_FCM_DIAG token_request_skipped=firebase_unavailable');
@@ -44,7 +43,11 @@ abstract final class FcmTokenService {
     // the token to whoever just logged in.
     try {
       debugPrint('CONEXO_FCM_DIAG token_request_started');
-      final token = await FirebaseMessaging.instance.getToken();
+      // Web requires the public VAPID key; mobile does not.
+      final token = kIsWeb
+          ? await FirebaseMessaging.instance
+              .getToken(vapidKey: WebPushConfig.vapidKey)
+          : await FirebaseMessaging.instance.getToken();
       debugPrint(
           'CONEXO_FCM_DIAG token_obtained=${token != null ? 'YES' : 'NO'}');
       if (token != null) {
@@ -74,8 +77,8 @@ abstract final class FcmTokenService {
     }
 
     try {
-      final String platform = Platform.isAndroid
-          ? 'android'
+      final String platform = kIsWeb
+          ? 'web'
           : Platform.isIOS
               ? 'ios'
               : 'android';

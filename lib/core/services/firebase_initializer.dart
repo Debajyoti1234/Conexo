@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
+import 'web_push_config.dart';
+
 /// Idempotent initializer for the Firebase DEFAULT app.
 ///
 /// Firebase is used by Conexo for Cloud Messaging (FCM) ONLY — Supabase remains
@@ -28,7 +30,21 @@ abstract final class FirebaseInitializer {
   static Future<bool> _initialize() async {
     try {
       debugPrint('CONEXO_FCM_DIAG firebase_initialize_started');
-      await Firebase.initializeApp();
+      if (kIsWeb) {
+        // Web has no google-services config; it needs explicit FirebaseOptions.
+        // These are PUBLIC web config values supplied via dart-define. If they
+        // are absent, web FCM stays disabled and the app keeps working.
+        if (!WebPushConfig.isConfigured) {
+          debugPrint('CONEXO_FCM_WEB_DIAG firebase_web_config_missing');
+          _pending = null;
+          return false;
+        }
+        await Firebase.initializeApp(options: WebPushConfig.options);
+      } else {
+        // Android/iOS initialize from the native google-services configuration
+        // (unchanged — this is the proven, working path).
+        await Firebase.initializeApp();
+      }
       _initialized = true;
       debugPrint('CONEXO_FCM_DIAG firebase_initialized=YES');
       return true;
