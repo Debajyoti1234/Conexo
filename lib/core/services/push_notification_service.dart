@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:ui' show Color;
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -13,6 +12,8 @@ import '../../features/chat/conversation_screen.dart';
 import '../../core/supabase/auth_service.dart';
 import 'app_navigator.dart';
 import 'fcm_token_service.dart';
+import 'firebase_initializer.dart';
+import 'permission_manager.dart';
 
 abstract final class PushNotificationService {
   static final FlutterLocalNotificationsPlugin _localNotifications =
@@ -30,11 +31,14 @@ abstract final class PushNotificationService {
     if (_initialized) return _firebaseAvailable;
     _initialized = true;
 
-    try {
-      await Firebase.initializeApp();
-      _firebaseAvailable = true;
-    } catch (e) {
-      debugPrint('PushNotificationService: Firebase unavailable: $e');
+    debugPrint('CONEXO_PERMISSION_DIAG push_initialize_started');
+    debugPrint('CONEXO_PERMISSION_DIAG authenticated='
+        '${AuthService.currentUser != null}');
+
+    _firebaseAvailable = await FirebaseInitializer.ensureInitialized();
+    if (!_firebaseAvailable) {
+      // Firebase (FCM only) is unavailable. Conexo continues without push.
+      debugPrint('PushNotificationService: Firebase unavailable, FCM disabled');
       return false;
     }
 
@@ -81,18 +85,41 @@ abstract final class PushNotificationService {
   }
 
   static Future<void> _requestPermission() async {
-    final messaging = FirebaseMessaging.instance;
-    final settings = await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
-    debugPrint('PushNotificationService permission: '
-        '${settings.authorizationStatus}');
-    debugPrint('PushNotificationService permission details: '
-        'alert=${settings.alert}, badge=${settings.badge}, '
-        'sound=${settings.sound}');
+    debugPrint('CONEXO_PERMISSION_DIAG request_permission_started');
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        // Android 13+ (API 33+) requires the POST_NOTIFICATIONS runtime
+        // permission. Route this through permission_handler — the exact same
+        // mechanism the app already uses for the location prompt — which
+        // reliably surfaces the system dialog. FirebaseMessaging's
+        // requestPermission() does not reliably show the POST_NOTIFICATIONS
+        // dialog on Android and can be silently dropped when another runtime
+        // permission dialog (location) is requested concurrently at sign-in.
+        final before =
+            await PermissionManager.check(PermissionType.notifications);
+        debugPrint('CONEXO_PERMISSION_DIAG android_status_before=$before');
+        var status = before;
+        if (before != PermissionStatus.granted) {
+          status =
+              await PermissionManager.request(PermissionType.notifications);
+        }
+        debugPrint('CONEXO_PERMISSION_DIAG authorization_status=$status');
+      } else {
+        // iOS / other platforms: FirebaseMessaging drives the APNs
+        // authorization prompt.
+        final settings = await FirebaseMessaging.instance.requestPermission(
+          alert: true,
+          badge: true,
+          sound: true,
+          provisional: false,
+        );
+        debugPrint('CONEXO_PERMISSION_DIAG authorization_status='
+            '${settings.authorizationStatus}');
+      }
+    } catch (e) {
+      debugPrint('CONEXO_PERMISSION_DIAG request_permission_error=$e');
+    }
+    debugPrint('CONEXO_PERMISSION_DIAG request_permission_finished');
   }
 
   static Future<void> _configureMessageHandlers() async {

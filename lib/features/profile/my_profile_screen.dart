@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/router/app_router.dart';
+import '../../core/services/fcm_token_service.dart';
 import '../../core/supabase/auth_service.dart';
 import '../home_discovery_animations.dart';
 import '../login_screen.dart';
@@ -140,6 +141,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   void _logout() async {
     try {
+      // Remove this device's token association WHILE the session is still
+      // valid, so the RLS-protected delete is authorized. After signOut the
+      // session is gone and the delete would silently affect zero rows,
+      // leaving this account able to receive notifications on a device that
+      // has switched to another user.
+      await FcmTokenService.stop();
       await AuthService.signOut();
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(

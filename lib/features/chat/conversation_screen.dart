@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/auth_service.dart';
+import '../../core/services/push_notification_service.dart';
 import '../home_discovery_animations.dart';
 import 'chat_models.dart';
 import 'chat_repository.dart';
@@ -103,6 +104,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       _checkBlockStatus(otherId);
     }
     _checkMuteStatus();
+    PushNotificationService.setActiveConversation(widget.conversation.id);
   }
 
   Future<void> _checkBlockStatus(String otherId) async {
@@ -143,6 +145,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     }
     _otherTyping.dispose();
     RealtimeMessagesService.instance.stop();
+    PushNotificationService.setActiveConversation(null);
     super.dispose();
   }
 

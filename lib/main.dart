@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/theme/app_theme.dart';
+import 'core/services/app_navigator.dart';
+import 'core/services/fcm_token_service.dart';
 import 'core/services/live_location_tracker.dart';
+import 'core/services/push_notification_service.dart';
 import 'core/supabase/auth_service.dart';
 import 'core/supabase/supabase_client.dart';
 import 'features/login_screen.dart';
@@ -23,7 +26,6 @@ class ConexoApp extends StatefulWidget {
 }
 
 class ConexoAppState extends State<ConexoApp> with WidgetsBindingObserver {
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   StreamSubscription<AuthState>? _authSubscription;
   bool _authTrackingSetup = false;
 
@@ -36,12 +38,35 @@ class ConexoAppState extends State<ConexoApp> with WidgetsBindingObserver {
     });
   }
 
+  Future<void> _initializePushNotifications() async {
+    try {
+      await PushNotificationService.initialize();
+    } catch (e) {
+      debugPrint('Push notification initialization failed: $e');
+    }
+  }
+
+  /// Starts authenticated background services in a deterministic order.
+  ///
+  /// PushNotificationService.initialize() runs FIRST and is awaited: it ensures
+  /// the Firebase DEFAULT app exists (FCM only), requests the notification
+  /// permission, and starts FCM token registration. Only then do we fire the
+  /// token safety-net (idempotent) and the location tracker. This guarantees
+  /// Firebase is initialized before any FirebaseMessaging access (no
+  /// [core/no-app]) and that the notification prompt is not dropped by a
+  /// concurrent location prompt. FCM failure is non-fatal.
+  Future<void> _startAuthenticatedServices() async {
+    await _initializePushNotifications();
+    FcmTokenService.start();
+    LiveLocationTracker.start();
+  }
+
   void _setupAuthTracking() {
     if (_authTrackingSetup) return;
     _authTrackingSetup = true;
     _authSubscription = AuthService.authStateChanges.listen(_onAuthStateChanged);
     if (AuthService.currentUser != null) {
-      LiveLocationTracker.start();
+      _startAuthenticatedServices();
     }
   }
 
@@ -50,6 +75,7 @@ class ConexoAppState extends State<ConexoApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     LiveLocationTracker.stop();
+    FcmTokenService.stop();
     super.dispose();
   }
 
@@ -64,14 +90,19 @@ class ConexoAppState extends State<ConexoApp> with WidgetsBindingObserver {
 
   void _onAuthStateChanged(AuthState state) {
     if (state.event == AuthChangeEvent.signedOut) {
+      debugPrint('CONEXO_FCM_ACCOUNT_DIAG auth_user_changed=signedOut');
       LiveLocationTracker.stop();
-      _navigatorKey.currentState?.pushAndRemoveUntil(
+      FcmTokenService.stop();
+      AppNavigator.instance.key.currentState?.pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
         (route) => false,
       );
     } else if (state.event == AuthChangeEvent.signedIn &&
         AuthService.currentUser != null) {
-      LiveLocationTracker.start();
+      final id = AuthService.currentUser!.id;
+      debugPrint('CONEXO_FCM_ACCOUNT_DIAG auth_user_changed='
+          '${id.length >= 8 ? id.substring(id.length - 8) : id}');
+      _startAuthenticatedServices();
     }
   }
 
@@ -81,7 +112,7 @@ class ConexoAppState extends State<ConexoApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       title: 'Conexo',
       theme: AppTheme.darkTheme,
-      navigatorKey: _navigatorKey,
+      navigatorKey: AppNavigator.instance.key,
       home: const SplashScreen(),
     );
   }
