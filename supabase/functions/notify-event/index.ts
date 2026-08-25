@@ -39,7 +39,7 @@ serve(async (req) => {
     const tokens: string[] = [];
     for (const d of devices) {
       const token = d.push_token as string;
-      if (token && token.trim().isNotEmpty) {
+      if (token && token.trim().length > 0) {
         tokens.push(token);
       }
     }
