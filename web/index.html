@@ -41,6 +41,19 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then(function(reg) {
+          console.log('CONEXO_IOS_WEB_FCM_DIAG sw_registered=YES scope=' + reg.scope);
+        })
+        .catch(function(error) {
+          console.log('CONEXO_IOS_WEB_FCM_DIAG sw_registered=NO error=' + error);
+        });
+    } else {
+      console.log('CONEXO_IOS_WEB_FCM_DIAG sw_supported=NO');
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

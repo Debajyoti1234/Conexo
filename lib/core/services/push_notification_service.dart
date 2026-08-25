@@ -23,6 +23,7 @@ abstract final class PushNotificationService {
 
   static bool _initialized = false;
   static bool _firebaseAvailable = false;
+  static bool _webPermissionRequested = false;
 
   static const String _channelId = 'conexo_messages';
   static const String _channelName = 'Conexo Messages';
@@ -39,7 +40,6 @@ abstract final class PushNotificationService {
 
     _firebaseAvailable = await FirebaseInitializer.ensureInitialized();
     if (!_firebaseAvailable) {
-      // Firebase (FCM only) is unavailable. Conexo continues without push.
       debugPrint('PushNotificationService: Firebase unavailable, FCM disabled');
       return false;
     }
@@ -62,42 +62,45 @@ abstract final class PushNotificationService {
     return true;
   }
 
-  /// Web-only FCM setup. flutter_local_notifications is unsupported on web:
-  /// foreground notifications are shown via the browser Notification API and
-  /// background/closed notifications by web/firebase-messaging-sw.js (from the
-  /// FCM `notification` payload) — exactly one per state, no duplicates.
-  static Future<void> _initializeWeb() async {
-    try {
-      debugPrint('CONEXO_IOS_WEB_FCM_DIAG firebase_initialized=YES');
-      try {
-        final supported = await FirebaseMessaging.instance.isSupported();
-        debugPrint('CONEXO_IOS_WEB_FCM_DIAG is_supported=$supported');
-      } catch (e) {
-        debugPrint('CONEXO_IOS_WEB_FCM_DIAG is_supported_error=$e');
-      }
+  static Future<void> requestNotificationPermission() async {
+    if (!kIsWeb) return;
+    if (_webPermissionRequested) return;
+    _webPermissionRequested = true;
 
+    debugPrint('CONEXO_IOS_WEB_FCM_DIAG permission_flow_started');
+    debugPrint('CONEXO_IOS_WEB_FCM_DIAG notification_permission_before=${getCurrentWebNotificationPermission()}');
+    debugPrint('CONEXO_IOS_WEB_FCM_DIAG permission_request_started');
+    try {
       final settings = await FirebaseMessaging.instance.requestPermission(
         alert: true,
         badge: true,
         sound: true,
       );
-      debugPrint('CONEXO_FCM_WEB_DIAG web_permission='
-          '${settings.authorizationStatus}');
+      debugPrint('CONEXO_IOS_WEB_FCM_DIAG permission_result=${settings.authorizationStatus}');
+    } catch (e) {
+      debugPrint('CONEXO_IOS_WEB_FCM_DIAG permission_request_error=$e');
+    }
 
-      // Claim/register the web token for the CURRENT Supabase user (same
-      // register_user_device() claim path as Android). platform='web' on iOS too.
-      await FcmTokenService.start();
+    await FcmTokenService.start();
+    await logWebFcmDiagnostics();
+  }
 
-      // Environment diagnostics AFTER token registration so the push
-      // subscription (created by getToken) is reflected. Pinpoints iOS/PWA
-      // setup gaps (standalone, SW active, push subscription).
+  static Future<void> _initializeWeb() async {
+    try {
+      debugPrint('CONEXO_IOS_WEB_FCM_DIAG firebase_initialized=YES');
+      try {
+        final supported = await FirebaseMessaging.instance.isSupported();
+        debugPrint('CONEXO_IOS_WEB_FCM_DIAG firebase_messaging_supported=$supported');
+      } catch (e) {
+        debugPrint('CONEXO_IOS_WEB_FCM_DIAG firebase_messaging_supported_error=$e');
+      }
+
+      await logIosWebFcmSetupDiagnostics();
+
       await logWebFcmDiagnostics();
 
-      // Foreground: the browser does not auto-display while the tab is focused,
-      // so surface exactly one notification here.
       FirebaseMessaging.onMessage.listen(_onForegroundMessageWeb);
 
-      // Tap routing when a background/closed notification opens the app.
       FirebaseMessaging.onMessageOpenedApp.listen((m) => _handleTap(m.data));
       final initial = await FirebaseMessaging.instance.getInitialMessage();
       if (initial != null) _handleTap(initial.data);

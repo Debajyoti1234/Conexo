@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/services/notification_permission.dart';
+import '../../core/services/push_notification_service.dart';
 import '../../core/supabase/auth_service.dart';
 import 'home_discovery_animations.dart';
 import 'home_discovery_connect.dart';
@@ -152,6 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<String, bool> _connecting = {};
   final ConnectionRepository _connectionRepository =
       const ConnectionRepository();
+  bool _notificationBannerVisible = false;
 
   static const int _prefetchWindow = 10;
 
@@ -161,6 +165,24 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadProfiles();
+    if (kIsWeb) {
+      Future.microtask(_checkNotificationBanner);
+    }
+  }
+
+  Future<void> _checkNotificationBanner() async {
+    if (!mounted) return;
+    final granted = isNotificationPermissionGranted;
+    if (!mounted) return;
+    setState(() {
+      _notificationBannerVisible = !granted;
+    });
+  }
+
+  Future<void> _handleEnableNotifications() async {
+    await PushNotificationService.requestNotificationPermission();
+    if (!mounted) return;
+    await _checkNotificationBanner();
   }
 
   @override
@@ -355,9 +377,9 @@ class _HomeScreenState extends State<HomeScreen> {
           result.error ?? 'Could not send request. Please try again.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-      );
-    }
+    );
   }
+}
 
   void _onConnectCompleted(String profileId) {
     if (!mounted) return;
@@ -459,6 +481,15 @@ class _HomeScreenState extends State<HomeScreen> {
             onFilterTap: () => _showFilters(context),
           ),
         ),
+        if (_notificationBannerVisible && kIsWeb)
+          Positioned(
+            top: media.padding.top + 64,
+            left: 16,
+            right: 16,
+            child: _NotificationPermissionBanner(
+              onEnable: _handleEnableNotifications,
+            ),
+          ),
         if (profile != null && _connecting[profile.id] == true)
           Center(
             child: HeartBurst(
@@ -489,6 +520,47 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (_) => _FilterPreferencesSheet(
         initialFilterState: _filterState,
         onFilterChanged: _applyFilter,
+      ),
+    );
+  }
+}
+
+class _NotificationPermissionBanner extends StatelessWidget {
+  const _NotificationPermissionBanner({required this.onEnable});
+
+  final VoidCallback onEnable;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF182039).withValues(alpha: .88),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: .10)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_rounded, size: 18, color: Color(0xFFB7A5FF)),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Enable notifications to stay connected.',
+              style: TextStyle(fontSize: 13, color: Color(0xFFDDE3F4)),
+            ),
+          ),
+          TextButton(
+            onPressed: onEnable,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF8B5CF6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            ),
+            child: const Text(
+              'Enable',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
       ),
     );
   }

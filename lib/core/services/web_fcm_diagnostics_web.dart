@@ -57,3 +57,34 @@ Future<void> logWebFcmDiagnostics() async {
     log('diagnostics_error=$e');
   }
 }
+
+Future<void> logIosWebFcmSetupDiagnostics() async {
+  void log(String m) => debugPrint('CONEXO_IOS_WEB_FCM_DIAG $m');
+
+  try {
+    var displayModeStandalone = false;
+    try {
+      displayModeStandalone =
+          html.window.matchMedia('(display-mode: standalone)').matches;
+    } catch (_) {}
+    log('standalone_pwa=$displayModeStandalone '
+        'display_mode_standalone=$displayModeStandalone');
+
+    log('notification_available=true');
+    var permission = 'unknown';
+    try {
+      permission = html.Notification.permission ?? 'unknown';
+    } catch (_) {}
+    log('notification_permission_before=$permission');
+  } catch (e) {
+    log('ios_setup_diagnostics_error=$e');
+  }
+}
+
+String getCurrentWebNotificationPermission() {
+  try {
+    return html.Notification.permission ?? 'unknown';
+  } catch (_) {
+    return 'unavailable';
+  }
+}
