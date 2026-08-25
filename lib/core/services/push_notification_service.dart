@@ -366,12 +366,54 @@ abstract final class PushNotificationService {
     } else if (type == 'connection_request' || type == 'request_accepted' || type == 'join_request') {
       _openConnectionsTab();
     } else if (type == 'plan_invitation') {
-      _openInvitationFromPush(data);
+      // A membership-success push reuses the plan_invitation type but carries
+      // entity_type = 'plan_chat' and must open the Plan Chat directly. A true
+      // pending invitation carries entity_type = 'plan' and opens the
+      // invitation preview. This mirrors the in-app Activity routing.
+      final entityType = data['entity_type'];
+      if (entityType == 'plan_chat') {
+        _openPlanChatFromPush(data['entity_id'] as String?);
+      } else {
+        _openInvitationFromPush(data);
+      }
     }
   }
 
   static void _openConnectionsTab() {
     MainShell.switchToTab(2);
+  }
+
+  static Future<void> _openPlanChatFromPush(String? planId) async {
+    if (planId == null || planId.isEmpty) {
+      _openConnectionsTab();
+      return;
+    }
+
+    const chatRepository = ChatRepository();
+    String? conversationId;
+
+    try {
+      final existing = await chatRepository.findConversationForPlan(planId);
+      if (existing.isSuccess && existing.value != null) {
+        conversationId = existing.value!.id;
+      } else {
+        final created =
+            await chatRepository.getOrCreatePlanConversation(planId);
+        if (created.isSuccess && created.value != null) {
+          conversationId = created.value;
+        }
+      }
+    } catch (_) {
+      _openConnectionsTab();
+      return;
+    }
+
+    if (conversationId == null) {
+      _openConnectionsTab();
+      return;
+    }
+
+    await _openPlanChat(planId: planId, conversationId: conversationId);
   }
 
   static Future<void> _openInvitationFromPush(Map<String, dynamic> data) async {
