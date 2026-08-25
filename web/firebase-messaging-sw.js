@@ -33,8 +33,12 @@ const messaging = firebase.messaging();
 console.log('IOS_WEB_FCM_SW messaging_initialized firebase_initialized=true');
 
 // Background messages. The Edge Function sends a `notification` + `data`
-// payload; the browser normally auto-renders the `notification` block, so we
-// only add an explicit render here as a safeguard, reusing the SAME payload.
+// payload. For background/closed tabs the FCM SDK ALREADY renders exactly one
+// system notification from the `notification` block. Rendering it again here
+// produced a SECOND (duplicate) notification and tripped Chrome's "possible
+// spam" heuristic. So when a `notification` block is present we do NOT render
+// again — one message, one notification. Only data-only messages (no
+// `notification` block) are rendered manually here.
 messaging.onBackgroundMessage(function (payload) {
   console.log('IOS_WEB_FCM_SW background_message_received');
   const n = payload.notification || {};
@@ -43,11 +47,17 @@ messaging.onBackgroundMessage(function (payload) {
     'IOS_WEB_FCM_SW notification_payload_present=' + (!!payload.notification) +
     ' data_payload_present=' + (!!payload.data)
   );
-  const title = n.title || d.title || 'Conexo';
+
+  if (payload.notification) {
+    console.log('IOS_WEB_FCM_SW skip_manual_show=notification_block_present');
+    return;
+  }
+
+  const title = d.title || 'Conexo';
   const options = {
-    body: n.body || d.body || 'You have a new message',
-    icon: 'assets/logo/conexo_logo2.png',
-    badge: 'assets/logo/conexo_logo2.png',
+    body: d.body || 'You have a new message',
+    icon: 'icons/conexo_logo2.png',
+    badge: 'icons/conexo_logo2.png',
     // Collapse repeat notifications for the same conversation.
     tag: d.conversation_id || undefined,
     // Routing-only data (no secrets, no tokens, no message bodies beyond what
@@ -58,7 +68,7 @@ messaging.onBackgroundMessage(function (payload) {
       plan_id: d.plan_id || '',
     },
   };
-  console.log('IOS_WEB_FCM_SW show_notification_started');
+  console.log('IOS_WEB_FCM_SW show_notification_started=data_only');
   return self.registration.showNotification(title, options).then(function () {
     console.log('IOS_WEB_FCM_SW show_notification_success');
   }).catch(function (e) {
@@ -70,9 +80,18 @@ messaging.onBackgroundMessage(function (payload) {
 // via onMessageOpenedApp/getInitialMessage) or open the app. We pass only the
 // routing identifiers in the URL hash; the app must authenticate before it can
 // load the conversation, so no private data is exposed here.
+//
+// Only OUR data-only notifications carry a flat `type` field. FCM's
+// auto-rendered notifications store their payload under `FCM_MSG` and are
+// handled by the FCM SDK's own click handler (surfaced via
+// onMessageOpenedApp/getInitialMessage), so we return early for those to avoid
+// opening a second window/tab.
 self.addEventListener('notificationclick', function (event) {
-  event.notification.close();
   const d = (event.notification && event.notification.data) || {};
+  if (!d.type) {
+    return;
+  }
+  event.notification.close();
   const params = new URLSearchParams();
   if (d.type) params.set('type', d.type);
   if (d.conversation_id) params.set('conversation_id', d.conversation_id);
