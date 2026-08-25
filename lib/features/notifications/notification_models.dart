@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 /// touches the raw map.
 
 /// The semantic kind of a notification, used for routing + accent tint.
-enum NotificationKind { join, request, plan, message, system, planInvitation }
+enum NotificationKind { join, request, requestAccepted, planInvitation, joinRequest, plan, message, system }
 
 @immutable
 class AppNotification {
@@ -85,12 +85,16 @@ class AppNotification {
         return NotificationKind.join;
       case 'request':
         return NotificationKind.request;
+      case 'request_accepted':
+        return NotificationKind.requestAccepted;
+      case 'plan_invitation':
+        return NotificationKind.planInvitation;
+      case 'join_request':
+        return NotificationKind.joinRequest;
       case 'plan':
         return NotificationKind.plan;
       case 'message':
         return NotificationKind.message;
-      case 'plan_invitation':
-        return NotificationKind.planInvitation;
       case 'system':
       default:
         return NotificationKind.system;
@@ -103,12 +107,16 @@ class AppNotification {
         return Icons.group_add_rounded;
       case NotificationKind.request:
         return Icons.handshake_rounded;
+      case NotificationKind.requestAccepted:
+        return Icons.check_circle_rounded;
+      case NotificationKind.planInvitation:
+        return Icons.mail_rounded;
+      case NotificationKind.joinRequest:
+        return Icons.person_add_rounded;
       case NotificationKind.plan:
         return Icons.event_available_rounded;
       case NotificationKind.message:
         return Icons.forum_rounded;
-      case NotificationKind.planInvitation:
-        return Icons.mail_rounded;
       case NotificationKind.system:
         return Icons.verified_rounded;
     }

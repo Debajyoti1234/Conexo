@@ -6,22 +6,17 @@
 --   app.notify_edge_url      - Edge Function URL for notify-chat-message
 --   app.supabase_anon_key    - Supabase anon key for Edge Function auth
 --
--- Without these settings, the trigger silently returns without calling the
--- Edge Function, causing push notifications to never fire.
+-- NOTE: ALTER DATABASE requires superuser privileges and is not available
+-- on Supabase Cloud. These settings must be configured through the Supabase
+-- Dashboard (Settings → Database → Customized settings) or via a superuser
+-- session. The chat notification system will skip Edge Function calls if
+-- these GUC values are not set.
 --
--- After running this migration, restart the Supabase instance or run:
---   SELECT pg_reload_conf();
+-- After configuring these settings in the Dashboard, the trigger will
+-- automatically pick them up.
 -- ============================================================================
 
--- Set the Edge Function URL for chat notifications
--- Replace with your actual Edge Function URL if different
-ALTER DATABASE postgres SET app.notify_edge_url TO 'https://wlfitdzhvfhuqgxwreed.supabase.co/functions/v1/notify-chat-message';
-
--- Set the Supabase anon key for Edge Function authorization
--- Replace with your actual anon key if different
-ALTER DATABASE postgres SET app.supabase_anon_key TO 'sb_publishable_wOqD0TUeyMU-j2-IECf6bA_8Xtl-C0M';
-
--- Verify the settings are set correctly
+-- Check current settings (returns NULL if not set)
 SELECT
   current_setting('app.notify_edge_url', true) AS notify_edge_url,
   current_setting('app.supabase_anon_key', true) AS supabase_anon_key;

@@ -25,6 +25,7 @@ class NotificationNavigation {
   static void open(BuildContext context, AppNotification notification) {
     switch (notification.kind) {
       case NotificationKind.request:
+      case NotificationKind.requestAccepted:
         Navigator.of(context).pop();
         MainShell.switchToTab(2);
         break;
@@ -51,6 +52,11 @@ class NotificationNavigation {
         } else {
           _openInvitationDetails(context, notification);
         }
+        break;
+
+      case NotificationKind.joinRequest:
+        Navigator.of(context).pop();
+        MainShell.switchToTab(2);
         break;
 
       case NotificationKind.system:

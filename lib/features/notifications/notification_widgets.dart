@@ -19,12 +19,16 @@ Color _kindColor(NotificationKind kind) {
       return const Color(0xFF47D7A5);
     case NotificationKind.request:
       return _kAccentSoft;
+    case NotificationKind.requestAccepted:
+      return const Color(0xFF47D7A5);
+    case NotificationKind.planInvitation:
+      return const Color(0xFFFF6B8A);
+    case NotificationKind.joinRequest:
+      return const Color(0xFFFFB86B);
     case NotificationKind.plan:
       return const Color(0xFFFFB86B);
     case NotificationKind.message:
       return const Color(0xFF6EA8FE);
-    case NotificationKind.planInvitation:
-      return const Color(0xFFFF6B8A);
     case NotificationKind.system:
       return _kAccentSoft;
   }

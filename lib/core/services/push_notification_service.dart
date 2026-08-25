@@ -1,14 +1,18 @@
 import 'dart:convert';
-import 'dart:ui' show Color;
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/chat/chat_models.dart';
 import '../../features/chat/chat_repository.dart';
 import '../../features/chat/conversation_screen.dart';
+import '../../features/main_shell.dart';
+import '../../features/plans/invitation_details_screen.dart';
+import '../../features/plans/plan_details_data.dart';
+import '../../features/plans/supabase_plan_repository.dart';
 import '../../core/supabase/auth_service.dart';
 import 'app_navigator.dart';
 import 'fcm_token_service.dart';
@@ -115,28 +119,50 @@ abstract final class PushNotificationService {
     debugPrint('CONEXO_WEB_FCM_DIAG foreground_message_received type=$type');
     debugPrint('CONEXO_IOS_WEB_FCM_DIAG foreground message_received type=$type '
         'conversation_id_present=${data['conversation_id'] is String}');
-    if (type != 'connection_message' && type != 'plan_message') return;
 
-    final conversationId = data['conversation_id'];
-    if (conversationId is String && conversationId == _activeConversationId) {
+    if (type == 'connection_message' || type == 'plan_message') {
+      final conversationId = data['conversation_id'];
+      if (conversationId is String && conversationId == _activeConversationId) {
+        return;
+      }
+
+      final notification = message.notification;
+      final rawTitle = notification?.title ?? data['title'];
+      final title = (rawTitle is String && rawTitle.trim().isNotEmpty)
+          ? rawTitle.trim()
+          : 'Conexo';
+      final rawBody = notification?.body ?? data['body'];
+      final body = (rawBody is String && rawBody.trim().isNotEmpty)
+          ? rawBody.trim()
+          : 'You have a new message';
+
+      await showWebNotification(
+        title: title,
+        body: body,
+        tag: conversationId is String ? conversationId : null,
+      );
       return;
     }
 
-    final notification = message.notification;
-    final rawTitle = notification?.title ?? data['title'];
-    final title = (rawTitle is String && rawTitle.trim().isNotEmpty)
-        ? rawTitle.trim()
-        : 'Conexo';
-    final rawBody = notification?.body ?? data['body'];
-    final body = (rawBody is String && rawBody.trim().isNotEmpty)
-        ? rawBody.trim()
-        : 'You have a new message';
+    if (type == 'connection_request' || type == 'request_accepted' ||
+        type == 'plan_invitation' || type == 'join_request') {
+      final notification = message.notification;
+      final rawTitle = notification?.title ?? data['title'];
+      final title = (rawTitle is String && rawTitle.trim().isNotEmpty)
+          ? rawTitle.trim()
+          : 'Conexo';
+      final rawBody = notification?.body ?? data['body'];
+      final body = (rawBody is String && rawBody.trim().isNotEmpty)
+          ? rawBody.trim()
+          : 'You have a new notification';
 
-    await showWebNotification(
-      title: title,
-      body: body,
-      tag: conversationId is String ? conversationId : null,
-    );
+      final entityId = data['entity_id'];
+      await showWebNotification(
+        title: title,
+        body: body,
+        tag: entityId is String ? entityId : null,
+      );
+    }
   }
 
   static Future<void> _initLocalNotifications() async {
@@ -228,16 +254,20 @@ abstract final class PushNotificationService {
   static Future<void> _onForegroundMessage(RemoteMessage message) async {
     final data = message.data;
     final type = data['type'];
-    if (type != 'connection_message' && type != 'plan_message') {
+
+    if (type == 'connection_message' || type == 'plan_message') {
+      final conversationId = data['conversation_id'];
+      if (conversationId is String && conversationId == _activeConversationId) {
+        return;
+      }
+      await _showMessageNotification(_localNotifications, message);
       return;
     }
 
-    final conversationId = data['conversation_id'];
-    if (conversationId is String && conversationId == _activeConversationId) {
-      return;
+    if (type == 'connection_request' || type == 'request_accepted' ||
+        type == 'plan_invitation' || type == 'join_request') {
+      await _showEventNotification(_localNotifications, message);
     }
-
-    await _showMessageNotification(_localNotifications, message);
   }
 
   static Future<void> _showMessageNotification(
@@ -280,19 +310,113 @@ abstract final class PushNotificationService {
     );
   }
 
+  static Future<void> _showEventNotification(
+    FlutterLocalNotificationsPlugin plugin,
+    RemoteMessage message,
+  ) async {
+    final data = message.data;
+    final rawTitle = data['title'];
+    final title = (rawTitle is String && rawTitle.trim().isNotEmpty)
+        ? rawTitle.trim()
+        : 'Conexo';
+
+    final rawBody = data['body'];
+    final body = (rawBody is String && rawBody.trim().isNotEmpty)
+        ? rawBody.trim()
+        : 'You have a new notification';
+
+    final androidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDescription,
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: 'ic_notification',
+      color: const Color(0xFF7C3AED),
+      category: AndroidNotificationCategory.message,
+      styleInformation: BigTextStyleInformation(body),
+    );
+
+    await plugin.show(
+      id: message.messageId?.hashCode ??
+          DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(android: androidDetails),
+      payload: jsonEncode(data),
+    );
+  }
+
   static void _handleTap(Map<String, dynamic> data) {
     final type = data['type'];
-    final conversationId = data['conversation_id'];
-    if (conversationId is! String || conversationId.isEmpty) return;
 
     if (type == 'connection_message') {
-      _openConnectionChat(conversationId);
+      final conversationId = data['conversation_id'];
+      if (conversationId is String && conversationId.isNotEmpty) {
+        _openConnectionChat(conversationId);
+      }
     } else if (type == 'plan_message') {
-      _openPlanChat(
-        planId: data['plan_id'] as String?,
-        conversationId: conversationId,
-      );
+      final conversationId = data['conversation_id'];
+      if (conversationId is String && conversationId.isNotEmpty) {
+        _openPlanChat(
+          planId: data['plan_id'] as String?,
+          conversationId: conversationId,
+        );
+      }
+    } else if (type == 'connection_request' || type == 'request_accepted' || type == 'join_request') {
+      _openConnectionsTab();
+    } else if (type == 'plan_invitation') {
+      _openInvitationFromPush(data);
     }
+  }
+
+  static void _openConnectionsTab() {
+    MainShell.switchToTab(2);
+  }
+
+  static Future<void> _openInvitationFromPush(Map<String, dynamic> data) async {
+    final planId = data['entity_id'] as String?;
+    if (planId == null || planId.isEmpty) {
+      _openConnectionsTab();
+      return;
+    }
+
+    final context = AppNavigator.instance.key.currentContext;
+    if (context == null) {
+      _openConnectionsTab();
+      return;
+    }
+
+    final repo = const SupabasePlanRepository();
+    List<PlanInvitation> invitations;
+    try {
+      invitations = await repo.getPendingInvitations();
+    } catch (_) {
+      _openConnectionsTab();
+      return;
+    }
+
+    PlanInvitation? match;
+    for (final invite in invitations) {
+      if (invite.planId == planId) {
+        match = invite;
+        break;
+      }
+    }
+
+    if (match == null) {
+      _openConnectionsTab();
+      return;
+    }
+
+    AppNavigator.instance.key.currentState?.push(
+      MaterialPageRoute(
+        builder: (_) => InvitationDetailsScreen(
+          invitation: match!,
+          repository: repo,
+        ),
+      ),
+    );
   }
 
   static Future<void> _openConnectionChat(String conversationId) async {
