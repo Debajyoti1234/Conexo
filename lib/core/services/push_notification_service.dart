@@ -518,21 +518,33 @@ abstract final class PushNotificationService {
     if (context == null) return;
 
     String name = '';
+    String avatarAsset = '';
     try {
       final id = planId ?? conversationId;
       final plan = await Supabase.instance.client
           .from('plans')
-          .select('title')
+          .select('title, cover_url')
           .eq('id', id)
           .maybeSingle();
       final t = plan?['title'] as String?;
       if (t != null && t.isNotEmpty) name = t;
+      // Resolve the plan cover exactly like the canonical Plan Chat list flow
+      // (SupabasePlanRepository.getCoverSignedUrl against the plan-covers
+      // bucket) so the header shows the real Plan picture, not a letter
+      // fallback. Member count/messages are already loaded by ConversationScreen
+      // from the same conversation id.
+      final coverPath = plan?['cover_url'] as String?;
+      final signedCover =
+          await const SupabasePlanRepository().getCoverSignedUrl(coverPath);
+      if (signedCover != null && signedCover.isNotEmpty) {
+        avatarAsset = signedCover;
+      }
     } catch (_) {}
 
     final preview = ConversationPreview(
       id: conversationId,
       name: name,
-      avatarAsset: '',
+      avatarAsset: avatarAsset,
       lastMessage: '',
       timestamp: '',
       type: ConversationType.group,

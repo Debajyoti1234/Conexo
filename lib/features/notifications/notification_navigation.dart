@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../chat/chat_models.dart';
 import '../chat/chat_repository.dart';
@@ -113,15 +114,39 @@ class NotificationNavigation {
       return;
     }
 
+    // Resolve the real Plan title + signed cover from the same canonical source
+    // as the Chat tab list (plans.cover_url signed via the plan-covers bucket),
+    // so the notification-opened Plan Chat header matches the normal flow
+    // exactly. Member count/messages are loaded by ConversationScreen from the
+    // same conversation id.
+    String name = 'Plan chat';
+    String avatarAsset = '';
+    try {
+      final planRow = await Supabase.instance.client
+          .from('plans')
+          .select('title, cover_url')
+          .eq('id', planId)
+          .maybeSingle();
+      final t = planRow?['title'] as String?;
+      if (t != null && t.isNotEmpty) name = t;
+      final signedCover = await const SupabasePlanRepository()
+          .getCoverSignedUrl(planRow?['cover_url'] as String?);
+      if (signedCover != null && signedCover.isNotEmpty) {
+        avatarAsset = signedCover;
+      }
+    } catch (_) {}
+    if (!context.mounted) return;
+
     final preview = ConversationPreview(
       id: conversationId,
-      name: 'Plan chat',
-      avatarAsset: '',
+      name: name,
+      avatarAsset: avatarAsset,
       lastMessage: '',
       timestamp: '',
       type: ConversationType.group,
       status: ConversationStatus.offline,
       lastMessageType: LastMessageType.plan,
+      planId: planId,
     );
 
     Navigator.of(context).push(
