@@ -27,8 +27,8 @@ Future<void> showWebNotification({
 
     final options = <String, dynamic>{
       'body': body,
-      'icon': 'icons/Icon-192.png',
-      'badge': 'icons/Icon-192.png',
+      'icon': 'assets/logo/conexo_logo2.png',
+      'badge': 'assets/logo/conexo_logo2.png',
     };
     if (tag != null && tag.isNotEmpty) options['tag'] = tag;
 
@@ -46,7 +46,7 @@ Future<void> showWebNotification({
       }
     }
 
-    html.Notification(title, body: body, tag: tag, icon: 'icons/Icon-192.png');
+    html.Notification(title, body: body, tag: tag, icon: 'assets/logo/conexo_logo2.png');
     debugPrint('CONEXO_WEB_FCM_DIAG foreground_notify_shown=direct');
   } catch (e) {
     debugPrint('CONEXO_WEB_FCM_DIAG foreground_notify_error=$e');

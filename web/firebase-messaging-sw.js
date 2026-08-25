@@ -46,8 +46,8 @@ messaging.onBackgroundMessage(function (payload) {
   const title = n.title || d.title || 'Conexo';
   const options = {
     body: n.body || d.body || 'You have a new message',
-    icon: 'icons/Icon-192.png',
-    badge: 'icons/Icon-192.png',
+    icon: 'assets/logo/conexo_logo2.png',
+    badge: 'assets/logo/conexo_logo2.png',
     // Collapse repeat notifications for the same conversation.
     tag: d.conversation_id || undefined,
     // Routing-only data (no secrets, no tokens, no message bodies beyond what
