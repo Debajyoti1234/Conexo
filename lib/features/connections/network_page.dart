@@ -9,6 +9,7 @@ import '../../features/home_connection_dashboard_cards.dart';
 import '../../features/profile/connections_view_model.dart';
 import '../../features/profile/profile_navigation_mapper.dart';
 import '../../features/profile/public_profile_screen.dart';
+import '../../features/profile/supabase_profile_repository.dart';
 
 class NetworkPage extends StatefulWidget {
   const NetworkPage({super.key});
@@ -40,7 +41,7 @@ class _NetworkPageState extends State<NetworkPage> {
       final accepted = await _viewModel.loadAcceptedConnections();
       if (!mounted) return;
       setState(() {
-        _connections = accepted;
+        _connections = List.from(accepted)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         _loading = false;
       });
     } catch (e) {
@@ -87,11 +88,18 @@ class _NetworkPageState extends State<NetworkPage> {
     });
   }
 
-  void _openProfile(ConnectionUiModel connection) {
+  Future<void> _openProfile(ConnectionUiModel connection) async {
+    final repository = const SupabaseProfileRepository();
+    final profile = await repository.loadProfileByUserId(connection.otherUserId);
+    if (!mounted) return;
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile not found')),
+      );
+      return;
+    }
     Navigator.of(context).push(
-      premiumPublicProfileRoute(
-        data: mapConnectionUiModelToProfile(connection),
-      ),
+      premiumPublicProfileRoute(data: mapUserProfileToPublicProfile(profile)),
     );
   }
 
@@ -180,39 +188,63 @@ class _NetworkPageState extends State<NetworkPage> {
                               message:
                                   'Your network is just getting started.',
                             )
-                          : ListView.builder(
+                          : ListView(
                               padding:
                                   const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                              itemCount: _connections.length,
-                              itemBuilder: (context, index) {
-                                final c = _connections[index];
-                                final visible =
-                                    !_removing.contains(c.connectionId);
-                                return AnimatedSize(
-                                  duration: const Duration(milliseconds: 360),
-                                  curve: Curves.easeInOutCubic,
-                                  alignment: Alignment.topCenter,
-                                  child: AnimatedOpacity(
-                                    opacity: visible ? 1 : 0,
-                                    duration: const Duration(milliseconds: 360),
-                                    curve: Curves.easeInOutCubic,
-                                    child: Padding(
-                                      key: ValueKey<String>(
-                                          'network-${c.connectionId}'),
-                                      padding: const EdgeInsets.only(bottom: 12),
-                                      child: _NetworkRow(
-                                        connection: c,
-                                        onViewProfile: () => _openProfile(c),
-                                        onOpenRoom: () => _openRoom(c),
-                                        onRemove: () => _remove(c),
-                                      ),
-                                    ),
+                              children: [
+                                for (final c in _connections)
+                                  _NetworkAnimatedRow(
+                                    key: ValueKey<String>('network-${c.connectionId}'),
+                                    connection: c,
+                                    removing: _removing.contains(c.connectionId),
+                                    onViewProfile: () => _openProfile(c),
+                                    onOpenRoom: () => _openRoom(c),
+                                    onRemove: () => _remove(c),
                                   ),
-                                );
-                              },
+                              ],
                             ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NetworkAnimatedRow extends StatelessWidget {
+  const _NetworkAnimatedRow({
+    super.key,
+    required this.connection,
+    required this.removing,
+    required this.onViewProfile,
+    required this.onOpenRoom,
+    required this.onRemove,
+  });
+
+  final ConnectionUiModel connection;
+  final bool removing;
+  final VoidCallback onViewProfile;
+  final VoidCallback onOpenRoom;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedOpacity(
+        opacity: removing ? 0 : 1,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeInOutCubic,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: removing ? 0 : 12),
+          child: _NetworkRow(
+            connection: connection,
+            onViewProfile: onViewProfile,
+            onOpenRoom: onOpenRoom,
+            onRemove: onRemove,
+          ),
         ),
       ),
     );
@@ -266,21 +298,25 @@ class _NetworkRow extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                connection.otherUserName,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.2,
-                                ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    connection.otherUserName,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                                  if (connection.isVerified) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.verified_rounded,
+                                        size: 15, color: Color(0xFF77DFF1)),
+                                  ],
+                                ],
                               ),
                             ),
-                            if (connection.isVerified) ...[
-                              const SizedBox(width: 6),
-                              const Icon(Icons.verified_rounded,
-                                  size: 16, color: Color(0xFF77DFF1)),
-                            ],
                           ],
                         ),
                         const SizedBox(height: 3),

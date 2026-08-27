@@ -281,7 +281,7 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
           ),
           Positioned(
             right: 20,
-            bottom: 24,
+            bottom: 100,
             child: CreatePlanButton(
               onTap: () => Navigator.of(context).push<void>(
                 PageRouteBuilder<void>(

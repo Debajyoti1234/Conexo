@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../app/router/app_router.dart';
 import '../../features/main_shell.dart';
 import '../../features/notifications/notification_controller.dart';
 import '../../features/notifications/notification_models.dart';
 import '../../features/notifications/notification_navigation.dart';
+import '../../features/profile/profile_photo_resolver.dart';
+import '../../features/profile/supabase_profile_repository.dart';
 import 'home_discovery_animations.dart';
 import 'plans/plan_repository.dart';
 import 'plans/supabase_plan_repository.dart';
@@ -72,9 +75,9 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
 
       if (!mounted) return;
       setState(() {
-        _network = accepted;
-        _requests = incoming;
-        _pending = outgoing;
+        _network = List.from(accepted)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _requests = List.from(incoming)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _pending = List.from(outgoing)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         _loading = false;
       });
     } catch (e) {
@@ -514,7 +517,6 @@ class _ActivityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = _kindColor(notification.kind);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -535,19 +537,7 @@ class _ActivityRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 36,
-              width: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: accent.withValues(alpha: .14),
-              ),
-              child: Icon(
-                notification.icon,
-                size: 18,
-                color: accent,
-              ),
-            ),
+            _ActivityAvatar(notification: notification),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -604,6 +594,173 @@ class _ActivityRow extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ActivityAvatar extends StatefulWidget {
+  const _ActivityAvatar({required this.notification});
+
+  final AppNotification notification;
+
+  @override
+  State<_ActivityAvatar> createState() => _ActivityAvatarState();
+}
+
+class _ActivityAvatarState extends State<_ActivityAvatar> {
+  String? _imageUrl;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolvePhoto();
+  }
+
+  Future<void> _resolvePhoto() async {
+    final kind = widget.notification.kind;
+    final actorId = widget.notification.actorId;
+    final entityId = widget.notification.entityId;
+
+    try {
+      if (_isUserPhotoKind(kind) && actorId != null && actorId.isNotEmpty) {
+        final profile =
+            await const SupabaseProfileRepository().loadProfileByUserId(actorId);
+        if (!mounted) return;
+        if (profile != null && profile.photos.isNotEmpty) {
+          final primary = profile.photos.firstWhere(
+            (p) => p.isPrimary,
+            orElse: () => profile.photos.first,
+          );
+          final remoteUrl = primary.remoteUrl;
+          if (remoteUrl != null && remoteUrl.isNotEmpty) {
+            if (remoteUrl.startsWith('http://') || remoteUrl.startsWith('https://')) {
+              _setImage(remoteUrl);
+            } else if (remoteUrl.startsWith('profiles/')) {
+              final resolved =
+                  await ProfilePhotoResolver.instance.resolvePhoto(remoteUrl);
+              if (!mounted) return;
+              _setImage(resolved.signedUrl);
+            }
+            return;
+          }
+        }
+      } else if (_isPlanPhotoKind(kind) && entityId != null && entityId.isNotEmpty) {
+        final data = await Supabase.instance.client
+            .from('plans')
+            .select('cover_url')
+            .eq('id', entityId)
+            .maybeSingle();
+        if (!mounted) return;
+        final coverUrl = data?['cover_url'] as String?;
+        if (coverUrl != null && coverUrl.isNotEmpty) {
+          final signed =
+              await const SupabasePlanRepository().getCoverSignedUrl(coverUrl);
+          if (!mounted) return;
+          if (signed != null && signed.isNotEmpty) {
+            _setImage(signed);
+            return;
+          }
+        }
+      }
+    } catch (_) {
+      // fall through to fallback icon
+    }
+
+    if (mounted) {
+      setState(() => _loading = false);
+    }
+  }
+
+  void _setImage(String url) {
+    if (!mounted) return;
+    setState(() {
+      _imageUrl = url;
+      _loading = false;
+    });
+  }
+
+  bool _isUserPhotoKind(NotificationKind kind) {
+    return kind == NotificationKind.request ||
+        kind == NotificationKind.requestAccepted ||
+        kind == NotificationKind.joinRequest ||
+        kind == NotificationKind.join;
+  }
+
+  bool _isPlanPhotoKind(NotificationKind kind) {
+    return kind == NotificationKind.planInvitation || kind == NotificationKind.plan;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Container(
+        height: 36,
+        width: 36,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: .08),
+        ),
+        child: const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8B5CF6)),
+        ),
+      );
+    }
+
+    if (_imageUrl != null && _imageUrl!.isNotEmpty) {
+      return Container(
+        height: 36,
+        width: 36,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+        ),
+        child: ClipOval(
+          child: Image.network(
+            _imageUrl!,
+            height: 36,
+            width: 36,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return Container(
+                height: 36,
+                width: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: .08),
+                ),
+                child: const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8B5CF6)),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) => _fallbackIcon(),
+          ),
+        ),
+      );
+    }
+
+    return _fallbackIcon();
+  }
+
+  Widget _fallbackIcon() {
+    final accent = _kindColor(widget.notification.kind);
+    return Container(
+      height: 36,
+      width: 36,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: accent.withValues(alpha: .14),
+      ),
+      child: Icon(
+        widget.notification.icon,
+        size: 18,
+        color: accent,
       ),
     );
   }

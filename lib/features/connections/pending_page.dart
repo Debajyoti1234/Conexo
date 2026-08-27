@@ -4,6 +4,7 @@ import '../../features/home_connection_dashboard_cards.dart';
 import '../../features/profile/connections_view_model.dart';
 import '../../features/profile/profile_navigation_mapper.dart';
 import '../../features/profile/public_profile_screen.dart';
+import '../../features/profile/supabase_profile_repository.dart';
 
 class PendingPage extends StatefulWidget {
   const PendingPage({super.key});
@@ -34,7 +35,7 @@ class _PendingPageState extends State<PendingPage> {
       final outgoing = await _viewModel.loadOutgoingRequests();
       if (!mounted) return;
       setState(() {
-        _pending = outgoing;
+        _pending = List.from(outgoing)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         _loading = false;
       });
     } catch (e) {
@@ -72,11 +73,18 @@ class _PendingPageState extends State<PendingPage> {
     );
   }
 
-  void _openProfile(ConnectionUiModel request) {
+  Future<void> _openProfile(ConnectionUiModel request) async {
+    final repository = const SupabaseProfileRepository();
+    final profile = await repository.loadProfileByUserId(request.otherUserId);
+    if (!mounted) return;
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile not found')),
+      );
+      return;
+    }
     Navigator.of(context).push(
-      premiumPublicProfileRoute(
-        data: mapConnectionUiModelToProfile(request),
-      ),
+      premiumPublicProfileRoute(data: mapUserProfileToPublicProfile(profile)),
     );
   }
 
@@ -124,37 +132,59 @@ class _PendingPageState extends State<PendingPage> {
                               icon: Icons.hourglass_empty_rounded,
                               message: 'No pending requests.',
                             )
-                          : ListView.builder(
+                          : ListView(
                               padding:
                                   const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                              itemCount: _pending.length,
-                              itemBuilder: (context, index) {
-                                final r = _pending[index];
-                                final visible = !_removing.contains(r.connectionId);
-                                return AnimatedSize(
-                                  duration: const Duration(milliseconds: 360),
-                                  curve: Curves.easeInOutCubic,
-                                  alignment: Alignment.topCenter,
-                                  child: AnimatedOpacity(
-                                    opacity: visible ? 1 : 0,
-                                    duration: const Duration(milliseconds: 360),
-                                    curve: Curves.easeInOutCubic,
-                                    child: Padding(
-                                      key: ValueKey<String>(
-                                          'pending-${r.connectionId}'),
-                                      padding: const EdgeInsets.only(bottom: 12),
-                                      child: _PendingRow(
-                                        request: r,
-                                        onViewProfile: () => _openProfile(r),
-                                        onCancel: () => _cancel(r),
-                                      ),
-                                    ),
+                              children: [
+                                for (final r in _pending)
+                                  _PendingAnimatedRow(
+                                    key: ValueKey<String>('pending-${r.connectionId}'),
+                                    request: r,
+                                    removing: _removing.contains(r.connectionId),
+                                    onViewProfile: () => _openProfile(r),
+                                    onCancel: () => _cancel(r),
                                   ),
-                                );
-                              },
+                              ],
                             ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingAnimatedRow extends StatelessWidget {
+  const _PendingAnimatedRow({
+    super.key,
+    required this.request,
+    required this.removing,
+    required this.onViewProfile,
+    required this.onCancel,
+  });
+
+  final ConnectionUiModel request;
+  final bool removing;
+  final VoidCallback onViewProfile;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedOpacity(
+        opacity: removing ? 0 : 1,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeInOutCubic,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: removing ? 0 : 12),
+          child: _PendingRow(
+            request: request,
+            onViewProfile: onViewProfile,
+            onCancel: onCancel,
+          ),
         ),
       ),
     );

@@ -40,7 +40,8 @@ class ConversationScreen extends StatefulWidget {
   State<ConversationScreen> createState() => _ConversationScreenState();
 }
 
-class _ConversationScreenState extends State<ConversationScreen> {
+class _ConversationScreenState extends State<ConversationScreen>
+    with WidgetsBindingObserver {
   List<Message> _messages = const [];
   GroupMetadata? _group;
   // P1.2B.9: sender lookup for group (plan) chats, so received bubbles show
@@ -59,31 +60,52 @@ class _ConversationScreenState extends State<ConversationScreen> {
   bool _blockStatusLoaded = false;
   bool _isMuted = false;
   bool _chatRevoked = false;
-  // Chat P4: the other participant's read position. Own messages with
-  // created_at <= this value render the blue ✓✓ tick.
   DateTime? _otherLastReadAt;
-  // Guard to avoid redundant last_read_at writes while the conversation is
-  // active (no point updating Supabase if nothing new arrived).
   DateTime? _lastMarkedReadAt;
-  // Entrance-animate only messages that arrive AFTER the initial load. Ids
-  // present on first load render statically so the whole thread never animates.
   Set<String> _initialMessageIds = <String>{};
-  // Ephemeral typing indicator over Supabase Realtime BROADCAST (never
-  // persisted, no DB row). One channel per open conversation.
   RealtimeChannel? _typingChannel;
   bool _typingChannelReady = false;
   bool _typingBroadcasting = false;
   DateTime? _lastTypingSentAt;
   Timer? _typingStopTimer;
   Timer? _typingReceiveTimer;
-  // Isolated so toggling typing rebuilds ONLY the typing bubble, never the list.
   final ValueNotifier<bool> _otherTyping = ValueNotifier<bool>(false);
+  Message? _replyingTo;
+  final Map<String, Set<String>> _conversationLikes = <String, Set<String>>{};
+  final Map<String, List<String>> _likersByMessage = <String, List<String>>{};
+
+  Set<String> get _currentLikes {
+    final id = widget.conversation.id;
+    return _conversationLikes.putIfAbsent(id, () => <String>{});
+  }
+
+  Future<void> _loadLikes() async {
+    if (widget.chatRepository == null) return;
+    final result = await widget.chatRepository!.loadLikesForConversation(
+      widget.conversation.id,
+    );
+    if (result.isSuccess && result.value != null) {
+      final likes = <String, List<String>>{};
+      for (final entry in result.value!.entries) {
+        likes[entry.key] = List<String>.from(entry.value);
+      }
+      setState(() {
+        _likersByMessage
+          ..clear()
+          ..addAll(likes);
+        _conversationLikes[widget.conversation.id] = {
+          for (final entry in likes.entries) ...entry.value,
+        };
+      });
+    }
+  }
 
   String get _draftKey => 'chat_draft_${widget.conversation.id}';
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _isMuted = widget.conversation.isMuted;
     final otherId = widget.conversation.otherUserId;
     final needsBlockCheck = !widget.conversation.isGroup &&
@@ -126,11 +148,25 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final otherId = widget.conversation.otherUserId;
+      if (otherId != null && otherId.isNotEmpty && !widget.conversation.isGroup) {
+        _checkBlockStatus(otherId);
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _realtimeSubscription?.cancel();
     if (_memberRealtimeSubscription != null) {
       Supabase.instance.client.removeChannel(_memberRealtimeSubscription!);
       _memberRealtimeSubscription = null;
+    }
+    if (widget.chatRepository != null) {
+      widget.chatRepository!.disposeLikesSubscription(widget.conversation.id);
     }
     // Typing: best-effort stop broadcast + tear down channel/timers so the
     // other side's indicator clears when we leave, and nothing leaks.
@@ -560,6 +596,22 @@ class _ConversationScreenState extends State<ConversationScreen> {
           _group = group;
           _loading = false;
         });
+
+        await _loadLikes();
+        if (widget.chatRepository != null) {
+          await widget.chatRepository!
+              .ensureLikesSubscription(widget.conversation.id, (likes) {
+            if (!mounted) return;
+            setState(() {
+              _likersByMessage
+                ..clear()
+                ..addAll(Map<String, List<String>>.from(likes));
+              _conversationLikes[widget.conversation.id] = {
+                for (final entry in likes.entries) ...entry.value,
+              };
+            });
+          });
+        }
       } else {
         final messages = await widget.repository.loadMessages(
           widget.conversation.id,
@@ -584,16 +636,38 @@ class _ConversationScreenState extends State<ConversationScreen> {
     }
   }
 
+  /// Strips a leading "Replying to X: ...\n\nBODY" prefix so that quoting a
+  /// message that is itself a reply captures only its visible body.
+  String _plainReplyBody(String text) {
+    if (text.startsWith('Replying to ')) {
+      final idx = text.indexOf('\n\n');
+      if (idx != -1) return text.substring(idx + 2);
+    }
+    return text;
+  }
+
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
     if (widget.chatRepository == null) return;
 
-    // Sending implies we're no longer typing — clear the indicator immediately.
     _stopTyping();
+
+    final replyTo = _replyingTo;
+    String payload = text.trim();
+    if (replyTo != null) {
+      final quoted = _plainReplyBody(replyTo.text).trim();
+      final sender = replyTo.author == MessageAuthor.me
+          ? 'You'
+          : (replyTo.senderName?.trim().isNotEmpty == true
+              ? replyTo.senderName!.trim()
+              : widget.conversation.name);
+      payload = 'Replying to $sender: $quoted\n\n$payload';
+      setState(() => _replyingTo = null);
+    }
 
     final result = await widget.chatRepository!.sendMessage(
       conversationId: widget.conversation.id,
-      content: text.trim(),
+      content: payload,
     );
 
     if (!mounted) return;
@@ -791,6 +865,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
       return;
     }
 
+    if (actionId == 'unblock') {
+      final otherId = widget.conversation.otherUserId;
+      if (otherId == null) return;
+      _showUnblockDialog(otherId);
+      return;
+    }
+
     if (actionId == 'report') {
       final otherId = widget.conversation.otherUserId;
       if (otherId == null) return;
@@ -923,6 +1004,53 @@ class _ConversationScreenState extends State<ConversationScreen> {
     }
   }
 
+  Future<void> _showUnblockDialog(String otherId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF141B2E),
+        title: const Text('Unblock User', style: TextStyle(color: Color(0xFFEAEEF9))),
+        content: Text(
+          'Unblock ${widget.conversation.name}?',
+          style: const TextStyle(color: Color(0xFFB9C3DC)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8B5CF6)),
+            child: const Text('Unblock'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    final result = await const SafetyRepository().unblockUser(otherId);
+    if (!mounted) return;
+
+    if (result.isSuccess) {
+      setState(() {
+        _blockedByMe = false;
+        _blockStatusLoaded = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${widget.conversation.name} has been unblocked'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error ?? 'Failed to unblock user')),
+      );
+    }
+  }
+
   Future<void> _openReport(String otherId) async {
     await Navigator.of(context).push(
       PageRouteBuilder<void>(
@@ -956,6 +1084,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
     final c = widget.conversation;
     final canOpenProfile =
         !c.isGroup && (c.otherUserId?.isNotEmpty ?? false);
+    final currentUserId = AuthService.currentUser?.id;
+    final currentUserName = AuthService.currentUser?.userMetadata?['name'] as String?;
+    final nameById = <String, String>{
+      if (currentUserId != null && currentUserName != null && currentUserName.isNotEmpty)
+        currentUserId: currentUserName,
+      for (final entry in _participantsById.entries)
+        if (entry.value.name.isNotEmpty) entry.key: entry.value.name,
+    };
     return Scaffold(
       backgroundColor: Colors.black,
       resizeToAvoidBottomInset: false,
@@ -978,54 +1114,99 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       message: _error!,
                       onRetry: _load,
                     )
-                  : Column(
-                      children: [
-                        Expanded(
-                          child: _messages.isEmpty
-                              ? _EmptyThread(name: c.name)
-                              : _MessageList(
-                                  messages: _messages,
-                                  conversation: c,
-                                  group: _group,
-                                  initialMessageIds: _initialMessageIds,
-                                  onDeleteMessage: widget.chatRepository != null
-                                      ? _confirmAndDeleteMessage
-                                      : null,
-                                ),
-                        ),
-                        // Ephemeral typing bubble — isolated behind a
-                        // ValueListenableBuilder so toggling it rebuilds ONLY
-                        // this strip, never the message list.
-                        ValueListenableBuilder<bool>(
-                          valueListenable: _otherTyping,
-                          builder: (context, typing, _) {
-                            return AnimatedSize(
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOutCubic,
-                              alignment: Alignment.bottomLeft,
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 160),
-                                opacity: typing ? 1 : 0,
-                                child: typing
-                                    ? const TypingBubble()
-                                    : const SizedBox(
-                                        width: double.infinity,
-                                        height: 0,
-                                      ),
-                              ),
-                            );
-                          },
-                        ),
-                        AnimatedPadding(
-                          duration: const Duration(milliseconds: 240),
-                          curve: Curves.easeOutCubic,
-                          padding: EdgeInsets.only(
-                            bottom: MediaQuery.of(context).viewInsets.bottom,
+                   : Column(
+                       children: [
+                         Expanded(
+                           child: _messages.isEmpty
+                               ? _EmptyThread(name: c.name)
+                                 : _MessageList(
+                                     messages: _messages,
+                                     conversation: c,
+                                     group: _group,
+                                     initialMessageIds: _initialMessageIds,
+                                     currentUserId: currentUserId,
+                                     currentUserName: currentUserName,
+                                     nameById: nameById,
+                                     onReplyTo: (msg) {
+                                       setState(() => _replyingTo = msg);
+                                     },
+                                     onLikeMessage: (msgId) async {
+                                       if (widget.chatRepository == null) return;
+                                       final result =
+                                           await widget.chatRepository!.toggleLike(
+                                         msgId,
+                                       );
+                                       if (result.isFailure) {
+                                         if (!mounted) return;
+                                         ScaffoldMessenger.of(context).showSnackBar(
+                                           SnackBar(
+                                             content: Text(
+                                               result.error ?? 'Failed to update like',
+                                             ),
+                                             backgroundColor: const Color(0xFFFF4D8D),
+                                           ),
+                                         );
+                                       }
+                                     },
+                                    likedMessageIds: _currentLikes,
+                                    messageLikes: Map<String, List<String>>.from(_likersByMessage),
+                                    onDeleteMessage: widget.chatRepository != null
+                                        ? _confirmAndDeleteMessage
+                                        : null,
+                                 ),
                           ),
-                          child: _composerArea(),
-                        ),
-                      ],
-                    ),
+                          Column(
+                               mainAxisSize: MainAxisSize.min,
+                               children: [
+                                 ValueListenableBuilder<bool>(
+                                   valueListenable: _otherTyping,
+                                   builder: (context, typing, _) {
+                                     return AnimatedSize(
+                                       duration: const Duration(milliseconds: 180),
+                                       curve: Curves.easeOutCubic,
+                                       alignment: Alignment.bottomLeft,
+                                       child: AnimatedOpacity(
+                                         duration: const Duration(milliseconds: 160),
+                                         opacity: typing ? 1 : 0,
+                                         child: typing
+                                             ? const TypingBubble()
+                                             : const SizedBox(
+                                                 width: double.infinity,
+                                                 height: 0,
+                                               ),
+                                       ),
+                                     );
+                                   },
+                                 ),
+                                 if (_replyingTo != null)
+                                   _ReplyPreview(
+                                     senderLabel: _replyingTo!.author ==
+                                             MessageAuthor.me
+                                         ? 'yourself'
+                                         : (_replyingTo!.senderName
+                                                     ?.trim()
+                                                     .isNotEmpty ==
+                                                 true
+                                             ? _replyingTo!.senderName!.trim()
+                                             : widget.conversation.name),
+                                     preview:
+                                         _plainReplyBody(_replyingTo!.text),
+                                     onCancel: () {
+                                       setState(() => _replyingTo = null);
+                                     },
+                                   ),
+                                 AnimatedPadding(
+                                   duration: const Duration(milliseconds: 240),
+                                   curve: Curves.easeOutCubic,
+                                   padding: EdgeInsets.only(
+                                     bottom: MediaQuery.of(context).viewInsets.bottom,
+                                   ),
+                                    child: _composerArea(),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
     );
   }
 
@@ -1114,12 +1295,19 @@ class _ConversationScreenState extends State<ConversationScreen> {
           label: 'Mute notifications',
           icon: 0xe7f5,
         ),
-      const ChatMenuAction(
-        id: 'block',
-        label: 'Block',
-        icon: 0xe14a,
-        isDestructive: true,
-      ),
+      if (_blockedByMe)
+        const ChatMenuAction(
+          id: 'unblock',
+          label: 'Unblock',
+          icon: 0xe14a,
+        )
+      else
+        const ChatMenuAction(
+          id: 'block',
+          label: 'Block',
+          icon: 0xe14a,
+          isDestructive: true,
+        ),
       const ChatMenuAction(
         id: 'report',
         label: 'Report',
@@ -1136,19 +1324,27 @@ class _MessageList extends StatelessWidget {
     required this.conversation,
     required this.group,
     required this.initialMessageIds,
+    required this.currentUserId,
+    required this.currentUserName,
+    required this.nameById,
+    required this.onReplyTo,
+    required this.onLikeMessage,
+    required this.likedMessageIds,
+    required this.messageLikes,
     this.onDeleteMessage,
   });
 
   final List<Message> messages;
   final ConversationPreview conversation;
   final GroupMetadata? group;
-
-  /// Message ids present on the initial load. These render statically; only
-  /// messages NOT in this set (arrived afterwards) get the entrance animation.
   final Set<String> initialMessageIds;
-
-  /// Invoked when the user long-presses one of their own (non-deleted)
-  /// messages. Null in demo/no-repository mode, which disables deletion.
+  final String? currentUserId;
+  final String? currentUserName;
+  final Map<String, String> nameById;
+  final ValueChanged<Message> onReplyTo;
+  final ValueChanged<String> onLikeMessage;
+  final Set<String> likedMessageIds;
+  final Map<String, List<String>> messageLikes;
   final Future<void> Function(Message)? onDeleteMessage;
 
   @override
@@ -1192,16 +1388,80 @@ class _MessageList extends StatelessWidget {
           child: SharedContentCard(content: msg.sharedContent!),
         );
       case MessageType.text:
-        // Only the current user's own, non-deleted messages are deletable.
         final canDelete = onDeleteMessage != null &&
             msg.author == MessageAuthor.me &&
             !msg.isDeleted;
-        return MessageBubble(
+        final totalLikes = messageLikes[msg.id]?.length ?? msg.likeCount;
+        final isLiked = likedMessageIds.contains(msg.id);
+        return _SwipeableMessageBubble(
           message: msg,
           showSenderName: showSenderNames && msg.author == MessageAuthor.them,
+          currentUserId: currentUserId,
+          currentUserName: currentUserName,
+          nameById: nameById,
           onLongPress: canDelete ? () => onDeleteMessage!(msg) : null,
+          onSwipeRight: () => onReplyTo(msg),
+          onDoubleTap: () => onLikeMessage(msg.id),
+          isLiked: isLiked,
+          totalLikes: totalLikes,
+          likers: messageLikes[msg.id] ?? msg.likedBy,
         );
     }
+  }
+}
+
+class _SwipeableMessageBubble extends StatelessWidget {
+  const _SwipeableMessageBubble({
+    required this.message,
+    required this.onLongPress,
+    required this.onSwipeRight,
+    required this.onDoubleTap,
+    required this.isLiked,
+    this.showSenderName = false,
+    this.currentUserId,
+    this.currentUserName,
+    this.nameById = const {},
+    this.totalLikes = 0,
+    this.likers = const [],
+  });
+
+  final Message message;
+  final bool showSenderName;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onSwipeRight;
+  final VoidCallback? onDoubleTap;
+  final bool isLiked;
+  final String? currentUserId;
+  final String? currentUserName;
+  final Map<String, String> nameById;
+  final int totalLikes;
+  final List<String> likers;
+
+  @override
+  Widget build(BuildContext context) {
+    final isMe = message.author == MessageAuthor.me;
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: GestureDetector(
+        onHorizontalDragEnd: (details) {
+          if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+            onSwipeRight?.call();
+          }
+        },
+        child: MessageBubble(
+          message: message,
+          showSenderName: showSenderName,
+          currentUserId: currentUserId,
+          currentUserName: currentUserName,
+          nameById: nameById,
+          onLongPress: onLongPress,
+          onDoubleTap: onDoubleTap,
+          isLiked: isLiked,
+          totalLikes: totalLikes,
+          likers: likers,
+        ),
+      ),
+    );
   }
 }
 
@@ -1341,6 +1601,76 @@ class _BlockedComposerBanner extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ReplyPreview extends StatelessWidget {
+  const _ReplyPreview({
+    required this.senderLabel,
+    required this.preview,
+    required this.onCancel,
+  });
+
+  final String senderLabel;
+  final String preview;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(10, 4, 10, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF8B5CF6).withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: .25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFF8B5CF6),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Replying to $senderLabel',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFB7A5FF),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  preview,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFFB9C3DC),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onCancel,
+            icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFFB9C3DC)),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }
@@ -1542,7 +1872,7 @@ class _SheetAction extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: color,
+                  color: isDestructive ? const Color(0xFFFF6B6B) : Colors.white,
                 ),
               ),
             ],

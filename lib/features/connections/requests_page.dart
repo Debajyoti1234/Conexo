@@ -4,6 +4,7 @@ import '../../features/home_connection_dashboard_cards.dart';
 import '../../features/profile/connections_view_model.dart';
 import '../../features/profile/profile_navigation_mapper.dart';
 import '../../features/profile/public_profile_screen.dart';
+import '../../features/profile/supabase_profile_repository.dart';
 
 class RequestsPage extends StatefulWidget {
   const RequestsPage({super.key});
@@ -34,7 +35,7 @@ class _RequestsPageState extends State<RequestsPage> {
       final incoming = await _viewModel.loadIncomingRequests();
       if (!mounted) return;
       setState(() {
-        _requests = incoming;
+        _requests = List.from(incoming)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
         _loading = false;
       });
     } catch (e) {
@@ -88,11 +89,18 @@ class _RequestsPageState extends State<RequestsPage> {
     );
   }
 
-  void _openProfile(ConnectionUiModel request) {
+  Future<void> _openProfile(ConnectionUiModel request) async {
+    final repository = const SupabaseProfileRepository();
+    final profile = await repository.loadProfileByUserId(request.otherUserId);
+    if (!mounted) return;
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile not found')),
+      );
+      return;
+    }
     Navigator.of(context).push(
-      premiumPublicProfileRoute(
-        data: mapConnectionUiModelToProfile(request),
-      ),
+      premiumPublicProfileRoute(data: mapUserProfileToPublicProfile(profile)),
     );
   }
 
@@ -141,38 +149,63 @@ class _RequestsPageState extends State<RequestsPage> {
                               message:
                                   'No new requests. You\'re all caught up.',
                             )
-                          : ListView.builder(
+                          : ListView(
                               padding:
                                   const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                              itemCount: _requests.length,
-                              itemBuilder: (context, index) {
-                                final r = _requests[index];
-                                final visible = !_removing.contains(r.connectionId);
-                                return AnimatedSize(
-                                  duration: const Duration(milliseconds: 360),
-                                  curve: Curves.easeInOutCubic,
-                                  alignment: Alignment.topCenter,
-                                  child: AnimatedOpacity(
-                                    opacity: visible ? 1 : 0,
-                                    duration: const Duration(milliseconds: 360),
-                                    curve: Curves.easeInOutCubic,
-                                    child: Padding(
-                                      key: ValueKey<String>(
-                                          'request-${r.connectionId}'),
-                                      padding: const EdgeInsets.only(bottom: 12),
-                                      child: _RequestRow(
-                                        request: r,
-                                        onViewProfile: () => _openProfile(r),
-                                        onAccept: () => _accept(r),
-                                        onDecline: () => _decline(r),
-                                      ),
-                                    ),
+                              children: [
+                                for (final r in _requests)
+                                  _RequestAnimatedRow(
+                                    key: ValueKey<String>('request-${r.connectionId}'),
+                                    request: r,
+                                    removing: _removing.contains(r.connectionId),
+                                    onViewProfile: () => _openProfile(r),
+                                    onAccept: () => _accept(r),
+                                    onDecline: () => _decline(r),
                                   ),
-                                );
-                              },
+                              ],
                             ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestAnimatedRow extends StatelessWidget {
+  const _RequestAnimatedRow({
+    super.key,
+    required this.request,
+    required this.removing,
+    required this.onViewProfile,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final ConnectionUiModel request;
+  final bool removing;
+  final VoidCallback onViewProfile;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeInOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedOpacity(
+        opacity: removing ? 0 : 1,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeInOutCubic,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: removing ? 0 : 12),
+          child: _RequestRow(
+            request: request,
+            onViewProfile: onViewProfile,
+            onAccept: onAccept,
+            onDecline: onDecline,
+          ),
         ),
       ),
     );

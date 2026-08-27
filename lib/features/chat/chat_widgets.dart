@@ -690,7 +690,7 @@ class _NameAndPreview extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(
+            Flexible(
               child: Text(
                 c.name,
                 maxLines: 1,
@@ -705,11 +705,11 @@ class _NameAndPreview extends StatelessWidget {
               ),
             ),
             if (c.isVerified) ...[
-              const SizedBox(width: 5),
+              const SizedBox(width: 4),
               const VerifiedBadge(),
             ],
             if (c.isMuted) ...[
-              const SizedBox(width: 5),
+              const SizedBox(width: 6),
               const Icon(
                 Icons.notifications_off_rounded,
                 size: 13,

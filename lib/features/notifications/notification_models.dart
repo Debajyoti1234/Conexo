@@ -106,19 +106,19 @@ class AppNotification {
       case NotificationKind.join:
         return Icons.group_add_rounded;
       case NotificationKind.request:
-        return Icons.handshake_rounded;
-      case NotificationKind.requestAccepted:
-        return Icons.check_circle_rounded;
-      case NotificationKind.planInvitation:
-        return Icons.mail_rounded;
-      case NotificationKind.joinRequest:
         return Icons.person_add_rounded;
+      case NotificationKind.requestAccepted:
+        return Icons.verified_rounded;
+      case NotificationKind.planInvitation:
+        return Icons.star_rounded;
+      case NotificationKind.joinRequest:
+        return Icons.group_add_rounded;
       case NotificationKind.plan:
-        return Icons.event_available_rounded;
+        return Icons.check_circle_rounded;
       case NotificationKind.message:
         return Icons.forum_rounded;
       case NotificationKind.system:
-        return Icons.verified_rounded;
+        return Icons.info_rounded;
     }
   }
 }

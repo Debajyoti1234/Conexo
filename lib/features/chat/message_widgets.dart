@@ -24,22 +24,190 @@ const _kMuted = Color(0xFFB9C3DC);
 /// understated "This message was deleted" placeholder is shown in its place and
 /// no long-press action is offered. [onLongPress] is only wired for the current
 /// user's own, non-deleted messages (the caller decides ownership).
-class MessageBubble extends StatelessWidget {
+class MessageBubble extends StatefulWidget {
   const MessageBubble({
     required this.message,
     super.key,
     this.showSenderName = false,
     this.onLongPress,
+    this.onDoubleTap,
+    this.onSwipeRight,
+    this.isLiked = false,
+    this.currentUserId,
+    this.currentUserName,
+    this.totalLikes = 0,
+    this.likers = const [],
+    this.nameById = const {},
   });
 
   final Message message;
   final bool showSenderName;
   final VoidCallback? onLongPress;
+  final VoidCallback? onDoubleTap;
+  final VoidCallback? onSwipeRight;
+  final bool isLiked;
+  final String? currentUserId;
+  final String? currentUserName;
+  final int totalLikes;
+  final List<String> likers;
+  final Map<String, String> nameById;
+
+  @override
+  State<MessageBubble> createState() => _MessageBubbleState();
+}
+
+class _MessageBubbleState extends State<MessageBubble> {
+  void _handleDoubleTap() {
+    widget.onDoubleTap?.call();
+  }
+
+  static ({String? sender, String? quotedText, String? body})? _parseReply(String text) {
+    final regex = RegExp(r'^Replying to (.+?):\s*(.*?)(?:\n\n|\n)(.*)$', dotAll: true);
+    final match = regex.firstMatch(text);
+    if (match == null) return null;
+    return (
+      sender: match.group(1),
+      quotedText: match.group(2),
+      body: match.group(3),
+    );
+  }
+
+  String _replyAttribution(
+    bool isMe,
+    ({String? sender, String? quotedText, String? body}) reply,
+  ) {
+    final repliedTo = (reply.sender ?? '').trim();
+    final hasName =
+        repliedTo.isNotEmpty && repliedTo.toLowerCase() != 'message';
+    final currentName = widget.currentUserName?.trim();
+
+    if (isMe) {
+      if (hasName && repliedTo.toLowerCase() != 'you') {
+        return 'You replied to $repliedTo';
+      }
+      return 'You replied';
+    }
+
+    final authorName = widget.message.senderName?.trim();
+    if (authorName == null || authorName.isEmpty) {
+      return hasName ? 'Replied to $repliedTo' : 'Replied';
+    }
+
+    if (!hasName) {
+      return '$authorName replied';
+    }
+
+    final repliedToLower = repliedTo.toLowerCase();
+    if (currentName != null &&
+        currentName.isNotEmpty &&
+        repliedToLower == currentName.toLowerCase()) {
+      return '$authorName replied to you';
+    }
+
+    return '$authorName replied to $repliedTo';
+  }
+
+  Widget _buildMessageText(String text, bool isMe) {
+    final reply = _parseReply(text);
+    if (reply != null) {
+      // Instagram-style inverted quoted surface: a sent (purple) bubble carries
+      // a dark/translucent quote, a received (dark) bubble carries a
+      // purple-tinted quote. Both get a subtle vertical left accent bar.
+      final quotedSurface = isMe
+          ? Colors.black.withValues(alpha: .18)
+          : _kAccent.withValues(alpha: .18);
+      final accentBar =
+          isMe ? Colors.white.withValues(alpha: .55) : _kAccent;
+      final quotedSenderColor =
+          isMe ? Colors.white : const Color(0xFFB7A5FF);
+      final quotedTextColor = isMe
+          ? Colors.white.withValues(alpha: .85)
+          : const Color(0xFFCBD3E8);
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(11),
+            child: Container(
+              color: quotedSurface,
+              child: IntrinsicHeight(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(width: 3, color: accentBar),
+                    Flexible(
+                      child: Padding(
+                        padding:
+                            const EdgeInsets.fromLTRB(9, 6, 11, 7),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              reply.sender ?? 'Message',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: quotedSenderColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              reply.quotedText ?? '',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                height: 1.25,
+                                color: quotedTextColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (reply.body != null && reply.body!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              reply.body!,
+              style: TextStyle(
+                fontSize: 14.5,
+                height: 1.3,
+                fontWeight: FontWeight.w500,
+                color: isMe ? Colors.white : const Color(0xFFE7ECF9),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 14.5,
+        height: 1.3,
+        fontWeight: FontWeight.w500,
+        color: isMe ? Colors.white : const Color(0xFFE7ECF9),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isMe = message.author == MessageAuthor.me;
-    final isDeleted = message.isDeleted;
+    final isMe = widget.message.author == MessageAuthor.me;
+    final isDeleted = widget.message.isDeleted;
+    final replyInfo = isDeleted ? null : _parseReply(widget.message.text);
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(22),
       topRight: const Radius.circular(22),
@@ -47,8 +215,6 @@ class MessageBubble extends StatelessWidget {
       bottomRight: Radius.circular(isMe ? 7 : 22),
     );
 
-    // Deleted bubbles are intentionally flat + translucent (no accent gradient,
-    // no glow) so they read as understated rather than as an error.
     final bubble = Container(
       padding: isDeleted
           ? const EdgeInsets.fromLTRB(14, 10, 15, 10)
@@ -102,26 +268,21 @@ class MessageBubble extends StatelessWidget {
                 ),
               ],
             )
-          : Text(
-              message.text,
-              style: TextStyle(
-                fontSize: 14.5,
-                height: 1.3,
-                fontWeight: FontWeight.w500,
-                color: isMe ? Colors.white : const Color(0xFFE7ECF9),
-              ),
-            ),
+          : _buildMessageText(widget.message.text, isMe),
     );
 
-    // A deleted message never offers actions; only own, non-deleted messages
-    // receive a long-press gesture (wired by the caller).
-    final interactiveBubble = (onLongPress != null && !isDeleted)
+    final interactiveBubble = (widget.onLongPress != null && !isDeleted)
         ? GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onLongPress: onLongPress,
+            onLongPress: widget.onLongPress,
+            onDoubleTap: _handleDoubleTap,
             child: bubble,
           )
-        : bubble;
+        : GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onDoubleTap: _handleDoubleTap,
+            child: bubble,
+          );
 
     return Padding(
       padding: EdgeInsets.only(
@@ -134,12 +295,15 @@ class MessageBubble extends StatelessWidget {
       child: Column(
         crossAxisAlignment:
             isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (showSenderName && !isMe && message.senderName != null)
+          if (widget.showSenderName &&
+              !isMe &&
+              widget.message.senderName != null)
             Padding(
               padding: const EdgeInsets.only(left: 12, bottom: 3),
               child: Text(
-                message.senderName!,
+                widget.message.senderName!,
                 style: const TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
@@ -147,10 +311,79 @@ class MessageBubble extends StatelessWidget {
                 ),
               ),
             ),
+          if (replyInfo != null)
+            Padding(
+              padding: EdgeInsets.only(
+                left: isMe ? 0 : 12,
+                right: isMe ? 12 : 0,
+                bottom: 4,
+              ),
+              child: Text(
+                _replyAttribution(isMe, replyInfo),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _kSubtle.withValues(alpha: .55),
+                ),
+              ),
+            ),
           interactiveBubble,
+          if (widget.isLiked || widget.totalLikes > 0)
+            Padding(
+              padding: EdgeInsets.only(
+                top: 3,
+                left: isMe ? 12 : 0,
+                right: isMe ? 0 : 12,
+              ),
+              child: GestureDetector(
+                onTap: () {
+                  if (widget.isLiked) {
+                    widget.onDoubleTap?.call();
+                  } else if (widget.message.author == MessageAuthor.me) {
+                    final likers = widget.likers;
+                    if (likers.isNotEmpty) {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => _LikersPopover(
+                          likers: likers,
+                          nameById: widget.nameById,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.favorite_rounded,
+                      size: 15,
+                      color: widget.isLiked
+                          ? const Color(0xFFFF4D8D)
+                          : const Color(0xFFFF4D8D).withValues(alpha: .7),
+                    ),
+                    if (widget.totalLikes >= 2) ...[
+                      const SizedBox(width: 3),
+                      Text(
+                        '+${widget.totalLikes - 1}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: widget.isLiked
+                              ? const Color(0xFFFF4D8D)
+                              : const Color(0xFFFF4D8D).withValues(alpha: .7),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.only(top: 3, left: 6, right: 6),
-            child: _MetaLine(message: message, isMe: isMe),
+            child: _MetaLine(message: widget.message, isMe: isMe),
           ),
         ],
       ),
@@ -428,4 +661,69 @@ String _formatClock(DateTime t) {
   final m = local.minute.toString().padLeft(2, '0');
   final ampm = local.hour < 12 ? 'AM' : 'PM';
   return '$h:$m $ampm';
+}
+
+class _LikersPopover extends StatelessWidget {
+  const _LikersPopover({
+    required this.likers,
+    this.nameById = const {},
+  });
+
+  final List<String> likers;
+  final Map<String, String> nameById;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF141B2E),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.favorite_rounded,
+                  size: 18,
+                  color: const Color(0xFFFF4D8D),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Liked by ${likers.length}',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFEAEEF9),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...likers.map(
+              (id) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  nameById[id] ?? id,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    color: Color(0xFFB9C3DC),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

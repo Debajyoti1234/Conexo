@@ -76,6 +76,7 @@ class Message {
     this.deliveryStatus = MessageDeliveryStatus.read,
     this.sharedContent,
     this.isDeleted = false,
+    this.likedBy = const [],
   });
 
   /// Stable identifier.
@@ -111,12 +112,16 @@ class Message {
   /// "This message was deleted" placeholder instead.
   final bool isDeleted;
 
+  /// IDs of users who liked this message.
+  final List<String> likedBy;
+
   /// Returns a copy with selected fields overridden. Used to flip a message
   /// into its deleted state locally after a successful soft delete without
   /// rebuilding the whole list from the backend.
   Message copyWith({
     bool? isDeleted,
     MessageDeliveryStatus? deliveryStatus,
+    List<String>? likedBy,
   }) {
     return Message(
       id: id,
@@ -129,8 +134,14 @@ class Message {
       deliveryStatus: deliveryStatus ?? this.deliveryStatus,
       sharedContent: sharedContent,
       isDeleted: isDeleted ?? this.isDeleted,
+      likedBy: likedBy ?? this.likedBy,
     );
   }
+
+  bool isLikedBy(String userId) =>
+      userId.isNotEmpty && likedBy.contains(userId);
+
+  int get likeCount => likedBy.length;
 }
 
 /// A participant in a group conversation.

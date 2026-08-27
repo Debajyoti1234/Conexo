@@ -381,7 +381,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
             ),
             Positioned(
               right: 20,
-              bottom: 24,
+              bottom: 100,
               child: CreatePlanButton(onTap: _createPlan),
             ),
           ],

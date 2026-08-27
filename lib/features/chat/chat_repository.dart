@@ -26,6 +26,8 @@ class ChatResult<T> {
 class ChatRepository {
   const ChatRepository();
 
+  static final Map<String, bool> _pendingLikes = <String, bool>{};
+
   Future<ChatResult<String>> getOrCreateConnectionConversation(
     String connectionId,
   ) async {
@@ -41,6 +43,51 @@ class ChatRepository {
       return ChatResult.failure(e.message);
     } catch (e) {
       return ChatResult.failure('Failed to open conversation');
+    }
+  }
+
+  Future<ChatResult<void>> toggleLike(String messageId) async {
+    if (_pendingLikes[messageId] == true) {
+      return const ChatResult.success(null);
+    }
+    _pendingLikes[messageId] = true;
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return const ChatResult.failure('Not authenticated');
+      }
+
+      final existing = await Supabase.instance.client
+          .from('message_likes')
+          .select('message_id')
+          .eq('message_id', messageId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (existing != null) {
+        await Supabase.instance.client
+            .from('message_likes')
+            .delete()
+            .eq('message_id', messageId)
+            .eq('user_id', user.id);
+      } else {
+        await Supabase.instance.client
+            .from('message_likes')
+            .insert({'message_id': messageId, 'user_id': user.id});
+      }
+
+      return const ChatResult.success(null);
+    } on AuthException catch (e) {
+      debugPrint('toggleLike AuthException: ${e.message}');
+      return ChatResult.failure(e.message);
+    } catch (e) {
+      debugPrint('toggleLike FAILED: messageId=$messageId user=${AuthService.currentUser?.id} error=${e.runtimeType}: $e');
+      if (e is PostgrestException) {
+        debugPrint('  code=${e.code} details=${e.details} hint=${e.hint}');
+      }
+      return const ChatResult.failure('Failed to update like');
+    } finally {
+      _pendingLikes.remove(messageId);
     }
   }
 
@@ -628,6 +675,103 @@ class ChatRepository {
       return const ChatResult.failure('Failed to load group details');
     }
   }
+
+  Future<ChatResult<Map<String, List<String>>>> loadLikesForConversation(
+    String conversationId,
+  ) async {
+    try {
+      final messageIds = await _messageIdsInConversation(conversationId);
+      if (messageIds.isEmpty) {
+        return const ChatResult.success(<String, List<String>>{});
+      }
+
+      final rows = await Supabase.instance.client
+          .from('message_likes')
+          .select('message_id, user_id')
+          .inFilter('message_id', messageIds);
+
+      final likes = <String, List<String>>{};
+      for (final row in rows) {
+        final messageId = row['message_id'] as String;
+        final userId = row['user_id'] as String;
+        likes.putIfAbsent(messageId, () => <String>[]).add(userId);
+      }
+      return ChatResult.success(likes);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } catch (e) {
+      return ChatResult.failure('Failed to load likes');
+    }
+  }
+
+  Future<void> ensureLikesSubscription(
+    String conversationId,
+    void Function(Map<String, List<String>> likes) onLikesUpdated,
+  ) async {
+    final user = AuthService.currentUser;
+    if (user == null) return;
+
+    disposeLikesSubscription(conversationId);
+
+    final channel = Supabase.instance.client.channel('likes:$conversationId');
+
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'message_likes',
+          callback: (payload) {
+            try {
+              final record = payload.eventType == PostgresChangeEvent.delete
+                  ? payload.oldRecord
+                  : payload.newRecord;
+              if (record.isEmpty) return;
+              final messageId = record['message_id'] as String;
+              final changedUserId = record['user_id'] as String;
+              final likes = Map<String, List<String>>.from(
+                _likesCacheByConversation.putIfAbsent(
+                  conversationId,
+                  () => <String, List<String>>{},
+                ),
+              );
+              final list = likes.putIfAbsent(messageId, () => <String>[]);
+              if (payload.eventType == PostgresChangeEvent.delete) {
+                list.remove(changedUserId);
+                if (list.isEmpty) likes.remove(messageId);
+              } else {
+                if (!list.contains(changedUserId)) {
+                  list.add(changedUserId);
+                }
+              }
+              _likesCacheByConversation[conversationId] = likes;
+              onLikesUpdated(likes);
+            } catch (e) {
+              debugPrint('Likes realtime error: $e');
+            }
+          },
+        )
+        .subscribe();
+
+    _likesSubscriptions[conversationId] = channel;
+  }
+
+  void disposeLikesSubscription(String conversationId) {
+    final channel = _likesSubscriptions.remove(conversationId);
+    if (channel != null) {
+      Supabase.instance.client.removeChannel(channel);
+    }
+    _likesCacheByConversation.remove(conversationId);
+  }
+
+  Future<List<String>> _messageIdsInConversation(
+    String conversationId,
+  ) async {
+    final rows = await Supabase.instance.client
+        .from('messages')
+        .select('id')
+        .eq('conversation_id', conversationId);
+    return rows.map((row) => row['id'] as String).toList();
+  }
 }
 
 class LocalChatRepository {
@@ -679,3 +823,8 @@ class LocalChatRepository {
     return null;
   }
 }
+
+final Map<String, Map<String, List<String>>> _likesCacheByConversation =
+    <String, Map<String, List<String>>>{};
+final Map<String, RealtimeChannel> _likesSubscriptions =
+    <String, RealtimeChannel>{};

@@ -84,12 +84,20 @@ class MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // The dock floats over the content instead of pushing it up.
       extendBody: true,
-      body: IndexedStack(index: _selectedIndex, children: _screens),
-      bottomNavigationBar: FloatingNavDock(
-        selectedIndex: _selectedIndex,
-        onSelected: switchToTab,
+      body: Stack(
+        children: [
+          IndexedStack(index: _selectedIndex, children: _screens),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: FloatingNavDock(
+              selectedIndex: _selectedIndex,
+              onSelected: switchToTab,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -187,20 +195,20 @@ class FloatingNavDock extends StatelessWidget {
                 height: 68,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF141B2E).withValues(alpha: .62),
+                  color: const Color(0xFF141B2E).withValues(alpha: .35),
                   borderRadius: BorderRadius.circular(30),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: .12),
+                    color: Colors.white.withValues(alpha: .1),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: .48),
+                      color: Colors.black.withValues(alpha: .28),
                       blurRadius: 34,
                       offset: const Offset(0, 16),
                     ),
                     BoxShadow(
-                      color: _accent.withValues(alpha: .14),
+                      color: _accent.withValues(alpha: .1),
                       blurRadius: 28,
                       offset: const Offset(0, 8),
                     ),
