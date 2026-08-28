@@ -127,6 +127,24 @@ class PlanJoinController extends ChangeNotifier {
     }
   }
 
+  Future<void> cancelJoinRequest(String planId) async {
+    if (_loading) return;
+    _loading = true;
+    notifyListeners();
+
+    try {
+      await _repository.cancelJoinRequest(planId);
+      await loadMembership(planId);
+    } on AuthFailure {
+      rethrow;
+    } catch (_) {
+      throw const AuthFailure('Something went wrong. Please try again.');
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> approve(String planId, String memberId) async {
     if (_loading) return;
     _loading = true;

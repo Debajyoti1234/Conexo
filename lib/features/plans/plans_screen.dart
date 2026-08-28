@@ -32,20 +32,24 @@ class PlansDiscoveryScreen extends StatefulWidget {
   State<PlansDiscoveryScreen> createState() => _PlansDiscoveryScreenState();
 }
 
-class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
+class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> with WidgetsBindingObserver {
   PlansFilterState _filter = const PlansFilterState();
   int _categoryIndex = 0; // 0 = All
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
 
   List<Experience> _allPlans = const [];
+  List<Experience> _createdPlans = const [];
+  List<Experience> _recentlyVisited = const [];
   int? _maxDistanceKm;
   bool _loading = true;
   String? _error;
+  int _requestGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
@@ -53,37 +57,66 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
   void dispose() {
     _debounce?.cancel();
     _searchController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load();
+    }
+  }
+
   Future<void> _load() async {
+    final generation = ++_requestGeneration;
     try {
       final experiences = await widget.repository.getDiscoveryExperiences();
+      if (generation != _requestGeneration) return;
       final maxKm = await widget.repository.getDiscoveryDistanceKm();
+      if (generation != _requestGeneration) return;
       if (!mounted) return;
 
       for (final e in experiences.take(5)) {
         final asset = e.coverAsset;
         if (asset.startsWith('http://') || asset.startsWith('https://')) {
           try {
-            // ignore: use_build_context_synchronously
             await precacheImage(NetworkImage(asset), context);
           } catch (_) {}
         } else if (asset.startsWith('assets/')) {
         } else if (asset.startsWith('plans/')) {
         } else if (asset.isNotEmpty) {
           try {
-            // ignore: use_build_context_synchronously
             await precacheImage(FileImage(File(asset)), context);
           } catch (_) {}
         }
       }
 
+      if (generation != _requestGeneration) return;
       setState(() {
         _allPlans = experiences;
         _maxDistanceKm = maxKm;
         _loading = false;
         _error = null;
+      });
+
+      if (generation != _requestGeneration) return;
+      List<Experience> created = const [];
+      List<Experience> visited = const [];
+      try {
+        created = await widget.repository.getPublishedExperiences();
+        if (generation != _requestGeneration) return;
+        visited = await widget.repository.getRecentlyVisitedExperiences();
+        if (generation != _requestGeneration) return;
+      } catch (_) {
+        // Auxiliary discovery sections are best-effort; do not fail the main
+        // discovery feed if Created / Recently Visited cannot load.
+      }
+      if (!mounted) return;
+      if (generation != _requestGeneration) return;
+      setState(() {
+        _createdPlans = created;
+        _recentlyVisited = visited;
       });
     } on AuthFailure catch (e) {
       if (!mounted) return;
@@ -110,25 +143,21 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
   /// return. It remains visible to every other user, and reappears for this
   /// viewer if the request is later declined.
   Future<void> _openPlan(Experience e) async {
+    await widget.repository.recordPlanVisit(e.id);
     await Navigator.of(context).push<void>(premiumPlanRoute(e));
     if (!mounted) return;
     await _load();
   }
-
-  int get _privateCategoryIndex => 1 + planCategories.length;
 
   void _onCategorySelected(int index) {
     if (index == _categoryIndex) return;
     setState(() {
       _categoryIndex = index;
       if (index == 0) {
-        _filter = _filter.copyWith(clearCategory: true, visibility: null);
-      } else if (index == _privateCategoryIndex) {
-        _filter = _filter.copyWith(clearCategory: true, visibility: PlanVisibility.private);
+        _filter = _filter.copyWith(clearCategory: true);
       } else {
         _filter = _filter.copyWith(
           selectedCategory: planCategories[index - 1].label,
-          visibility: null,
         );
       }
     });
@@ -244,6 +273,8 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> {
                 key: ValueKey(_filter),
                 hero: processed.first,
                 sections: sections,
+                created: _createdPlans,
+                recentlyVisited: _recentlyVisited,
                 onOpen: _openPlan,
               )
             : const _EmptyView(key: ValueKey('plans-empty')),
@@ -319,12 +350,16 @@ class _ResultsView extends StatelessWidget {
   const _ResultsView({
     required this.hero,
     required this.sections,
+    required this.created,
+    required this.recentlyVisited,
     required this.onOpen,
     super.key,
   });
 
   final Experience hero;
   final Map<String, List<Experience>> sections;
+  final List<Experience> created;
+  final List<Experience> recentlyVisited;
 
   /// Opens a plan's details. Provided by the screen so it can await the route
   /// and refresh the viewer-specific feed on return. Reusable cards + hero
@@ -343,22 +378,34 @@ class _ResultsView extends StatelessWidget {
             onOpen: () => onOpen(hero),
           ),
         ),
-        ExperienceRail(
-          title: '⭐ Featured',
-          items: sections['featured'] ?? const [],
-          variant: CardVariant.immersive,
-          onOpen: onOpen,
-        ),
-        const SizedBox(height: 30),
-        ExperienceRail(
-          title: '✨ Happening Today',
-          items: sections['today'] ?? const [],
-          variant: CardVariant.stacked,
-          height: 400,
-          onOpen: onOpen,
-        ),
-
-        const SizedBox(height: 30),
+        if (sections['featured'] != null && sections['featured']!.isNotEmpty)
+          ExperienceRail(
+            title: '⭐ Featured',
+            items: sections['featured']!,
+            variant: CardVariant.immersive,
+            onOpen: onOpen,
+          ),
+        if (sections['featured'] != null && sections['featured']!.isNotEmpty)
+          const SizedBox(height: 30),
+        if (sections['tonight'] != null && sections['tonight']!.isNotEmpty)
+          ExperienceRail(
+            title: '🌙 Tonight',
+            items: sections['tonight']!,
+            variant: CardVariant.stacked,
+            height: 400,
+            onOpen: onOpen,
+          ),
+        if (sections['tonight'] != null && sections['tonight']!.isNotEmpty)
+          const SizedBox(height: 30),
+        if (sections['private'] != null && sections['private']!.isNotEmpty)
+          ExperienceRail(
+            title: '🔒 Private',
+            items: sections['private']!,
+            variant: CardVariant.immersive,
+            onOpen: onOpen,
+          ),
+        if (sections['private'] != null && sections['private']!.isNotEmpty)
+          const SizedBox(height: 30),
         ExperienceRail(
           title: '🔥 Trending',
           items: sections['trending'] ?? const [],
@@ -384,6 +431,23 @@ class _ResultsView extends StatelessWidget {
           onOpen: onOpen,
         ),
         const SizedBox(height: 30),
+        if (created.isNotEmpty)
+          ExperienceRail(
+            title: '✨ Created',
+            items: created,
+            variant: CardVariant.immersive,
+            onOpen: onOpen,
+          ),
+        if (created.isNotEmpty) const SizedBox(height: 30),
+        if (recentlyVisited.isNotEmpty)
+          ExperienceRail(
+            title: '🕒 Recently Visited',
+            items: recentlyVisited,
+            variant: CardVariant.stacked,
+            height: 360,
+            onOpen: onOpen,
+          ),
+        if (recentlyVisited.isNotEmpty) const SizedBox(height: 30),
         ExperienceRail(
           title: '🆕 New',
           items: sections['new'] ?? const [],

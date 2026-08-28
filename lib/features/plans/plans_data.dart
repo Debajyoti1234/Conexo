@@ -353,10 +353,12 @@ Map<String, List<Experience>> sectionsFor(
   return {
     'featured': slice('featured'),
     'today': slice('today'),
+    'tonight': slice('today'),
     'trending': trending,
     'near': near,
     'friends': slice('friends'),
     'new': slice('new'),
+    'private': slice('private'),
   };
 }
 

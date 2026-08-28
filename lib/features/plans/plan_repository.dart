@@ -127,6 +127,12 @@ abstract class PlanRepository {
   /// enforced server-side.
   Future<void> leavePlan(String planId);
 
+  /// Cancels the current user's pending join request for the given plan
+  /// (pending -> cancelled). Only the member themselves may perform this
+  /// action; authorization is enforced server-side. Idempotent: if the request
+  /// is no longer pending, it is a no-op.
+  Future<void> cancelJoinRequest(String planId);
+
   /// Archives a plan for the current creator. Only the creator may perform
   /// this action; authorization is enforced server-side. The plan remains in
   /// the database with status = 'archived' and can be restored later.
@@ -158,6 +164,15 @@ abstract class PlanRepository {
 
   /// Returns invitations sent by the current user for a plan.
   Future<List<PlanInvitation>> getSentInvitations(String planId);
+
+  /// Records a plan visit for the current user. Used by the Recently Visited
+  /// Discovery section. Persists across app restarts.
+  Future<void> recordPlanVisit(String planId);
+
+  /// Returns the current user's recently visited plans as [Experience] objects,
+  /// most recently visited first. Only returns plans the user is still
+  /// authorized to see (RLS remains authoritative).
+  Future<List<Experience>> getRecentlyVisitedExperiences();
 
   /// Resolves a single cover storage path or local asset to a displayable URL.
   /// For `plans/` storage paths this returns a signed URL; for local assets
@@ -244,6 +259,9 @@ class LocalPlanRepository implements PlanRepository {
   Future<void> leavePlan(String planId) async {}
 
   @override
+  Future<void> cancelJoinRequest(String planId) async {}
+
+  @override
   Future<void> archivePlan(String planId) async {}
 
   @override
@@ -266,6 +284,12 @@ class LocalPlanRepository implements PlanRepository {
 
   @override
   Future<List<PlanInvitation>> getSentInvitations(String planId) async => const [];
+
+  @override
+  Future<void> recordPlanVisit(String planId) async {}
+
+  @override
+  Future<List<Experience>> getRecentlyVisitedExperiences() async => const [];
 
   @override
   Future<List<PublishedPlan>> getDiscoveryPlans() async => [];

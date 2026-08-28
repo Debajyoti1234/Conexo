@@ -414,9 +414,10 @@ class _JoinActionBar extends StatelessWidget {
           icon = Icons.check_circle_rounded;
           enabled = false;
         case JoinStatus.requested:
-          label = 'Request Pending';
+          label = 'Pending Confirmation';
           icon = Icons.hourglass_top_rounded;
-          enabled = false;
+          enabled = true;
+          break;
         case JoinStatus.notJoined:
         case JoinStatus.cancelled:
           label = e.isPublic ? 'Join Plan' : 'Request to Join';
@@ -434,8 +435,76 @@ class _JoinActionBar extends StatelessWidget {
       }
     }
 
+    Future<void> handleRequestedTap() async {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF182039),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Cancel join request?',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFFEAEEF9),
+            ),
+          ),
+          content: const Text(
+            'Your request to join this Plan is still pending. '
+            'Do you want to cancel it?',
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFFB9C3DC),
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text(
+                'Keep Request',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF9DB2E8),
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFF4D8D),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text(
+                'Cancel Request',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      try {
+        await controller.cancelJoinRequest(e.id);
+      } on AuthFailure catch (err) {
+        onError?.call(err.message);
+      }
+    }
+
     Future<void> onPressed() async {
       try {
+        if (status == JoinStatus.requested) {
+          await handleRequestedTap();
+          return;
+        }
         await controller.joinOrRequest(e.id);
       } on AuthFailure catch (err) {
         onError?.call(err.message);

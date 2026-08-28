@@ -327,34 +327,30 @@ class SupabasePlanRepository implements PlanRepository {
     }
 
     try {
-      await Supabase.instance.client
-          .from('plan_members')
-          .insert({
-            'plan_id': planId,
-            'user_id': user.id,
-            'role': 'member',
-            'status': 'pending',
-          });
+      await Supabase.instance.client.rpc(
+        'request_to_join',
+        params: {'p_plan_id': planId},
+      );
     } on PostgrestException catch (error) {
-      final code = error.code?.toLowerCase() ?? '';
+      final code = error.code?.toUpperCase() ?? '';
       final message = error.message.toLowerCase();
 
-      if (code == '23505' ||
-          message.contains('unique') ||
-          message.contains('duplicate') ||
-          message.contains('plan_members_plan_id_user_id_key')) {
-        return;
+      if (code == 'PGRST202' ||
+          message.contains('could not find the function') ||
+          message.contains('schema cache')) {
+        throw const AuthFailure(
+          'Server action "request_to_join" is unavailable. '
+          'Apply the latest database migrations, then retry.',
+        );
       }
-      if (code == '23456' ||
-          message.contains('check violation') ||
-          message.contains('capacity') ||
-          message.contains('full')) {
-        throw const AuthFailure('This Plan is full');
+      if (message.contains('already a member') ||
+          message.contains('already pending')) {
+        return;
       }
       throw AuthFailure(_mapPostgrestException(error));
     } on AuthException catch (error) {
       throw AuthFailure(_mapAuthException(error.message));
-    } catch (_) {
+    } catch (error) {
       throw const AuthFailure('Network error. Please try again.');
     }
   }
@@ -583,6 +579,42 @@ class SupabasePlanRepository implements PlanRepository {
       throw AuthFailure(_mapAuthException(error.message));
     } catch (_) {
       throw const AuthFailure('Failed to leave plan. Please try again.');
+    }
+  }
+
+  @override
+  Future<void> cancelJoinRequest(String planId) async {
+    final user = AuthService.currentUser;
+    if (user == null) {
+      throw const AuthFailure('Please sign in to manage this request');
+    }
+
+    try {
+      await Supabase.instance.client.rpc(
+        'cancel_plan_join_request',
+        params: {'p_plan_id': planId},
+      );
+    } on PostgrestException catch (error) {
+      final code = error.code?.toUpperCase() ?? '';
+      final message = error.message.toLowerCase();
+
+      if (code == 'PGRST202' ||
+          message.contains('could not find the function') ||
+          message.contains('schema cache') ||
+          (message.contains('function') && message.contains('does not exist'))) {
+        throw const AuthFailure(
+          'Server action "cancel_plan_join_request" is unavailable. '
+          'Apply the latest database migrations, then retry.',
+        );
+      }
+      if (message.contains('permission') || message.contains('policy') || message.contains('rls')) {
+        throw const AuthFailure('You don\'t have permission to cancel this request.');
+      }
+      throw AuthFailure(_mapPostgrestException(error));
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } catch (_) {
+      throw const AuthFailure('Failed to cancel request. Please try again.');
     }
   }
 
@@ -955,6 +987,9 @@ class SupabasePlanRepository implements PlanRepository {
 
     // Featured: real curated flag only (never fabricated / randomised).
     if (plan.isFeatured) sections.add('featured');
+
+    // Private: tag private plans so the Private section rail can slice them.
+    if (plan.visibility == PlanVisibility.private) sections.add('private');
 
     // Friends Joined: at least one accepted connection is a joined member.
     // The set is computed once by the caller via a SECURITY DEFINER helper so
@@ -1580,6 +1615,7 @@ class SupabasePlanRepository implements PlanRepository {
           ''')
           .eq('plan_id', planId)
           .eq('inviter_id', user.id)
+          .eq('status', 'pending')
           .order('created_at', ascending: false);
 
       if (data.isEmpty) return const [];
@@ -1610,6 +1646,118 @@ class SupabasePlanRepository implements PlanRepository {
       throw AuthFailure(_mapAuthException(error.message));
     } catch (_) {
       throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
+  @override
+  Future<void> recordPlanVisit(String planId) async {
+    final user = AuthService.currentUser;
+    if (user == null) return;
+
+    try {
+      await Supabase.instance.client.rpc(
+        'record_plan_visit',
+        params: {'p_plan_id': planId},
+      );
+    } on PostgrestException catch (error) {
+      debugPrint(
+        '[SupabasePlanRepository] recordPlanVisit RPC error: '
+        'code=${error.code} message=${error.message}',
+      );
+    } on AuthException catch (_) {
+      // Silently ignore auth failures for visit recording.
+    } catch (_) {
+      // Silently ignore all other failures for visit recording.
+    }
+  }
+
+  @override
+  Future<List<Experience>> getRecentlyVisitedExperiences() async {
+    final user = AuthService.currentUser;
+    if (user == null) return const [];
+
+    try {
+      final rows = await Supabase.instance.client.rpc(
+        'get_recently_visited_plan_ids',
+        params: {'p_limit': 20},
+      );
+
+      final planIds = <String>[];
+      final visitedAts = <String>[];
+      if (rows is List) {
+        for (final row in rows) {
+          if (row is Map) {
+            final id = row['plan_id'] as String?;
+            final visitedAt = row['visited_at'] as String?;
+            if (id != null) {
+              planIds.add(id);
+              if (visitedAt != null) visitedAts.add(visitedAt);
+            }
+          }
+        }
+      }
+
+      if (planIds.isEmpty) return const [];
+
+      final plansData = await Supabase.instance.client
+          .from('plans')
+          .select('''
+            id, creator_id, title, description, category, mood, cover_url,
+            visibility, latitude, longitude, location_name, location_address, is_featured,
+            starts_at, capacity, status,
+            created_at, updated_at
+          ''')
+          .inFilter('id', planIds)
+          .eq('status', 'active');
+
+      final plans = <PublishedPlan>[];
+      for (final row in plansData) {
+        try {
+          plans.add(PublishedPlan.fromSupabase(row));
+        } catch (_) {
+          // skip malformed
+        }
+      }
+
+      final planMap = <String, PublishedPlan>{};
+      for (final p in plans) {
+        planMap[p.id] = p;
+      }
+
+      final creatorIds = plans.map((p) => p.hostId).toSet().toList();
+      final displayNames = await _fetchDisplayNames(creatorIds);
+      final profilePhotoUrls = await _fetchProfilePhotoUrls(creatorIds);
+      final coverPaths = plans.map((p) => p.coverAsset).toList();
+      final signedUrls = await getCoverSignedUrls(coverPaths);
+      final planIdsForCounts = plans.map((p) => p.id).toList();
+      final counts = await getJoinedCounts(planIdsForCounts);
+
+      // Preserve visit order (most recent first), skip plans removed from
+      // the authorized set by RLS.
+      final result = <Experience>[];
+      for (var i = 0; i < planIds.length; i++) {
+        final plan = planMap[planIds[i]];
+        if (plan == null) continue;
+        final idx = plans.indexOf(plan);
+        final signedUrl = signedUrls[idx];
+        final joinedCount = counts[plan.id] ?? 1;
+        result.add(
+          _planToExperience(
+            plan,
+            displayNames[plan.hostId],
+            signedUrl,
+            joinedCount,
+            hostPhotoUrl: profilePhotoUrls[plan.hostId],
+          ),
+        );
+      }
+      return result;
+    } on PostgrestException catch (error) {
+      throw AuthFailure(_mapPostgrestException(error));
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } catch (_) {
+      return const [];
     }
   }
 
