@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../app/router/app_router.dart';
 import '../chat/chat_models.dart';
 import '../chat/chat_repository.dart';
 import '../chat/conversation_screen.dart';
@@ -23,47 +24,54 @@ class NotificationNavigation {
 
   /// Opens the appropriate screen for a notification, or shows the coming-soon
   /// dialog when the destination is not yet wired.
-  static void open(BuildContext context, AppNotification notification) {
+  static Future<void> open(BuildContext context, AppNotification notification) async {
     switch (notification.kind) {
       case NotificationKind.request:
-      case NotificationKind.requestAccepted:
-        Navigator.of(context).pop();
+        Navigator.of(context).maybePop();
         MainShell.switchToTab(2);
+        await Future.delayed(const Duration(milliseconds: 150));
+        if (!context.mounted) return;
+        Navigator.of(context).push(AppRouter.requestsPageRoute());
+        break;
+
+      case NotificationKind.requestAccepted:
+        Navigator.of(context).maybePop();
+        MainShell.switchToTab(2);
+        await Future.delayed(const Duration(milliseconds: 150));
+        if (!context.mounted) return;
+        Navigator.of(context).push(AppRouter.networkPageRoute());
         break;
 
       case NotificationKind.message:
-        // Message received → open the connection conversation.
-        _openConnectionChat(context, notification);
+        await _openConnectionChat(context, notification);
         break;
 
       case NotificationKind.join:
       case NotificationKind.plan:
-        // Plan joined / plan activity → open the REAL plan group chat.
-        _openPlanChat(context, notification.entityId ?? notification.id);
+        await _openPlanChat(context, notification.entityId ?? notification.id);
         break;
 
       case NotificationKind.planInvitation:
-        // The accepted-plan notification reuses the plan_invitation kind but
-        // carries entity_type = 'plan_chat' and must open the existing Plan
-        // Chat directly. A true pending invitation carries entity_type = 'plan'
-        // and opens the invitation preview.
         if (notification.entityType == 'plan_chat' &&
             notification.entityId != null) {
-          _openPlanChat(context, notification.entityId!);
+          await _openPlanChat(context, notification.entityId!);
         } else {
-          _openInvitationDetails(context, notification);
+          await _openInvitationDetails(context, notification);
         }
         break;
 
       case NotificationKind.joinRequest:
-        Navigator.of(context).pop();
+        Navigator.of(context).maybePop();
         MainShell.switchToTab(2);
+        await Future.delayed(const Duration(milliseconds: 150));
+        if (!context.mounted) return;
+        Navigator.of(context).push(AppRouter.requestsPageRoute());
         break;
 
       case NotificationKind.system:
         if (notification.entityType == 'plan_chat' &&
             notification.entityId != null) {
-          _openPlanChat(context, notification.entityId!);
+          await _openPlanChat(context, notification.entityId!);
           break;
         }
         // System notification → coming soon

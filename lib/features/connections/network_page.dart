@@ -188,21 +188,26 @@ class _NetworkPageState extends State<NetworkPage> {
                               message:
                                   'Your network is just getting started.',
                             )
-                          : ListView(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                              children: [
-                                for (final c in _connections)
-                                  _NetworkAnimatedRow(
-                                    key: ValueKey<String>('network-${c.connectionId}'),
-                                    connection: c,
-                                    removing: _removing.contains(c.connectionId),
-                                    onViewProfile: () => _openProfile(c),
-                                    onOpenRoom: () => _openRoom(c),
-                                    onRemove: () => _remove(c),
-                                  ),
-                              ],
-                            ),
+                           : RefreshIndicator(
+                               color: const Color(0xFF8B5CF6),
+                               onRefresh: _load,
+                               child: ListView(
+                                 padding:
+                                     const EdgeInsets.fromLTRB(20, 10, 20, 100),
+                                 physics: const AlwaysScrollableScrollPhysics(),
+                                 children: [
+                                   for (final c in _connections)
+                                     _NetworkAnimatedRow(
+                                       key: ValueKey<String>('network-${c.connectionId}'),
+                                       connection: c,
+                                       removing: _removing.contains(c.connectionId),
+                                       onViewProfile: () => _openProfile(c),
+                                       onOpenRoom: () => _openRoom(c),
+                                       onRemove: () => _remove(c),
+                                     ),
+                                 ],
+                               ),
+                             ),
             ),
           ],
         ),

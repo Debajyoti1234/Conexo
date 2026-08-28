@@ -61,6 +61,7 @@ class _ActivityCenterScreenState extends State<ActivityCenterScreen> {
                     : _ActivityBody(
                         key: const ValueKey<String>('activity-body'),
                         notifications: widget.controller.notifications,
+                        onRefresh: widget.controller.refresh,
                       ),
               ),
             ),
@@ -102,9 +103,14 @@ class _ActivityHeader extends StatelessWidget {
 
 /// Renders the grouped list, or the premium empty state when there is nothing.
 class _ActivityBody extends StatelessWidget {
-  const _ActivityBody({required this.notifications, super.key});
+  const _ActivityBody({
+    required this.notifications,
+    this.onRefresh,
+    super.key,
+  });
 
   final List<AppNotification> notifications;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -125,28 +131,33 @@ class _ActivityBody extends StatelessWidget {
       }
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
-      itemCount: rows.length,
-      itemBuilder: (context, index) {
-        final row = rows[index];
-        if (row.isHeader) {
-          return NotificationSectionHeader(
-            key: ValueKey<String>('header_${row.label}'),
-            label: row.label!,
+    return RefreshIndicator(
+      color: const Color(0xFF8B5CF6),
+      onRefresh: onRefresh ?? () async {},
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: rows.length,
+        itemBuilder: (context, index) {
+          final row = rows[index];
+          if (row.isHeader) {
+            return NotificationSectionHeader(
+              key: ValueKey<String>('header_${row.label}'),
+              label: row.label!,
+            );
+          }
+          final n = row.notification!;
+          return Padding(
+            key: ValueKey<String>('card_${n.id}'),
+            padding: const EdgeInsets.only(bottom: 12),
+            child: NotificationCard(
+              notification: n,
+              onTap: () => NotificationNavigation.open(context, n),
+            ),
           );
-        }
-        final n = row.notification!;
-        return Padding(
-          key: ValueKey<String>('card_${n.id}'),
-          padding: const EdgeInsets.only(bottom: 12),
-          child: NotificationCard(
-            notification: n,
-            onTap: () => NotificationNavigation.open(context, n),
-          ),
-        );
 
-      },
+        },
+      ),
     );
   }
 }

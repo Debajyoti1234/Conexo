@@ -132,20 +132,25 @@ class _PendingPageState extends State<PendingPage> {
                               icon: Icons.hourglass_empty_rounded,
                               message: 'No pending requests.',
                             )
-                          : ListView(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                              children: [
-                                for (final r in _pending)
-                                  _PendingAnimatedRow(
-                                    key: ValueKey<String>('pending-${r.connectionId}'),
-                                    request: r,
-                                    removing: _removing.contains(r.connectionId),
-                                    onViewProfile: () => _openProfile(r),
-                                    onCancel: () => _cancel(r),
-                                  ),
-                              ],
-                            ),
+                           : RefreshIndicator(
+                               color: const Color(0xFF8B5CF6),
+                               onRefresh: _load,
+                               child: ListView(
+                                 padding:
+                                     const EdgeInsets.fromLTRB(20, 10, 20, 100),
+                                 physics: const AlwaysScrollableScrollPhysics(),
+                                 children: [
+                                   for (final r in _pending)
+                                     _PendingAnimatedRow(
+                                       key: ValueKey<String>('pending-${r.connectionId}'),
+                                       request: r,
+                                       removing: _removing.contains(r.connectionId),
+                                       onViewProfile: () => _openProfile(r),
+                                       onCancel: () => _cancel(r),
+                                     ),
+                                 ],
+                               ),
+                             ),
             ),
           ],
         ),

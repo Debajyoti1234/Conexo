@@ -48,6 +48,8 @@ class NotificationController {
     _subscription = _repository.watchNotifications().listen(_onRealtime);
   }
 
+  Future<void> refresh() => _load();
+
   Future<void> _load() async {
     try {
       final items = await _repository.loadNotifications();

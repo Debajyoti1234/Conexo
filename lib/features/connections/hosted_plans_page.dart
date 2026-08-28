@@ -222,20 +222,25 @@ class _HostedPlansPageState extends State<HostedPlansPage> {
                               message:
                                   'No hosted plans yet. Your plans will appear here.',
                             )
-                          : ListView(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                              children: [
-                                for (final plan in _plans)
-                                  _HostedPlanRow(
-                                    plan: plan,
-                                    onOpen: () => _openPlan(plan),
-                                    onApprove: (r) => _approve(plan, r),
-                                    onDecline: (r) => _decline(plan, r),
-                                    onViewProfile: _openProfile,
-                                  ),
-                              ],
-                            ),
+                           : RefreshIndicator(
+                               color: const Color(0xFF8B5CF6),
+                               onRefresh: _load,
+                               child: ListView(
+                                 padding:
+                                     const EdgeInsets.fromLTRB(20, 10, 20, 100),
+                                 physics: const AlwaysScrollableScrollPhysics(),
+                                 children: [
+                                   for (final plan in _plans)
+                                     _HostedPlanRow(
+                                       plan: plan,
+                                       onOpen: () => _openPlan(plan),
+                                       onApprove: (r) => _approve(plan, r),
+                                       onDecline: (r) => _decline(plan, r),
+                                       onViewProfile: _openProfile,
+                                     ),
+                                 ],
+                               ),
+                             ),
             ),
           ],
         ),

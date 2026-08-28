@@ -125,9 +125,10 @@ class _SplashScreenState extends State<SplashScreen>
 
       if (!hasSession) {
         if (!mounted) return;
-        Navigator.of(
-          context,
-        ).pushReplacement(AppRouter.slideRoute(const OnboardingScreen()));
+        Navigator.of(context).pushAndRemoveUntil(
+          AppRouter.slideRoute(const OnboardingScreen()),
+          (route) => false,
+        );
         return;
       }
 
@@ -147,9 +148,10 @@ class _SplashScreenState extends State<SplashScreen>
       }
 
       if (!mounted) return;
-      Navigator.of(
-        context,
-      ).pushReplacement(AppRouter.slideRoute(target));
+      Navigator.of(context).pushAndRemoveUntil(
+        AppRouter.slideRoute(target),
+        (route) => false,
+      );
     } on Exception {
       if (!mounted) return;
       setState(() {

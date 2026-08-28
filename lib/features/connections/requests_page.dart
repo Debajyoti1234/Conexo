@@ -149,21 +149,26 @@ class _RequestsPageState extends State<RequestsPage> {
                               message:
                                   'No new requests. You\'re all caught up.',
                             )
-                          : ListView(
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                              children: [
-                                for (final r in _requests)
-                                  _RequestAnimatedRow(
-                                    key: ValueKey<String>('request-${r.connectionId}'),
-                                    request: r,
-                                    removing: _removing.contains(r.connectionId),
-                                    onViewProfile: () => _openProfile(r),
-                                    onAccept: () => _accept(r),
-                                    onDecline: () => _decline(r),
-                                  ),
-                              ],
-                            ),
+                           : RefreshIndicator(
+                               color: const Color(0xFF8B5CF6),
+                               onRefresh: _load,
+                               child: ListView(
+                                 padding:
+                                     const EdgeInsets.fromLTRB(20, 10, 20, 100),
+                                 physics: const AlwaysScrollableScrollPhysics(),
+                                 children: [
+                                   for (final r in _requests)
+                                     _RequestAnimatedRow(
+                                       key: ValueKey<String>('request-${r.connectionId}'),
+                                       request: r,
+                                       removing: _removing.contains(r.connectionId),
+                                       onViewProfile: () => _openProfile(r),
+                                       onAccept: () => _accept(r),
+                                       onDecline: () => _decline(r),
+                                     ),
+                                 ],
+                               ),
+                             ),
             ),
           ],
         ),

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import 'home_screen.dart';
 import 'notifications/notification_controller.dart';
-import 'notifications/notification_widgets.dart';
 import 'secondary_screens.dart';
 
 /// The shared application shell.
@@ -71,9 +70,6 @@ class MainShellState extends State<MainShell> {
     final pulse = _notifications.pulseTrigger.value;
     if (pulse == _lastHandledPulse) return;
     _lastHandledPulse = pulse;
-    final list = _notifications.notifications;
-    if (list.isEmpty) return;
-    NotificationOverlay.show(context, list.first);
   }
 
   void switchToTab(int index) {

@@ -20,6 +20,8 @@ class AppRouter {
       ),
     ),
     transitionDuration: const Duration(milliseconds: 340),
+    opaque: true,
+    maintainState: true,
   );
 
   /// Shared premium transition for Profile sub-screens (Safety, Help & Support,
