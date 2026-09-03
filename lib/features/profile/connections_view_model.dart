@@ -19,6 +19,8 @@ class ConnectionUiModel {
     this.otherUserBio,
     this.otherUserLanguages = const [],
     this.otherUserAvailabilityStatus,
+    this.otherUserCreatedAt,
+    this.otherUserUpdatedAt,
     this.mutualInterests = const [],
     this.isVerified = false,
     required this.status,
@@ -38,6 +40,8 @@ class ConnectionUiModel {
   final String? otherUserBio;
   final List<String> otherUserLanguages;
   final String? otherUserAvailabilityStatus;
+  final DateTime? otherUserCreatedAt;
+  final DateTime? otherUserUpdatedAt;
   final List<String> mutualInterests;
   final bool isVerified;
   final ConnectionStatus status;
@@ -59,7 +63,9 @@ class ConnectionsViewModel {
     if (user == null) return const [];
 
     final connectionResult = await const ConnectionRepository().getMyConnections();
-    if (connectionResult.isFailure) return const [];
+    if (connectionResult.isFailure) {
+      throw Exception(connectionResult.error);
+    }
 
     final accepted = connectionResult.value!
         .where((c) => c.status == ConnectionStatus.accepted)
@@ -77,7 +83,7 @@ class ConnectionsViewModel {
       profiles = await _fetchProfiles(otherIds);
       signedPortraits = await _resolvePortraits(otherIds, profiles);
     } catch (e) {
-      return const [];
+      throw Exception('Failed to load connection profiles');
     }
 
     return accepted
@@ -108,6 +114,8 @@ class ConnectionsViewModel {
             otherUserBio: bio,
             otherUserLanguages: languages,
             otherUserAvailabilityStatus: availabilityStatus,
+            otherUserCreatedAt: _profileCreatedAt(profile),
+            otherUserUpdatedAt: _profileUpdatedAt(profile),
             mutualInterests: interests,
             isVerified: isVerified,
             status: c.status,
@@ -164,6 +172,8 @@ class ConnectionsViewModel {
             otherUserBio: bio,
             otherUserLanguages: languages,
             otherUserAvailabilityStatus: availabilityStatus,
+            otherUserCreatedAt: _profileCreatedAt(profile),
+            otherUserUpdatedAt: _profileUpdatedAt(profile),
             mutualInterests: interests,
             isVerified: isVerified,
             status: c.status,
@@ -220,6 +230,8 @@ class ConnectionsViewModel {
             otherUserBio: bio,
             otherUserLanguages: languages,
             otherUserAvailabilityStatus: availabilityStatus,
+            otherUserCreatedAt: _profileCreatedAt(profile),
+            otherUserUpdatedAt: _profileUpdatedAt(profile),
             mutualInterests: interests,
             isVerified: isVerified,
             status: c.status,
@@ -241,6 +253,10 @@ class ConnectionsViewModel {
 
   Future<ConnectionResult<void>> cancelRequest(String connectionId) async {
     return await const ConnectionRepository().cancelRequest(connectionId);
+  }
+
+  Future<ConnectionResult<void>> removeConnection(String connectionId) async {
+    return await const ConnectionRepository().removeConnection(connectionId);
   }
 
   Future<Map<String, Map<String, dynamic>>> _fetchProfiles(
@@ -375,6 +391,18 @@ class ConnectionsViewModel {
     final raw = profile?['availability_status'];
     if (raw is! String || raw.isEmpty) return null;
     return raw;
+  }
+
+  DateTime? _profileCreatedAt(Map<String, dynamic>? profile) {
+    final raw = profile?['created_at'];
+    if (raw is! String || raw.isEmpty) return null;
+    return DateTime.tryParse(raw)?.toUtc();
+  }
+
+  DateTime? _profileUpdatedAt(Map<String, dynamic>? profile) {
+    final raw = profile?['updated_at'];
+    if (raw is! String || raw.isEmpty) return null;
+    return DateTime.tryParse(raw)?.toUtc();
   }
 
   int? _ageFromDate(String dateOfBirth) {

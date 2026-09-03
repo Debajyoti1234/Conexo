@@ -440,6 +440,95 @@ class SupabasePlanRepository implements PlanRepository {
   }
 
   @override
+  Future<Map<String, List<PlanMembership>>> getPlanMembersBatch(List<String> planIds) async {
+    if (planIds.isEmpty) return const {};
+    final user = AuthService.currentUser;
+    if (user == null) return const {};
+
+    try {
+      final data = await Supabase.instance.client
+          .from('plan_members')
+          .select('plan_id, user_id, role, status, joined_at, updated_at')
+          .inFilter('plan_id', planIds);
+
+      if (data.isEmpty) return const {};
+
+      final allUserIds = data.map((row) => row['user_id'] as String).toSet().toList();
+      final displayNames = await _fetchDisplayNames(allUserIds);
+      final profilePhotoUrls = await _fetchProfilePhotoUrls(allUserIds);
+
+      final result = <String, List<PlanMembership>>{};
+      for (final row in data) {
+        final membership = PlanMembership.fromSupabase(row);
+        final planId = membership.planId;
+        result.putIfAbsent(planId, () => []);
+        result[planId]!.add(PlanMembership(
+          planId: membership.planId,
+          userId: membership.userId,
+          role: membership.role,
+          status: membership.status,
+          joinedAt: membership.joinedAt,
+          updatedAt: membership.updatedAt,
+          displayName: displayNames[membership.userId],
+          photoUrl: profilePhotoUrls[membership.userId],
+        ));
+      }
+      return result;
+    } on PostgrestException catch (error) {
+      throw AuthFailure(_mapPostgrestException(error));
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } catch (_) {
+      throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
+  @override
+  Future<Map<String, List<PlanMembership>>> getPendingPlanMembersBatch(List<String> planIds) async {
+    if (planIds.isEmpty) return const {};
+    final user = AuthService.currentUser;
+    if (user == null) return const {};
+
+    try {
+      final data = await Supabase.instance.client
+          .from('plan_members')
+          .select('plan_id, user_id, role, status, joined_at, updated_at')
+          .inFilter('plan_id', planIds)
+          .eq('status', 'pending');
+
+      if (data.isEmpty) return const {};
+
+      final allUserIds = data.map((row) => row['user_id'] as String).toSet().toList();
+      final displayNames = await _fetchDisplayNames(allUserIds);
+      final profilePhotoUrls = await _fetchProfilePhotoUrls(allUserIds);
+
+      final result = <String, List<PlanMembership>>{};
+      for (final row in data) {
+        final membership = PlanMembership.fromSupabase(row);
+        final planId = membership.planId;
+        result.putIfAbsent(planId, () => []);
+        result[planId]!.add(PlanMembership(
+          planId: membership.planId,
+          userId: membership.userId,
+          role: membership.role,
+          status: membership.status,
+          joinedAt: membership.joinedAt,
+          updatedAt: membership.updatedAt,
+          displayName: displayNames[membership.userId],
+          photoUrl: profilePhotoUrls[membership.userId],
+        ));
+      }
+      return result;
+    } on PostgrestException catch (error) {
+      throw AuthFailure(_mapPostgrestException(error));
+    } on AuthException catch (error) {
+      throw AuthFailure(_mapAuthException(error.message));
+    } catch (_) {
+      throw const AuthFailure('Network error. Please try again.');
+    }
+  }
+
+  @override
   Future<void> approvePlanMember(String planId, String memberId) async {
     try {
       await Supabase.instance.client.rpc(

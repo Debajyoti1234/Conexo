@@ -80,8 +80,18 @@ class _NetworkPageState extends State<NetworkPage> {
     if (confirmed != true) return;
 
     setState(() => _removing.add(connection.connectionId));
-    await Future.delayed(const Duration(milliseconds: 360));
+    final result = await _viewModel.removeConnection(connection.connectionId);
     if (!mounted) return;
+    if (result.isFailure) {
+      setState(() => _removing.remove(connection.connectionId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to remove connection'),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
     setState(() {
       _removing.remove(connection.connectionId);
       _connections.removeWhere((c) => c.connectionId == connection.connectionId);

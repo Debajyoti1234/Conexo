@@ -66,6 +66,10 @@ abstract class PlanRepository {
   /// should be able to read these; RLS remains authoritative.
   Future<List<PlanMembership>> getPendingPlanMembers(String planId);
 
+  /// Returns pending membership requests for multiple plans, grouped by plan id.
+  /// Allows a single batched query instead of one query per plan.
+  Future<Map<String, List<PlanMembership>>> getPendingPlanMembersBatch(List<String> planIds);
+
   /// Approves a pending membership. Only the plan creator may perform this
   /// action; authorization is enforced server-side.
   Future<void> approvePlanMember(String planId, String memberId);
@@ -86,6 +90,10 @@ abstract class PlanRepository {
   /// Returns all membership records for a plan, including pending, joined,
   /// and declined. Used by hosts to manage their plan participants.
   Future<List<PlanMembership>> getPlanMembers(String planId);
+
+  /// Returns all membership records for multiple plans, grouped by plan id.
+  /// Allows a single batched query instead of one query per plan.
+  Future<Map<String, List<PlanMembership>>> getPlanMembersBatch(List<String> planIds);
 
   /// Resolves each user's canonical primary profile photo to a displayable
   /// signed URL, using the existing private profile-photos + signed-URL
@@ -310,7 +318,13 @@ class LocalPlanRepository implements PlanRepository {
   Future<List<PlanMembership>> getPendingPlanMembers(String planId) async => const [];
 
   @override
+  Future<Map<String, List<PlanMembership>>> getPendingPlanMembersBatch(List<String> planIds) async => const {};
+
+  @override
   Future<List<PlanMembership>> getPlanMembers(String planId) async => const [];
+
+  @override
+  Future<Map<String, List<PlanMembership>>> getPlanMembersBatch(List<String> planIds) async => const {};
 
   @override
   Future<Map<String, String>> getProfilePhotoUrls(List<String> userIds) async =>

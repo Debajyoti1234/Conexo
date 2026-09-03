@@ -1,7 +1,10 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:flutter/material.dart';
 
+import 'chat_attachment_service.dart';
 import 'chat_models.dart';
-import 'chat_starter_prompts.dart';
 import 'chat_widgets.dart';
 import 'message_models.dart';
 
@@ -195,14 +198,7 @@ class _TitleBlock extends StatelessWidget {
       final count = group!.participantCount;
       return online > 0 ? '$count members • $online online' : '$count members';
     }
-    switch (c.status) {
-      case ConversationStatus.online:
-        return 'Active now';
-      case ConversationStatus.recentlyConnected:
-        return 'Recently connected';
-      case ConversationStatus.offline:
-        return 'Offline';
-    }
+    return formatConnectionActivityStatus(c) ?? 'Offline';
   }
 }
 
@@ -216,7 +212,16 @@ class MessageComposer extends StatefulWidget {
     this.initialText,
     this.onDraftChanged,
     this.onChanged,
-    this.enableStarters = false,
+    this.onImageSelected,
+    this.onVoiceSelected,
+    this.onGifSelected,
+    this.conversationId,
+    this.sendingGif = false,
+    this.sendingGifUrl,
+    this.gifMode = false,
+    this.onCancelGif,
+    this.onGifSearchChanged,
+    this.focusNode,
   });
 
   final Future<void> Function(String)? onSend;
@@ -228,9 +233,40 @@ class MessageComposer extends StatefulWidget {
   /// decoupled.
   final ValueChanged<String>? onChanged;
 
-  /// When true the `+` button opens the Conversation Starter sheet. Disabled in
-  /// read-only/demo composers so the control stays inert there.
-  final bool enableStarters;
+  /// Called when the user picks an image from the device. The caller may
+  /// insert an image message based on the completed upload.
+  final Future<void> Function()? onImageSelected;
+
+  /// Called when the user completes a voice recording. The caller may
+  /// insert a voice message based on the completed upload.
+  final Future<void> Function(String)? onVoiceSelected;
+
+  /// Called when the user selects a GIF from the GIF picker. The caller may
+  /// insert a GIF message based on the completed upload.
+  final VoidCallback? onGifSelected;
+
+  /// The conversation ID used for storage path construction during voice
+  /// recording upload. Required so the `chat-attachments` Storage RLS
+  /// INSERT policy can match `conversation_members`.
+  final String? conversationId;
+
+  /// When true, the GIF button shows a progress indicator instead of the label.
+  final bool sendingGif;
+  final String? sendingGifUrl;
+
+  /// When true, the composer transforms into a GIF search field —
+  /// placeholder changes to "Search GIFs...", and the send/mic button
+  /// becomes an X (cancel) button.
+  final bool gifMode;
+
+  /// Called when the user taps the X button to close GIF mode.
+  final VoidCallback? onCancelGif;
+
+  /// Called when the user types in the GIF search field.
+  final ValueChanged<String>? onGifSearchChanged;
+
+  /// Optional focus node for the text field.
+  final FocusNode? focusNode;
 
   @override
   State<MessageComposer> createState() => _MessageComposerState();
@@ -239,6 +275,10 @@ class MessageComposer extends StatefulWidget {
 class _MessageComposerState extends State<MessageComposer> {
   final _controller = TextEditingController();
   bool _sending = false;
+  bool _uploadingImage = false;
+  bool _recording = false;
+  Duration _recordingDuration = Duration.zero;
+  Timer? _recordingTimer;
 
   @override
   void initState() {
@@ -253,12 +293,32 @@ class _MessageComposerState extends State<MessageComposer> {
   @override
   void dispose() {
     _controller.dispose();
+    _recordingTimer?.cancel();
     super.dispose();
+  }
+
+  void _startRecordingTimer() {
+    _recordingTimer?.cancel();
+    _recordingDuration = Duration.zero;
+    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _recordingDuration = Duration(seconds: _recordingDuration.inSeconds + 1);
+      });
+    });
+  }
+
+  void _stopRecordingTimer() {
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
   }
 
   void _handleChanged(String text) {
     widget.onDraftChanged?.call(text);
     widget.onChanged?.call(text);
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _handleSend() async {
@@ -266,8 +326,10 @@ class _MessageComposerState extends State<MessageComposer> {
     if (text.isEmpty || _sending) return;
     if (widget.onSend == null) return;
 
-    setState(() => _sending = true);
-    _controller.clear();
+    setState(() {
+      _sending = true;
+      _controller.clear();
+    });
     widget.onDraftChanged?.call('');
     // Text is now empty — let listeners (typing indicator) know immediately.
     widget.onChanged?.call('');
@@ -278,55 +340,80 @@ class _MessageComposerState extends State<MessageComposer> {
     }
   }
 
-  /// Opens the Conversation Starter sheet. If the composer already contains
-  /// text, confirms before replacing it (never silently overwrites). The
-  /// selected prompt only POPULATES the composer — it is never auto-sent.
-  Future<void> _openStarters() async {
-    final current = _controller.text.trim();
-    if (current.isNotEmpty) {
-      final replace = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF141B2E),
-          title: const Text(
-            'Replace your message?',
-            style: TextStyle(color: Color(0xFFEAEEF9)),
-          ),
-          content: const Text(
-            'Your current message will be replaced with the starter you pick.',
-            style: TextStyle(color: Color(0xFFB9C3DC)),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Keep typing'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF8B5CF6),
-              ),
-              child: const Text('Replace'),
-            ),
-          ],
+  Future<void> _handleImageSelected() async {
+    if (_uploadingImage) return;
+    if (widget.onImageSelected == null) return;
+
+    setState(() => _uploadingImage = true);
+    try {
+      await widget.onImageSelected!();
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
+  }
+
+  Future<void> _handleVoiceStop() async {
+    if (!_recording) return;
+    _stopRecordingTimer();
+    final voiceUrl = await ChatAttachmentService.instance.stopVoiceRecording(
+      conversationId: widget.conversationId,
+    );
+    setState(() => _recording = false);
+    if (!mounted) return;
+    if (voiceUrl.isFailure) {
+      if (kDebugMode) {
+        debugPrint('Voice recording stop FAILED: ${voiceUrl.error}');
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(voiceUrl.error ?? 'Failed to send voice'),
+          backgroundColor: const Color(0xFFFF4D8D),
         ),
       );
-      if (replace != true || !mounted) return;
+      return;
     }
+    final storagePath = voiceUrl.value;
+    if (storagePath != null && storagePath.isNotEmpty) {
+      if (kDebugMode) {
+        debugPrint('Voice recording stopped, storagePath=$storagePath, calling onVoiceSelected');
+      }
+      await widget.onVoiceSelected?.call(storagePath);
+    } else {
+      if (kDebugMode) {
+        debugPrint('Voice recording stop returned empty storagePath');
+      }
+    }
+  }
 
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) => const _StarterPromptSheet(),
-    );
-    if (selected == null || selected.isEmpty || !mounted) return;
+  Future<void> _handleVoiceCancel() async {
+    await ChatAttachmentService.instance.cancelVoiceRecording();
+    _stopRecordingTimer();
+    if (mounted) {
+      setState(() {
+        _recording = false;
+        _recordingDuration = Duration.zero;
+      });
+    }
+  }
 
-    _controller.text = selected;
-    _controller.selection =
-        TextSelection.collapsed(offset: _controller.text.length);
-    // Persist as draft; do NOT auto-send. The user reviews/edits, then Sends.
-    widget.onDraftChanged?.call(selected);
+  Future<void> _handleVoiceStart() async {
+    if (_recording) return;
+    final result = await ChatAttachmentService.instance.startVoiceRecording();
+    if (!mounted) return;
+    if (result.isFailure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to start recording'),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _recording = true;
+      _recordingDuration = Duration.zero;
+    });
+    _startRecordingTimer();
   }
 
   @override
@@ -334,64 +421,209 @@ class _MessageComposerState extends State<MessageComposer> {
     return SafeArea(
       top: false,
       child: Container(
-        margin: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        margin: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .04),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          color: Colors.white.withValues(alpha: .035),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.white.withValues(alpha: .07)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: .22),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: .14),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _CircleButton(
-              icon: Icons.add_rounded,
-              onTap: widget.enableStarters ? _openStarters : () {},
+            _GifLabelButton(
+              onTap: widget.gifMode
+                  ? null
+                  : (widget.sendingGif ? null : widget.onGifSelected),
+              label: widget.sendingGif ? null : 'GIF',
+              isLoading: widget.sendingGif,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                minLines: 1,
-                maxLines: 5,
-                textInputAction: TextInputAction.send,
-                onChanged: _handleChanged,
-                onSubmitted: (_) => _handleSend(),
-                decoration: const InputDecoration(
-                  hintText: 'Message',
-                  hintStyle: TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w500,
-                    color: _kSubtle,
-                  ),
-                  border: InputBorder.none,
-                ),
-                style: const TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
+            if (!widget.gifMode && widget.onImageSelected != null) ...[
+              const SizedBox(width: 4),
+              _CircleButton(
+                icon: _uploadingImage
+                    ? Icons.hourglass_empty_rounded
+                    : Icons.image_rounded,
+                onTap: _uploadingImage
+                    ? null
+                    : _handleImageSelected,
               ),
+            ],
+            const SizedBox(width: 6),
+            Expanded(
+              child: _recording
+                  ? _buildRecordingBar()
+                  : _buildTextField(),
             ),
-            const SizedBox(width: 8),
-            _CircleButton(
-              icon: Icons.arrow_upward_rounded,
-              filled: true,
-              onTap: () {
-                if (!_sending) _handleSend();
-              },
-            ),
+            if (!_recording) ...[
+              const SizedBox(width: 6),
+              widget.gifMode ? _buildCloseButton() : _buildAdaptiveSendButton(),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildTextField() {
+    final isGifMode = widget.gifMode;
+    return TextField(
+      controller: _controller,
+      focusNode: widget.focusNode,
+      minLines: 1,
+      maxLines: 5,
+      textInputAction: isGifMode ? TextInputAction.search : TextInputAction.send,
+      onChanged: (text) {
+        _handleChanged(text);
+        if (isGifMode) {
+          widget.onGifSearchChanged?.call(text);
+        }
+      },
+      onSubmitted: (text) {
+        if (isGifMode) return;
+        _handleSend();
+      },
+      style: const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.white,
+      ),
+      decoration: InputDecoration(
+        hintText: isGifMode ? 'Search GIFs...' : 'Message',
+        hintStyle: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: isGifMode ? const Color(0xFF9DB2E8) : _kSubtle,
+        ),
+        border: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        disabledBorder: InputBorder.none,
+        errorBorder: InputBorder.none,
+        focusedErrorBorder: InputBorder.none,
+        isCollapsed: true,
+        isDense: true,
+        filled: false,
+        fillColor: Colors.transparent,
+        contentPadding: EdgeInsets.zero,
+      ),
+    );
+  }
+
+  Widget _buildCloseButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onCancelGif,
+        borderRadius: BorderRadius.circular(14),
+        splashColor: Colors.white.withValues(alpha: .10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          child: const Icon(
+            Icons.close_rounded,
+            size: 20,
+            color: Color(0xFFB9C3DC),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdaptiveSendButton() {
+    final hasText = _controller.text.trim().isNotEmpty;
+    if (!hasText && widget.onVoiceSelected == null) {
+      return const SizedBox.shrink();
+    }
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      transitionBuilder: (child, animation) {
+        return ScaleTransition(
+          scale: animation,
+          child: FadeTransition(opacity: animation, child: child),
+        );
+      },
+      child: hasText
+          ? _CircleButton(
+              key: const ValueKey('send'),
+              icon: Icons.arrow_upward_rounded,
+              filled: true,
+              onTap: _sending ? null : _handleSend,
+            )
+          : _CircleButton(
+              key: const ValueKey('mic'),
+              icon: Icons.mic_none_rounded,
+              filled: false,
+              onTap: _handleVoiceStart,
+            ),
+    );
+  }
+
+  Widget _buildRecordingBar() {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .05),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: .06)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFF4D8D),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            _formatDuration(_recordingDuration),
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: _handleVoiceCancel,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFFFF4D8D),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          _CircleButton(
+            icon: Icons.stop_rounded,
+            filled: true,
+            size: 36,
+            onTap: _handleVoiceStop,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
   }
 }
 
@@ -400,11 +632,14 @@ class _CircleButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.filled = false,
+    this.size = 40.0,
+    super.key,
   });
 
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool filled;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -412,10 +647,10 @@ class _CircleButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(size / 2),
         child: Container(
-          width: 48,
-          height: 48,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             gradient: filled
                 ? const LinearGradient(
@@ -430,7 +665,7 @@ class _CircleButton extends StatelessWidget {
           ),
           child: Icon(
             icon,
-            size: 22,
+            size: size * 0.52,
             color: filled ? Colors.white : _kSubtle,
           ),
         ),
@@ -527,136 +762,116 @@ class TypingBubble extends StatelessWidget {
   }
 }
 
-/// The Conversation Starter sheet: a compact premium glass surface listing
-/// [kConversationStarters]. Tapping a prompt pops it back to the composer,
-/// which populates the text field (never auto-sends).
-class _StarterPromptSheet extends StatelessWidget {
-  const _StarterPromptSheet();
+/// Styled as muted text so the composer's outer container owns all visual
+/// styling — this button adds no border, fill, or decoration of its own.
+class _GifLabelButton extends StatelessWidget {
+  const _GifLabelButton({
+    this.onTap,
+    this.label = 'GIF',
+    this.isLoading = false,
+  });
+
+  final VoidCallback? onTap;
+  final String? label;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-        constraints: BoxConstraints(maxHeight: media.size.height * 0.62),
-        decoration: BoxDecoration(
-          color: const Color(0xFF141B2E),
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: Colors.white.withValues(alpha: .08)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .38),
-              blurRadius: 28,
-              offset: const Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .16),
-                borderRadius: BorderRadius.circular(2),
+    final effectiveEnabled = onTap != null && !isLoading;
+    final child = isLoading
+        ? SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                effectiveEnabled ? _kAccent : _kMuted,
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 14, 20, 2),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.auto_awesome_rounded,
-                    size: 18,
-                    color: Color(0xFFB7A5FF),
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    'Start a conversation',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFEAEEF9),
-                    ),
-                  ),
-                ],
-              ),
+          )
+        : Text(
+            label ?? 'GIF',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              color: effectiveEnabled ? _kAccent : _kMuted,
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 2, 20, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Pick one to add it to your message.',
-                  style: TextStyle(fontSize: 12.5, color: _kMuted),
-                ),
-              ),
-            ),
-            Flexible(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
-                itemCount: kConversationStarters.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 8),
-                itemBuilder: (context, i) {
-                  final prompt = kConversationStarters[i];
-                  return _StarterTile(
-                    prompt: prompt,
-                    onTap: () => Navigator.of(context).pop(prompt),
-                  );
-                },
-              ),
-            ),
-          ],
+          );
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: effectiveEnabled ? onTap : null,
+        borderRadius: BorderRadius.circular(14),
+        splashColor: _kAccent.withValues(alpha: .10),
+        highlightColor: Colors.white.withValues(alpha: .03),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: child,
         ),
       ),
     );
   }
 }
 
-class _StarterTile extends StatelessWidget {
-  const _StarterTile({required this.prompt, required this.onTap});
+/// The Connection Chat welcome / start prompt shown at the top of a fresh
+/// private thread that has not yet had its first message sent. Premium dark-glass
+/// language. Only shown once per conversation (tracked by the caller via
+/// SharedPreferences) and never on plan/group chats.
+class ConnectionChatWelcome extends StatelessWidget {
+  const ConnectionChatWelcome({required this.name, super.key});
 
-  final String prompt;
-  final VoidCallback onTap;
+  final String name;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        splashColor: _kAccent.withValues(alpha: .10),
-        highlightColor: Colors.white.withValues(alpha: .03),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: .08)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  prompt,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.3,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFE7ECF9),
-                  ),
-                ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 32, 28, 14),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  _kAccent.withValues(alpha: .20),
+                  _kAccent.withValues(alpha: .08),
+                ],
               ),
-              const SizedBox(width: 10),
-              const Icon(Icons.north_east_rounded, size: 16, color: _kSubtle),
-            ],
+              border: Border.all(color: Colors.white.withValues(alpha: .08)),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.waving_hand_rounded,
+              size: 26,
+              color: Color(0xFFB7A5FF),
+            ),
           ),
-        ),
+          const SizedBox(height: 16),
+          Text(
+            'You\'re connected with $name',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Start the conversation.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: _kMuted,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -21,6 +21,9 @@ enum MessageAuthor {
 /// The kind of content a message carries.
 enum MessageType {
   text,
+  image,
+  voice,
+  gif,
   system,
   shared,
 }
@@ -77,6 +80,7 @@ class Message {
     this.sharedContent,
     this.isDeleted = false,
     this.likedBy = const [],
+    this.mediaUrl,
   });
 
   /// Stable identifier.
@@ -91,7 +95,7 @@ class Message {
   /// The content kind.
   final MessageType type;
 
-  /// The message body (empty for shared/system-only messages).
+  /// The message body (empty for shared/system-only/image messages).
   final String text;
 
   /// Display name of the sender (used in group chats for received bubbles).
@@ -115,6 +119,9 @@ class Message {
   /// IDs of users who liked this message.
   final List<String> likedBy;
 
+  /// Optional media attachment URL (storage path or signed URL for images).
+  final String? mediaUrl;
+
   /// Returns a copy with selected fields overridden. Used to flip a message
   /// into its deleted state locally after a successful soft delete without
   /// rebuilding the whole list from the backend.
@@ -122,6 +129,7 @@ class Message {
     bool? isDeleted,
     MessageDeliveryStatus? deliveryStatus,
     List<String>? likedBy,
+    String? mediaUrl,
   }) {
     return Message(
       id: id,
@@ -135,6 +143,7 @@ class Message {
       sharedContent: sharedContent,
       isDeleted: isDeleted ?? this.isDeleted,
       likedBy: likedBy ?? this.likedBy,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
     );
   }
 

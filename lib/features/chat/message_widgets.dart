@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import 'message_models.dart';
@@ -17,13 +20,6 @@ const _kThem = Color(0x14FFFFFF);
 const _kSubtle = Color(0xFF9DB2E8);
 const _kMuted = Color(0xFFB9C3DC);
 
-/// A single chat bubble. Alignment + styling are derived purely from
-/// [message.author]; group received bubbles optionally show the sender name.
-///
-/// When [message.isDeleted] the original content is never rendered — a subtle,
-/// understated "This message was deleted" placeholder is shown in its place and
-/// no long-press action is offered. [onLongPress] is only wired for the current
-/// user's own, non-deleted messages (the caller decides ownership).
 class MessageBubble extends StatefulWidget {
   const MessageBubble({
     required this.message,
@@ -38,6 +34,10 @@ class MessageBubble extends StatefulWidget {
     this.totalLikes = 0,
     this.likers = const [],
     this.nameById = const {},
+    this.resolveImage,
+    this.onImageTap,
+    this.resolveAudioUrl,
+    this.isGif = false,
   });
 
   final Message message;
@@ -51,12 +51,61 @@ class MessageBubble extends StatefulWidget {
   final int totalLikes;
   final List<String> likers;
   final Map<String, String> nameById;
+  final Future<ImageProvider?> Function(String storagePath)? resolveImage;
+  final VoidCallback? onImageTap;
+  final Future<String?> Function(String storagePath)? resolveAudioUrl;
+  final bool isGif;
 
   @override
   State<MessageBubble> createState() => _MessageBubbleState();
 }
 
 class _MessageBubbleState extends State<MessageBubble> {
+  ImageProvider? _imageProvider;
+  bool _imageLoading = false;
+  bool _imageError = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolveImageIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant MessageBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message.mediaUrl != widget.message.mediaUrl) {
+      _imageProvider = null;
+      _imageError = false;
+      _resolveImageIfNeeded();
+    }
+  }
+
+  void _resolveImageIfNeeded() {
+    final mediaUrl = widget.message.mediaUrl;
+    if (mediaUrl == null || mediaUrl.isEmpty) return;
+    if (_imageProvider != null || _imageLoading) return;
+
+    final resolver = widget.resolveImage;
+    if (resolver == null) return;
+
+    _imageLoading = true;
+    resolver(mediaUrl).then((provider) {
+      if (!mounted) return;
+      setState(() {
+        _imageProvider = provider;
+        _imageLoading = false;
+        _imageError = provider == null;
+      });
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() {
+        _imageLoading = false;
+        _imageError = true;
+      });
+    });
+  }
+
   void _handleDoubleTap() {
     widget.onDoubleTap?.call();
   }
@@ -203,11 +252,147 @@ class _MessageBubbleState extends State<MessageBubble> {
     );
   }
 
+  Widget _buildImageContent(bool isMe) {
+    final hasCaption = widget.message.text.isNotEmpty;
+
+    Widget imageWidget;
+    if (_imageLoading) {
+      imageWidget = Container(
+        height: 180,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(_kSubtle),
+            ),
+          ),
+        ),
+      );
+    } else if (_imageError || _imageProvider == null) {
+      imageWidget = Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.broken_image_rounded,
+                size: 28,
+                color: _kMuted.withValues(alpha: .6),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Failed to load image',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _kMuted.withValues(alpha: .7),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      imageWidget = GestureDetector(
+        onTap: widget.onImageTap,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image(
+            image: _imageProvider!,
+            width: double.infinity,
+            gaplessPlayback: widget.isGif,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return Container(
+                height: 180,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .06),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: const AlwaysStoppedAnimation<Color>(_kSubtle),
+                    ),
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                height: 120,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .06),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.broken_image_rounded,
+                    size: 28,
+                    color: _kMuted.withValues(alpha: .6),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    final children = <Widget>[imageWidget];
+    if (hasCaption) {
+      children.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            widget.message.text,
+            style: TextStyle(
+              fontSize: 14.5,
+              height: 1.3,
+              fontWeight: FontWeight.w500,
+              color: isMe ? Colors.white : const Color(0xFFE7ECF9),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMe = widget.message.author == MessageAuthor.me;
     final isDeleted = widget.message.isDeleted;
     final replyInfo = isDeleted ? null : _parseReply(widget.message.text);
+    final isImage = widget.message.type == MessageType.image &&
+        widget.message.mediaUrl != null;
+    final isGif = widget.message.type == MessageType.gif &&
+        widget.message.mediaUrl != null;
+    final isVoice = widget.message.type == MessageType.voice &&
+        widget.message.mediaUrl != null;
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(22),
       topRight: const Radius.circular(22),
@@ -218,32 +403,39 @@ class _MessageBubbleState extends State<MessageBubble> {
     final bubble = Container(
       padding: isDeleted
           ? const EdgeInsets.fromLTRB(14, 10, 15, 10)
-          : const EdgeInsets.fromLTRB(16, 11, 16, 11),
-      decoration: BoxDecoration(
-        gradient: (isMe && !isDeleted)
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [_kMeStart, _kMeMid, _kMeEnd],
-              )
-            : null,
-        color: isDeleted
-            ? Colors.white.withValues(alpha: .045)
-            : (isMe ? null : _kThem),
-        borderRadius: radius,
-        border: (isMe && !isDeleted)
-            ? null
-            : Border.all(color: Colors.white.withValues(alpha: .08)),
-        boxShadow: (isMe && !isDeleted)
-            ? [
-                BoxShadow(
-                  color: _kAccent.withValues(alpha: .22),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
+        : isImage || isVoice || isGif
+              ? EdgeInsets.zero
+              : const EdgeInsets.fromLTRB(16, 11, 16, 11),
+       decoration: isDeleted
+           ? BoxDecoration(
+               color: Colors.white.withValues(alpha: .045),
+               borderRadius: radius,
+             )
+           : isImage || isVoice || isGif
+               ? null
+              : BoxDecoration(
+                  gradient: (isMe && !isDeleted)
+                      ? const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [_kMeStart, _kMeMid, _kMeEnd],
+                        )
+                      : null,
+                  color: isMe ? null : _kThem,
+                  borderRadius: radius,
+                  border: (isMe && !isDeleted)
+                      ? null
+                      : Border.all(color: Colors.white.withValues(alpha: .08)),
+                  boxShadow: (isMe && !isDeleted)
+                      ? [
+                          BoxShadow(
+                            color: _kAccent.withValues(alpha: .22),
+                            blurRadius: 14,
+                            offset: const Offset(0, 5),
+                          ),
+                        ]
+                      : null,
                 ),
-              ]
-            : null,
-      ),
       child: isDeleted
           ? Row(
               mainAxisSize: MainAxisSize.min,
@@ -268,7 +460,17 @@ class _MessageBubbleState extends State<MessageBubble> {
                 ),
               ],
             )
-          : _buildMessageText(widget.message.text, isMe),
+          : isVoice
+              ? VoiceMessageBubble(
+                  message: widget.message,
+                  resolveAudioUrl: widget.resolveAudioUrl ??
+                      ( (_) async => null),
+                )
+              : isImage
+                  ? _buildImageContent(isMe)
+                  : isGif
+                      ? _buildImageContent(isMe)
+                      : _buildMessageText(widget.message.text, isMe),
     );
 
     final interactiveBubble = (widget.onLongPress != null && !isDeleted)
@@ -725,5 +927,246 @@ class _LikersPopover extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class VoiceMessageBubble extends StatefulWidget {
+  const VoiceMessageBubble({
+    required this.message,
+    required this.resolveAudioUrl,
+    super.key,
+  });
+
+  final Message message;
+  final Future<String?> Function(String storagePath) resolveAudioUrl;
+
+  @override
+  State<VoiceMessageBubble> createState() => _VoiceMessageBubbleState();
+}
+
+class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
+  static const _kPlayIcon = Icons.play_arrow_rounded;
+  static const _kPauseIcon = Icons.pause_rounded;
+
+  final AudioPlayer _player = AudioPlayer();
+  bool _loading = true;
+  bool _error = false;
+  String? _signedUrl;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+  bool _playing = false;
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration>? _durationSubscription;
+  StreamSubscription<PlayerState>? _playerStateSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveAudio();
+    _player.onPositionChanged.listen(_onPositionChanged);
+    _player.onDurationChanged.listen(_onDurationChanged);
+    _player.onPlayerStateChanged.listen(_onPlayerStateChanged);
+  }
+
+  @override
+  void dispose() {
+    _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
+    _playerStateSubscription?.cancel();
+    _player.dispose();
+    super.dispose();
+  }
+
+  Future<void> _resolveAudio() async {
+    final mediaUrl = widget.message.mediaUrl;
+    if (mediaUrl == null || mediaUrl.isEmpty) {
+      setState(() {
+        _loading = false;
+        _error = true;
+      });
+      return;
+    }
+
+    try {
+      final signedUrl = await widget.resolveAudioUrl(mediaUrl);
+      if (!mounted) return;
+      setState(() {
+        _signedUrl = signedUrl;
+        _loading = false;
+        _error = signedUrl == null || signedUrl.isEmpty;
+      });
+
+      if (_signedUrl != null && _signedUrl!.isNotEmpty) {
+        await _player.setSourceUrl(_signedUrl!);
+        // Immediately capture any duration the player already knows — some
+        // formats need a tick after setSourceUrl before onDurationChanged fires.
+        unawaited(_captureDurationFromPlayer());
+       }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = true;
+      });
+    }
+  }
+
+  void _onPositionChanged(Duration position) {
+    if (!mounted) return;
+    setState(() => _position = position);
+  }
+
+  void _onDurationChanged(Duration duration) {
+    if (!mounted) return;
+    setState(() => _duration = duration);
+  }
+
+  /// After the source loads, [onDurationChanged] fires via the listener set up
+  /// in [initState]. As a belt-and-suspenders measure, also call the player's
+  /// `getDuration()` — some audio formats (notably m4a/aac) only resolve
+  /// metadata after a brief async gap that the stream event can race ahead
+  /// of. This guarantees [_duration] is populated from the real audio metadata
+  /// rather than staying at [Duration.zero].
+  Future<void> _captureDurationFromPlayer() async {
+    if (_duration > Duration.zero) return;
+    try {
+      final playerDuration = await _player.getDuration();
+      if (playerDuration != null &&
+          playerDuration > Duration.zero &&
+          playerDuration != _duration) {
+        if (!mounted) return;
+        setState(() => _duration = playerDuration);
+      }
+    } catch (_) {}
+  }
+
+  void _onPlayerStateChanged(PlayerState state) {
+    if (!mounted) return;
+    setState(() => _playing = state == PlayerState.playing);
+  }
+
+  Future<void> _togglePlay() async {
+    if (_signedUrl == null || _signedUrl!.isEmpty) return;
+
+    if (_playing) {
+      await _player.pause();
+    } else {
+      await _player.resume();
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isMe = widget.message.author == MessageAuthor.me;
+
+    Widget content;
+    if (_loading) {
+      content = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isMe ? Colors.white.withValues(alpha: .08) : Colors.white.withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(_kSubtle),
+          ),
+        ),
+      );
+    } else if (_error) {
+      content = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isMe ? Colors.white.withValues(alpha: .08) : Colors.white.withValues(alpha: .06),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.broken_image_rounded,
+              size: 18,
+              color: _kMuted.withValues(alpha: .6),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Failed to load audio',
+              style: TextStyle(
+                fontSize: 12,
+                color: _kMuted.withValues(alpha: .7),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      final progress = _duration.inMilliseconds > 0
+          ? _position.inMilliseconds / _duration.inMilliseconds
+          : 0.0;
+
+       final displayDuration = _duration > Duration.zero
+           ? _formatDuration(_duration)
+           : _formatDuration(_position);
+
+      content = GestureDetector(
+        onTap: _togglePlay,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isMe ? Colors.white.withValues(alpha: .08) : Colors.white.withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _playing ? _kPauseIcon : _kPlayIcon,
+                size: 22,
+                color: isMe ? Colors.white : _kSubtle,
+              ),
+             const SizedBox(width: 10),
+             SizedBox(
+               width: 80,
+               child: Text(
+                 displayDuration,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isMe ? Colors.white : _kSubtle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress.clamp(0.0, 1.0),
+                    backgroundColor: isMe
+                        ? Colors.white.withValues(alpha: .12)
+                        : Colors.white.withValues(alpha: .08),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isMe ? Colors.white : _kSubtle,
+                    ),
+                    minHeight: 3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return content;
   }
 }

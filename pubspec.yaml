@@ -41,6 +41,10 @@ dependencies:
   # Image normalization (JPEG canonical format for uploads/verification)
   flutter_image_compress: ^2.0.0
 
+  # Voice recording and playback
+  record: ^7.1.1
+  audioplayers: ^6.0.0
+
   # Lightweight vector icons for the verification flow (pure-Dart, no native plugin)
   flutter_svg: ^2.0.17
 

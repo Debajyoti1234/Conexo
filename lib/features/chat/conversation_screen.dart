@@ -10,8 +10,12 @@ import '../../core/services/push_notification_service.dart';
 import '../home_discovery_animations.dart';
 import 'chat_models.dart';
 import 'chat_repository.dart';
+import 'chat_attachment_service.dart';
 import 'chat_dtos.dart';
 import 'conversation_widgets.dart';
+import 'gif_service.dart';
+import 'gif_tray.dart';
+import 'image_viewer_screen.dart';
 import 'message_models.dart';
 import 'message_widgets.dart';
 import 'realtime_messages_service.dart';
@@ -23,6 +27,7 @@ import '../profile/public_profile_screen.dart';
 import '../profile/report_problem_screen.dart';
 import '../profile/safety_repository.dart';
 import '../profile/supabase_profile_repository.dart';
+import '../profile/connection_repository.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({
@@ -73,6 +78,13 @@ class _ConversationScreenState extends State<ConversationScreen>
   Message? _replyingTo;
   final Map<String, Set<String>> _conversationLikes = <String, Set<String>>{};
   final Map<String, List<String>> _likersByMessage = <String, List<String>>{};
+  bool _sendingGif = false;
+  String? _sendingGifUrl;
+  bool _gifModeActive = false;
+  String _gifSearchQuery = '';
+  final FocusNode _gifSearchFocus = FocusNode();
+  Timer? _gifSearchDebounce;
+  bool _welcomeShown = false;
 
   Set<String> get _currentLikes {
     final id = widget.conversation.id;
@@ -101,6 +113,32 @@ class _ConversationScreenState extends State<ConversationScreen>
   }
 
   String get _draftKey => 'chat_draft_${widget.conversation.id}';
+
+  void _openImageViewer(Message msg) {
+    if (msg.mediaUrl == null || msg.mediaUrl!.isEmpty) return;
+    final storagePath = msg.mediaUrl!;
+    ChatAttachmentService.instance.resolveAttachment(storagePath).then((resolved) {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ImageViewerScreen(
+            imageProvider: resolved.imageProvider,
+            onClose: () {
+              ChatAttachmentService.instance.invalidatePath(storagePath);
+            },
+          ),
+        ),
+      );
+    }).catchError((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to load image'),
+          backgroundColor: Color(0xFFFF4D8D),
+        ),
+      );
+    });
+  }
 
   @override
   void initState() {
@@ -179,6 +217,8 @@ class _ConversationScreenState extends State<ConversationScreen>
       Supabase.instance.client.removeChannel(_typingChannel!);
       _typingChannel = null;
     }
+    _gifSearchDebounce?.cancel();
+    _gifSearchFocus.dispose();
     _otherTyping.dispose();
     RealtimeMessagesService.instance.stop();
     PushNotificationService.setActiveConversation(null);
@@ -425,9 +465,23 @@ class _ConversationScreenState extends State<ConversationScreen>
       senderAvatar = avatar.isNotEmpty ? avatar : null;
     }
     final isSystem = dto.type == 'system';
+    final isImage = dto.type == 'image';
+    final isVoice = dto.type == 'voice';
+    final isGif = dto.type == 'gif';
+
+    MessageType messageType = MessageType.text;
+    if (isSystem) {
+      messageType = MessageType.system;
+    } else if (isImage) {
+      messageType = MessageType.image;
+    } else if (isVoice) {
+      messageType = MessageType.voice;
+    } else if (isGif) {
+      messageType = MessageType.gif;
+    }
 
     // Chat P4: derive delivery status for own, non-deleted messages.
-    // A message is "read" (blue ✓✓) only when the other participant's
+    // A message is "read" (blue checkmarks) only when the other participant's
     // last_read_at is at or after the message timestamp.
     MessageDeliveryStatus deliveryStatus = MessageDeliveryStatus.sent;
     if (isMine && !isSystem && dto.deletedAt == null) {
@@ -444,7 +498,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           ? MessageAuthor.system
           : (isMine ? MessageAuthor.me : MessageAuthor.them),
       timestamp: dto.createdAt,
-      type: isSystem ? MessageType.system : MessageType.text,
+      type: messageType,
       text: dto.content,
       senderName: senderName,
       senderAvatar: senderAvatar,
@@ -452,6 +506,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       // Soft-deleted rows stay in the timeline; the bubble renders a subtle
       // "This message was deleted" placeholder instead of the original content.
       isDeleted: dto.deletedAt != null,
+      mediaUrl: isImage || isVoice || isGif ? dto.mediaUrl : null,
     );
   }
 
@@ -481,14 +536,31 @@ class _ConversationScreenState extends State<ConversationScreen>
     }
   }
 
+  String get _welcomeShownKey => 'chat_welcome_seen_${widget.conversation.id}';
+
+  /// Marks this conversation as "started" so the welcome prompt is never
+  /// shown again. Called after the user sends any message (text, image,
+  /// voice, or GIF) in a connection chat.
+  Future<void> _markConversationStarted() async {
+    if (!mounted) return;
+    setState(() => _welcomeShown = true);
+    await _prefs?.setBool(_welcomeShownKey, true);
+  }
+
   Future<void> _load() async {
     _prefs ??= await SharedPreferences.getInstance();
     final draft = _prefs!.getString(_draftKey) ?? '';
+    final isConnection = !widget.conversation.isGroup;
+    final welcomeAlreadyShown =
+        _prefs!.getBool(_welcomeShownKey) ?? false;
     if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
       _draftText = draft;
+      // Welcome only applies to 1:1 connection chats. Group/plan chats
+      // never show it. Once shown (or a message already exists) it stays off.
+      _welcomeShown = !isConnection || welcomeAlreadyShown;
     });
 
     try {
@@ -685,6 +757,200 @@ class _ConversationScreenState extends State<ConversationScreen>
     setState(() {
       _messages = List<Message>.from(_messages)..add(sent);
     });
+    _markConversationStarted();
+  }
+
+  Future<void> _handleImagePick() async {
+    if (widget.chatRepository == null) return;
+
+    final result = await ChatAttachmentService.instance.pickAndUploadImage(
+      conversationId: widget.conversation.id,
+    );
+
+    if (!mounted) return;
+    if (result.isFailure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to attach image'),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
+
+    final storagePath = result.value;
+    if (storagePath != null && storagePath.isNotEmpty) {
+      await _sendImageMessage(storagePath);
+    }
+  }
+
+  Future<void> _sendImageMessage(String mediaUrl) async {
+    if (mediaUrl.isEmpty) return;
+    if (widget.chatRepository == null) return;
+
+    _stopTyping();
+
+    final result = await widget.chatRepository!.sendImageMessage(
+      conversationId: widget.conversation.id,
+      mediaUrl: mediaUrl,
+    );
+
+    if (!mounted) return;
+    if (result.isFailure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to send image'),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
+
+    final sent = _mapDtoToMessage(result.value!);
+    setState(() {
+      _messages = List<Message>.from(_messages)..add(sent);
+    });
+    _markConversationStarted();
+  }
+
+  Future<void> _sendVoiceMessage(String mediaUrl) async {
+    if (mediaUrl.isEmpty) {
+      if (kDebugMode) debugPrint('sendVoiceMessage: empty mediaUrl, aborting');
+      return;
+    }
+    if (widget.chatRepository == null) {
+      if (kDebugMode) debugPrint('sendVoiceMessage: no chatRepository, aborting');
+      return;
+    }
+
+    if (kDebugMode) {
+      debugPrint('sendVoiceMessage: sending mediaUrl=$mediaUrl conversation=${widget.conversation.id}');
+    }
+
+    _stopTyping();
+
+    final result = await widget.chatRepository!.sendVoiceMessage(
+      conversationId: widget.conversation.id,
+      mediaUrl: mediaUrl,
+    );
+
+    if (!mounted) return;
+    if (result.isFailure) {
+      if (kDebugMode) {
+        debugPrint('sendVoiceMessage: repo returned failure: ${result.error}');
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to send voice'),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
+
+    if (kDebugMode) {
+      debugPrint('sendVoiceMessage: success, messageId=${result.value!.id}');
+    }
+
+    final sent = _mapDtoToMessage(result.value!);
+    setState(() {
+      _messages = List<Message>.from(_messages)..add(sent);
+    });
+    _markConversationStarted();
+  }
+
+  void _handleGifSelected() {
+    if (widget.chatRepository == null) return;
+    setState(() {
+      _gifModeActive = true;
+      _gifSearchQuery = '';
+    });
+    _gifSearchFocus.requestFocus();
+  }
+
+  void _closeGifMode() {
+    setState(() {
+      _gifModeActive = false;
+      _gifSearchQuery = '';
+    });
+    _gifSearchDebounce?.cancel();
+    _gifSearchFocus.unfocus();
+  }
+
+  void _handleGifSearch(String query) {
+    _gifSearchDebounce?.cancel();
+    _gifSearchDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        setState(() => _gifSearchQuery = query);
+      }
+    });
+  }
+
+  Future<void> _handleGifPick(GifItem gif) async {
+    if (!mounted) return;
+
+    setState(() {
+      _sendingGifUrl = gif.url;
+      _sendingGif = true;
+    });
+
+    final uploadResult = await ChatAttachmentService.instance.pickAndUploadGif(
+      url: gif.url,
+      conversationId: widget.conversation.id,
+    );
+
+    if (!mounted) return;
+    setState(() => _sendingGif = false);
+
+    if (uploadResult.isFailure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(uploadResult.error ?? 'Failed to upload GIF'),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
+
+    final storagePath = uploadResult.value;
+    if (storagePath != null && storagePath.isNotEmpty) {
+      await _sendGifMessage(storagePath);
+    }
+
+    if (mounted) {
+      _closeGifMode();
+    }
+  }
+
+  Future<void> _sendGifMessage(String mediaUrl) async {
+    if (mediaUrl.isEmpty) return;
+    if (widget.chatRepository == null) return;
+
+    _stopTyping();
+
+    final result = await widget.chatRepository!.sendGifMessage(
+      conversationId: widget.conversation.id,
+      mediaUrl: mediaUrl,
+    );
+
+    if (!mounted) return;
+    setState(() => _sendingGif = false);
+
+    if (result.isFailure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Failed to send GIF'),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
+
+    final sent = _mapDtoToMessage(result.value!);
+    setState(() {
+      _messages = List<Message>.from(_messages)..add(sent);
+    });
+    _markConversationStarted();
   }
 
   /// Long-press → compact action sheet → confirmation → soft delete.
@@ -760,7 +1026,7 @@ class _ConversationScreenState extends State<ConversationScreen>
     }
   }
 
-  void _handleMenuAction(String actionId) {
+  Future<void> _handleMenuAction(String actionId) async {
     final c = widget.conversation;
 
     if (actionId == 'view_members' && c.isGroup) {
@@ -876,6 +1142,20 @@ class _ConversationScreenState extends State<ConversationScreen>
       final otherId = widget.conversation.otherUserId;
       if (otherId == null) return;
       _openReport(otherId);
+      return;
+    }
+
+    if (actionId == 'remove_connection') {
+      final otherId = widget.conversation.otherUserId;
+      if (otherId == null) return;
+      await _removeConnection(otherId);
+      return;
+    }
+
+    if (actionId == 'leave_plan') {
+      final planId = widget.conversation.planId;
+      if (planId == null || planId.isEmpty) return;
+      await _leavePlan(planId);
       return;
     }
 
@@ -1079,6 +1359,131 @@ class _ConversationScreenState extends State<ConversationScreen>
     );
   }
 
+  Future<void> _removeConnection(String otherId) async {
+    final currentUserId = AuthService.currentUser?.id;
+    if (currentUserId == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF141C31),
+        title: const Text('Remove connection?',
+            style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Remove this person from your connections? You can connect again later if you both choose to.',
+          style: const TextStyle(color: Color(0xFFB9C3DC)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child:
+                const Text('Remove', style: TextStyle(color: Color(0xFFE36D9D))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final connectionResult =
+        await const ConnectionRepository().getConnectionBetween(currentUserId, otherId);
+    if (!mounted) return;
+    if (connectionResult.isFailure || connectionResult.value == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connection not found'),
+          backgroundColor: Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
+
+    final removeResult =
+        await const ConnectionRepository().removeConnection(connectionResult.value!.id);
+    if (!mounted) return;
+    if (removeResult.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connection removed'),
+          backgroundColor: Color(0xFF47D7A5),
+        ),
+      );
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(removeResult.error ?? 'Failed to remove connection'),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+    }
+  }
+
+  Future<void> _leavePlan(String planId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF141C31),
+        title: const Text('Leave this plan?',
+            style: TextStyle(color: Colors.white)),
+        content: Text(
+          'You\'ll leave this plan and its group chat. You can rejoin later if the plan allows it.',
+          style: const TextStyle(color: Color(0xFFB9C3DC)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child:
+                const Text('Leave', style: TextStyle(color: Color(0xFFE36D9D))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await const SupabasePlanRepository().leavePlan(planId);
+    } on AuthFailure catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: const Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to leave plan. Please try again.'),
+          backgroundColor: Color(0xFFFF4D8D),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('You left the plan'),
+        backgroundColor: Color(0xFF47D7A5),
+      ),
+    );
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = widget.conversation;
@@ -1116,10 +1521,10 @@ class _ConversationScreenState extends State<ConversationScreen>
                     )
                    : Column(
                        children: [
-                         Expanded(
-                           child: _messages.isEmpty
-                               ? _EmptyThread(name: c.name)
-                                 : _MessageList(
+                          Expanded(
+                            child: _messages.isEmpty
+                                ? _buildEmptyState(c)
+                                : _MessageList(
                                      messages: _messages,
                                      conversation: c,
                                      group: _group,
@@ -1148,13 +1553,32 @@ class _ConversationScreenState extends State<ConversationScreen>
                                          );
                                        }
                                      },
-                                    likedMessageIds: _currentLikes,
-                                    messageLikes: Map<String, List<String>>.from(_likersByMessage),
-                                    onDeleteMessage: widget.chatRepository != null
-                                        ? _confirmAndDeleteMessage
-                                        : null,
-                                 ),
-                          ),
+                                     likedMessageIds: _currentLikes,
+                                     messageLikes: Map<String, List<String>>.from(_likersByMessage),
+                                     onDeleteMessage: widget.chatRepository != null
+                                         ? _confirmAndDeleteMessage
+                                         : null,
+                                     resolveImage: (String path) async {
+                                       final resolved = await ChatAttachmentService.instance.resolveAttachment(path);
+                                       return resolved.imageProvider;
+                                     },
+                                      onImageTap: (msg) => _openImageViewer(msg),
+                                       resolveAudioUrl: (String path) async {
+                                         try {
+                                           final resolved = await ChatAttachmentService.instance.resolveAttachment(path);
+                                           if (kDebugMode) {
+                                             debugPrint('resolveAudioUrl OK: $path -> ${resolved.signedUrl}');
+                                           }
+                                           return resolved.signedUrl;
+                                         } catch (e) {
+                                           if (kDebugMode) {
+                                             debugPrint('resolveAudioUrl FAILED: $path error=${e.runtimeType}: $e');
+                                           }
+                                           return null;
+                                         }
+                                       },
+                                   ),
+                            ),
                           Column(
                                mainAxisSize: MainAxisSize.min,
                                children: [
@@ -1210,6 +1634,21 @@ class _ConversationScreenState extends State<ConversationScreen>
     );
   }
 
+  Widget _buildEmptyState(ConversationPreview c) {
+    if (!c.isGroup && !_welcomeShown) {
+      return Center(
+        child: EntranceFade(
+          child: ConnectionChatWelcome(name: c.name),
+        ),
+      );
+    }
+    return Center(
+      child: EntranceFade(
+        child: ConversationIntro(name: c.name),
+      ),
+    );
+  }
+
   /// The bottom input area. A blocked relationship (either direction) replaces
   /// the composer with a premium banner and never exposes a typable field. The
   /// composer stays disabled until the block relationship is known, so a user
@@ -1240,17 +1679,43 @@ class _ConversationScreenState extends State<ConversationScreen>
       return const _DisabledComposerPlaceholder();
     }
 
-    return MessageComposer(
-      initialText: _draftText,
-      onDraftChanged: _onDraftChanged,
-      onChanged: _handleTypingInput,
-      onSend: _sendMessage,
-      enableStarters: true,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedSize(
+          duration: const Duration(milliseconds: 240),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: _gifModeActive
+              ? GifTray(
+                  searchQuery: _gifSearchQuery,
+                  onGifSelected: _handleGifPick,
+                )
+              : const SizedBox.shrink(),
+        ),
+        MessageComposer(
+          initialText: _draftText,
+          onDraftChanged: _onDraftChanged,
+          onChanged: _handleTypingInput,
+          onSend: _sendMessage,
+          conversationId: widget.conversation.id,
+          onImageSelected: widget.conversation.isGroup ? () => _handleImagePick() : null,
+          onVoiceSelected: widget.conversation.isGroup ? (storagePath) => _sendVoiceMessage(storagePath) : null,
+          onGifSelected: () => _handleGifSelected(),
+          sendingGif: _sendingGif,
+          sendingGifUrl: _sendingGifUrl,
+          gifMode: _gifModeActive,
+          onCancelGif: _closeGifMode,
+          onGifSearchChanged: _handleGifSearch,
+          focusNode: _gifSearchFocus,
+        ),
+      ],
     );
   }
 
   List<ChatMenuAction> _buildMenuActions(ConversationPreview c) {
     if (c.isGroup) {
+      final isHost = _group?.hostId == AuthService.currentUser?.id;
       return [
         const ChatMenuAction(
           id: 'view_members',
@@ -1273,6 +1738,13 @@ class _ConversationScreenState extends State<ConversationScreen>
             id: 'mute',
             label: 'Mute notifications',
             icon: 0xe7f5,
+          ),
+        if (!isHost)
+          const ChatMenuAction(
+            id: 'leave_plan',
+            label: 'Leave Plan',
+            icon: 0xe7f6,
+            isDestructive: true,
           ),
       ];
     }
@@ -1314,8 +1786,107 @@ class _ConversationScreenState extends State<ConversationScreen>
         icon: 0xe160,
         isDestructive: true,
       ),
+      const ChatMenuAction(
+        id: 'remove_connection',
+        label: 'Remove Connection',
+        icon: 0xe14a,
+        isDestructive: true,
+      ),
     ];
   }
+}
+
+class _DateSeparator extends StatelessWidget {
+  const _DateSeparator({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Row(
+        children: [
+          Expanded(
+            child: Divider(
+              color: Colors.white.withValues(alpha: .08),
+              thickness: 1,
+              height: 1,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF9DB2E8),
+                letterSpacing: 0.6,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Divider(
+              color: Colors.white.withValues(alpha: .08),
+              thickness: 1,
+              height: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _formatDateSeparator(DateTime date) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final yesterday = today.subtract(const Duration(days: 1));
+  final targetDay = DateTime(date.year, date.month, date.day);
+
+  if (targetDay == today) return 'TODAY';
+  if (targetDay == yesterday) return 'YESTERDAY';
+
+  final month = _monthAbbreviation(date.month);
+  return '${date.day} $month ${date.year}';
+}
+
+String _monthAbbreviation(int month) {
+  const abbrs = [
+    'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+    'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+  ];
+  return abbrs[month - 1];
+}
+
+List<_MessageListItem> _groupMessagesByDate(List<Message> messages) {
+  if (messages.isEmpty) return const [];
+
+  final items = <_MessageListItem>[];
+  DateTime? lastDay;
+
+  for (final msg in messages) {
+    final msgDay = DateTime(msg.timestamp.year, msg.timestamp.month, msg.timestamp.day);
+    if (lastDay == null || msgDay != lastDay) {
+      items.add(_MessageListItem.date(_formatDateSeparator(msg.timestamp)));
+      lastDay = msgDay;
+    }
+    items.add(_MessageListItem.message(msg));
+  }
+
+  return items;
+}
+
+enum _MessageListItemType { date, message }
+
+class _MessageListItem {
+  const _MessageListItem.date(this.dateLabel) : type = _MessageListItemType.date, message = null;
+  const _MessageListItem.message(this.message) : type = _MessageListItemType.message, dateLabel = null;
+
+  final _MessageListItemType type;
+  final String? dateLabel;
+  final Message? message;
 }
 
 class _MessageList extends StatelessWidget {
@@ -1332,6 +1903,9 @@ class _MessageList extends StatelessWidget {
     required this.likedMessageIds,
     required this.messageLikes,
     this.onDeleteMessage,
+    this.resolveImage,
+    this.onImageTap,
+    this.resolveAudioUrl,
   });
 
   final List<Message> messages;
@@ -1346,10 +1920,14 @@ class _MessageList extends StatelessWidget {
   final Set<String> likedMessageIds;
   final Map<String, List<String>> messageLikes;
   final Future<void> Function(Message)? onDeleteMessage;
+  final Future<ImageProvider?> Function(String)? resolveImage;
+  final ValueChanged<Message>? onImageTap;
+  final Future<String?> Function(String)? resolveAudioUrl;
 
   @override
   Widget build(BuildContext context) {
-    final reversed = messages.reversed.toList();
+    final grouped = _groupMessagesByDate(messages);
+    final reversed = grouped.reversed.toList();
     final showSenderNames = conversation.isGroup;
 
     return ListView.builder(
@@ -1361,10 +1939,12 @@ class _MessageList extends StatelessWidget {
 
       itemCount: reversed.length,
       itemBuilder: (context, index) {
-        final msg = reversed[index];
+        final item = reversed[index];
+        if (item.type == _MessageListItemType.date) {
+          return _DateSeparator(label: item.dateLabel!);
+        }
+        final msg = item.message!;
         final key = ValueKey(msg.id);
-        // Animate only messages that arrived after the initial load. Keyed by
-        // id, so the entrance plays exactly once when the message first mounts.
         final animate = !initialMessageIds.contains(msg.id);
 
         return RepaintBoundary(
@@ -1386,6 +1966,53 @@ class _MessageList extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: SharedContentCard(content: msg.sharedContent!),
+        );
+      case MessageType.image:
+        return _SwipeableMessageBubble(
+          message: msg,
+          showSenderName: showSenderNames && msg.author == MessageAuthor.them,
+          currentUserId: currentUserId,
+          currentUserName: currentUserName,
+          nameById: nameById,
+          onLongPress: null,
+          onSwipeRight: () => onReplyTo(msg),
+          onDoubleTap: () {},
+          isLiked: false,
+          totalLikes: 0,
+          likers: const [],
+          resolveImage: resolveImage,
+          onImageTap: () => onImageTap?.call(msg),
+        );
+      case MessageType.gif:
+        return _SwipeableMessageBubble(
+          message: msg,
+          showSenderName: showSenderNames && msg.author == MessageAuthor.them,
+          currentUserId: currentUserId,
+          currentUserName: currentUserName,
+          nameById: nameById,
+          onLongPress: null,
+          onSwipeRight: () => onReplyTo(msg),
+          onDoubleTap: () {},
+          isLiked: false,
+          totalLikes: 0,
+          likers: const [],
+          resolveImage: resolveImage,
+          isGif: true,
+        );
+      case MessageType.voice:
+        return _SwipeableMessageBubble(
+          message: msg,
+          showSenderName: showSenderNames && msg.author == MessageAuthor.them,
+          currentUserId: currentUserId,
+          currentUserName: currentUserName,
+          nameById: nameById,
+          onLongPress: null,
+          onSwipeRight: () => onReplyTo(msg),
+          onDoubleTap: () {},
+          isLiked: false,
+          totalLikes: 0,
+          likers: const [],
+          resolveAudioUrl: resolveAudioUrl,
         );
       case MessageType.text:
         final canDelete = onDeleteMessage != null &&
@@ -1423,6 +2050,10 @@ class _SwipeableMessageBubble extends StatelessWidget {
     this.nameById = const {},
     this.totalLikes = 0,
     this.likers = const [],
+    this.resolveImage,
+    this.onImageTap,
+    this.resolveAudioUrl,
+    this.isGif = false,
   });
 
   final Message message;
@@ -1436,6 +2067,10 @@ class _SwipeableMessageBubble extends StatelessWidget {
   final Map<String, String> nameById;
   final int totalLikes;
   final List<String> likers;
+  final Future<ImageProvider?> Function(String storagePath)? resolveImage;
+  final VoidCallback? onImageTap;
+  final Future<String?> Function(String storagePath)? resolveAudioUrl;
+  final bool isGif;
 
   @override
   Widget build(BuildContext context) {
@@ -1459,22 +2094,11 @@ class _SwipeableMessageBubble extends StatelessWidget {
           isLiked: isLiked,
           totalLikes: totalLikes,
           likers: likers,
+          resolveImage: resolveImage,
+          onImageTap: onImageTap,
+          resolveAudioUrl: resolveAudioUrl,
+          isGif: isGif,
         ),
-      ),
-    );
-  }
-}
-
-class _EmptyThread extends StatelessWidget {
-  const _EmptyThread({required this.name});
-
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: EntranceFade(
-        child: ConversationIntro(name: name),
       ),
     );
   }

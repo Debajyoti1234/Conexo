@@ -124,6 +124,32 @@ class ConnectionRepository {
     }
   }
 
+  Future<ConnectionResult<void>> removeConnection(String connectionId) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return const ConnectionResult.failure('You must be signed in');
+      }
+
+      final now = DateTime.now().toIso8601String();
+      await Supabase.instance.client
+          .from('connections')
+          .update({
+            'status': 'removed',
+            'updated_at': now,
+          })
+          .eq('id', connectionId)
+          .or('requester_id.eq.${user.id},recipient_id.eq.${user.id}')
+          .eq('status', 'accepted');
+
+      return const ConnectionResult.success(null);
+    } on PostgrestException catch (e) {
+      return ConnectionResult.failure(e.message);
+    } catch (e) {
+      return ConnectionResult.failure('Network error. Please try again.');
+    }
+  }
+
   Future<ConnectionResult<Connection?>> getConnectionBetween(
       String userId1, String userId2) async {
     try {

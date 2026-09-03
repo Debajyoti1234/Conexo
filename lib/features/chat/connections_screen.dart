@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'chat_models.dart';
 import 'chat_repository.dart';
@@ -161,10 +162,13 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
           isTyping: existing.isTyping,
           isPinned: existing.isPinned,
           isMuted: existing.isMuted,
-          isVerified: existing.isVerified,
-          otherUserId: existing.otherUserId,
-        );
-      }
+           isVerified: existing.isVerified,
+           otherUserId: existing.otherUserId,
+           availabilityStatus: existing.availabilityStatus,
+           otherUserCreatedAt: existing.otherUserCreatedAt,
+           otherUserUpdatedAt: existing.otherUserUpdatedAt,
+         );
+       }
 
       _connections.sort((a, b) {
         final aTime = _latestMessageTimes[a.id];
@@ -205,9 +209,12 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
           isTyping: existing.isTyping,
           isPinned: existing.isPinned,
           isMuted: existing.isMuted,
-          isVerified: existing.isVerified,
-        );
-      }
+           isVerified: existing.isVerified,
+           availabilityStatus: existing.availabilityStatus,
+           otherUserCreatedAt: existing.otherUserCreatedAt,
+           otherUserUpdatedAt: existing.otherUserUpdatedAt,
+         );
+       }
 
       _plans.sort((a, b) {
         final aTime = _latestMessageTimes[a.id];
@@ -336,6 +343,36 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
   /// `conversations` guarantees only conversations the user belongs to (creator
   /// + joined participants) are returned. No demo data is used.
   Future<List<ConversationPreview>> _loadPlanPreviews() async {
+    // Ensure conversations exist for all plans the current user is joined to.
+    // getOrCreatePlanConversation is idempotent and rejects unauthorized callers,
+    // so this only seeds conversations for creator + joined members.
+    final user = AuthService.currentUser;
+    if (user != null) {
+      try {
+        final joinedPlanRows = await Supabase.instance.client
+            .from('plan_members')
+            .select('plan_id')
+            .eq('user_id', user.id)
+            .eq('status', 'joined');
+
+        final joinedPlanIds = joinedPlanRows
+            .map((row) => row['plan_id'] as String)
+            .toSet();
+
+        for (final planId in joinedPlanIds) {
+          try {
+            await _chatRepository.getOrCreatePlanConversation(planId);
+          } catch (_) {
+            // Best-effort: skip plans that fail conversation creation.
+            // The user can still access them from Plan Details if authorized.
+          }
+        }
+      } catch (_) {
+        // Best-effort: if we cannot load joined plans, fall back to existing
+        // conversations only. The inbox will show whatever already exists.
+      }
+    }
+
     final result = await _chatRepository.loadPlanConversations();
     _planConversationIds.clear();
     if (result.isFailure || result.value == null) {
@@ -475,6 +512,7 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
       final unreadResult = await _chatRepository.loadUnreadCount(conversationId);
       final unreadCount = unreadResult.isSuccess ? (unreadResult.value ?? 0) : 0;
 
+      final model = _connectionModels[c.id];
       final realPreview = ConversationPreview(
         id: conversationId,
         name: c.name,
@@ -488,6 +526,9 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
         isMuted: c.isMuted,
         isVerified: c.isVerified,
         otherUserId: c.otherUserId,
+        availabilityStatus: model?.otherUserAvailabilityStatus,
+        otherUserCreatedAt: model?.otherUserCreatedAt,
+        otherUserUpdatedAt: model?.otherUserUpdatedAt,
       );
 
       if (!mounted) return;
@@ -611,6 +652,14 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
     final hasResults = _filtered.isNotEmpty;
     final isSearching = _query.isNotEmpty;
 
+    // Floating nav dock (main_shell.dart FloatingNavDock):
+    //   68px container height + 24px outer bottom padding.
+    // System bottom inset is already consumed by SafeArea at the
+    // _ScreenFrame level, so we only need to reserve the dock's visual
+    // height + a small breathing room so the last row is never clipped
+    // behind the nav pill.
+    final bottomNavPadding = 68.0 + 24.0 + 16.0;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: SafeArea(
@@ -630,65 +679,85 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 860),
-                child: RefreshIndicator(
-              onRefresh: _refresh,
-              color: const Color(0xFF8B5CF6),
-              strokeWidth: 2.2,
-              displacement: 8,
-              child: ListView(
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                      child: ConnectionsHeader(
+                        title: isConnections ? 'Connections' : 'Plans',
+                        subtitle: isConnections
+                            ? 'Your private conversations, in one calm place.'
+                            : 'Group chats from the plans you host and join.',
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: ChatSegmentedTabs(
+                        selectedIndex: _tabIndex,
+                        onChanged: _onTabChanged,
+                        connectionsCount: _loading ? null : _connections.length,
+                        plansCount: _loading ? null : _plans.length,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: PremiumSearchBar(
+                        controller: _searchController,
+                        hint: isConnections
+                            ? 'Search connections'
+                            : 'Search plan chats',
+                        onChanged: _onSearchChanged,
+                        onClear: _clearSearch,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Container(
+                        height: 1,
+                        color: Colors.white.withValues(alpha: .06),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: _refresh,
+                        color: const Color(0xFF8B5CF6),
+                        strokeWidth: 2.2,
+                        displacement: 8,
+                        child: ListView(
+                          key: ValueKey('body-$_tabIndex-$isSearching-$hasResults'),
+                          physics: const BouncingScrollPhysics(
+                            parent: AlwaysScrollableScrollPhysics(),
+                          ),
+                          padding: EdgeInsets.fromLTRB(20, 0, 20, bottomNavPadding),
+                          children: [
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 240),
+                              switchInCurve: Curves.easeOut,
+                              switchOutCurve: Curves.easeIn,
+                              child: _buildBody(
+                                key: ValueKey('tab-$_tabIndex-$isSearching-$hasResults'),
+                                isConnections: isConnections,
+                                hasResults: hasResults,
+                                isSearching: isSearching,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                children: [
-                ConnectionsHeader(
-                  title: isConnections ? 'Connections' : 'Plans',
-                  subtitle: isConnections
-                      ? 'Your private conversations, in one calm place.'
-                      : 'Group chats from the plans you host and join.',
-                ),
-                const SizedBox(height: 20),
-                ChatSegmentedTabs(
-                  selectedIndex: _tabIndex,
-                  onChanged: _onTabChanged,
-                  connectionsCount: _loading ? null : _connections.length,
-                  plansCount: _loading ? null : _plans.length,
-                ),
-                const SizedBox(height: 20),
-                PremiumSearchBar(
-                  controller: _searchController,
-                  hint: isConnections
-                      ? 'Search connections'
-                      : 'Search plan chats',
-                  onChanged: _onSearchChanged,
-                  onClear: _clearSearch,
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  height: 1,
-                  color: Colors.white.withValues(alpha: .06),
-                ),
-                const SizedBox(height: 18),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 240),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: _buildBody(
-                    key: ValueKey('tab-$_tabIndex-$isSearching-$hasResults'),
-                    isConnections: isConnections,
-                    hasResults: hasResults,
-                    isSearching: isSearching,
-                  ),
-                ),
-              ],
               ),
             ),
-          ),
+          ],
         ),
-      ],
-    ),
-  ),
-);
+      ),
+    );
   }
 
   Widget _buildBody({

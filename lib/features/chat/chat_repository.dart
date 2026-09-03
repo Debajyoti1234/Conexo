@@ -213,6 +213,109 @@ class ChatRepository {
     }
   }
 
+  Future<ChatResult<ChatMessage>> sendImageMessage({
+    required String conversationId,
+    required String mediaUrl,
+    String content = '',
+  }) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return ChatResult.failure('Not authenticated');
+      }
+
+      final response = await Supabase.instance.client
+          .from('messages')
+          .insert({
+            'conversation_id': conversationId,
+            'sender_id': user.id,
+            'type': 'image',
+            'content': content,
+            'media_url': mediaUrl,
+          })
+          .select()
+          .single();
+
+      final message = ChatMessage.fromJson(response);
+      return ChatResult.success(message);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } catch (e) {
+      return ChatResult.failure('Failed to send image');
+    }
+  }
+
+  Future<ChatResult<ChatMessage>> sendVoiceMessage({
+    required String conversationId,
+    required String mediaUrl,
+    String content = '',
+  }) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return ChatResult.failure('Not authenticated');
+      }
+
+      final response = await Supabase.instance.client
+          .from('messages')
+          .insert({
+            'conversation_id': conversationId,
+            'sender_id': user.id,
+            'type': 'voice',
+            'content': content,
+            'media_url': mediaUrl,
+          })
+          .select()
+          .single();
+
+      final message = ChatMessage.fromJson(response);
+      return ChatResult.success(message);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } on PostgrestException catch (e) {
+      debugPrint(
+        'sendVoiceMessage PostgrestException: code=${e.code} message=${e.message} details=${e.details} hint=${e.hint}',
+      );
+      return ChatResult.failure('Failed to send voice message');
+    } catch (e) {
+      debugPrint('sendVoiceMessage FAILED: ${e.runtimeType}: $e');
+      return ChatResult.failure('Failed to send voice message');
+    }
+  }
+
+  Future<ChatResult<ChatMessage>> sendGifMessage({
+    required String conversationId,
+    required String mediaUrl,
+    String content = '',
+  }) async {
+    try {
+      final user = AuthService.currentUser;
+      if (user == null) {
+        return ChatResult.failure('Not authenticated');
+      }
+
+      final response = await Supabase.instance.client
+          .from('messages')
+          .insert({
+            'conversation_id': conversationId,
+            'sender_id': user.id,
+            'type': 'gif',
+            'content': content,
+            'media_url': mediaUrl,
+          })
+          .select()
+          .single();
+
+      final message = ChatMessage.fromJson(response);
+      return ChatResult.success(message);
+    } on AuthException catch (e) {
+      return ChatResult.failure(e.message);
+    } catch (e) {
+      debugPrint('sendGifMessage FAILED: ${e.runtimeType}: $e');
+      return ChatResult.failure('Failed to send GIF');
+    }
+  }
+
   Future<ChatResult<void>> updateLastReadAt(String conversationId) async {
     try {
       final user = AuthService.currentUser;

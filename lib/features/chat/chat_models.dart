@@ -49,9 +49,12 @@ class ConversationPreview {
     this.unreadCount = 0,
     this.isTyping = false,
     this.isPinned = false,
-  this.isMuted = false,
+    this.isMuted = false,
   this.isVerified = false,
   this.otherUserId,
+  this.availabilityStatus,
+  this.otherUserCreatedAt,
+  this.otherUserUpdatedAt,
   this.planId,
 });
 
@@ -69,6 +72,9 @@ class ConversationPreview {
   final bool isMuted;
   final bool isVerified;
   final String? otherUserId;
+  final String? availabilityStatus;
+  final DateTime? otherUserCreatedAt;
+  final DateTime? otherUserUpdatedAt;
   final String? planId;
 
   bool get hasUnread => unreadCount > 0;

@@ -65,7 +65,7 @@ class NotificationNavigation {
         MainShell.switchToTab(2);
         await Future.delayed(const Duration(milliseconds: 150));
         if (!context.mounted) return;
-        Navigator.of(context).push(AppRouter.requestsPageRoute());
+        Navigator.of(context).push(AppRouter.hostedPlansPageRoute());
         break;
 
       case NotificationKind.system:

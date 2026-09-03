@@ -93,6 +93,7 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> with Widget
       }
 
       if (generation != _requestGeneration) return;
+      if (!mounted) return;
       setState(() {
         _allPlans = experiences;
         _maxDistanceKm = maxKm;
@@ -134,6 +135,8 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> with Widget
   }
 
   Future<void> _refresh() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
     await _load();
   }
 

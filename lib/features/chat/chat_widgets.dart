@@ -816,17 +816,47 @@ class _Trailing extends StatelessWidget {
   }
 }
 
-IconData? _previewGlyph(LastMessageType type) {
-  switch (type) {
-    case LastMessageType.plan:
-      return Icons.event_rounded;
-    case LastMessageType.connectionAccepted:
-      return Icons.handshake_rounded;
-    case LastMessageType.voiceNote:
-      return Icons.mic_rounded;
-    case LastMessageType.photo:
-      return Icons.photo_outlined;
-    case LastMessageType.text:
-      return null;
+  IconData? _previewGlyph(LastMessageType type) {
+    switch (type) {
+      case LastMessageType.plan:
+        return Icons.event_rounded;
+      case LastMessageType.connectionAccepted:
+        return Icons.handshake_rounded;
+      case LastMessageType.voiceNote:
+        return Icons.mic_rounded;
+      case LastMessageType.photo:
+        return Icons.photo_outlined;
+      case LastMessageType.text:
+        return null;
+    }
   }
-}
+
+  /// Derives a human-readable activity status for a Connection Chat recipient.
+  ///
+  /// Reuses the existing `profiles.availability_status` field ('available_now'
+  /// = online) and the profile `created_at` / `updated_at` timestamps for
+  /// recency buckets. No new data collection — these fields already flow through
+  /// [ConnectionUiModel] into [ConversationPreview].
+  String? formatConnectionActivityStatus(ConversationPreview c) {
+    final availability = c.availabilityStatus;
+    final isOnline = availability == 'available_now';
+
+    if (isOnline) return 'Active now';
+
+    final updatedAt = c.otherUserUpdatedAt;
+    final createdAt = c.otherUserCreatedAt;
+    final now = DateTime.now();
+
+    if (updatedAt != null) {
+      final hoursAgo = now.difference(updatedAt.toLocal()).inHours;
+      if (hoursAgo < 24) return 'Recently active';
+      if (hoursAgo < 7 * 24) return 'Last active in a week';
+    }
+
+    if (createdAt != null) {
+      final daysSinceJoin = now.difference(createdAt.toLocal()).inDays;
+      if (daysSinceJoin < 7) return 'Recently joined';
+    }
+
+    return 'Offline';
+  }

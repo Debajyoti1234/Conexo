@@ -43,10 +43,13 @@ class _HostedPlansPageState extends State<HostedPlansPage> {
     try {
       final experiences = await _repository.getPublishedExperiences();
       if (!mounted) return;
+      final planIds = experiences.map((e) => e.id).toList();
+      final allMembers = await _repository.getPlanMembersBatch(planIds);
+      final allPending = await _repository.getPendingPlanMembersBatch(planIds);
       final plans = <_HostedPlanUi>[];
       for (final exp in experiences) {
-        final members = await _repository.getPlanMembers(exp.id);
-        final pending = await _repository.getPendingPlanMembers(exp.id);
+        final members = allMembers[exp.id] ?? const [];
+        final pending = allPending[exp.id] ?? const [];
         final joinedMembers = members
             .where((m) => m.status == 'joined' && m.role != 'creator' && m.userId != exp.hostId)
             .toList();

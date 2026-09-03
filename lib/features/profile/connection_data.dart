@@ -1,4 +1,4 @@
-enum ConnectionStatus { pending, accepted, rejected, cancelled }
+enum ConnectionStatus { pending, accepted, rejected, cancelled, removed }
 
 enum ConnectionDirection { sent, received }
 
@@ -37,6 +37,7 @@ class Connection {
   bool get isAccepted => status == ConnectionStatus.accepted;
   bool get isRejected => status == ConnectionStatus.rejected;
   bool get isCancelled => status == ConnectionStatus.cancelled;
+  bool get isRemoved => status == ConnectionStatus.removed;
 
   ConnectionDirection directionFor(String userId) {
     if (userId == requesterId) return ConnectionDirection.sent;
