@@ -10,12 +10,18 @@ import 'core/services/live_location_tracker.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/supabase/auth_service.dart';
 import 'core/supabase/supabase_client.dart';
+import 'conexo/conexo_app.dart';
 import 'features/login_screen.dart';
 import 'features/splash/splash_screen.dart';
 
+/// `mock` (default) runs the redesigned front end on local mock data with the
+/// database disconnected. The legacy Supabase-backed app is only reachable
+/// with an explicit `--dart-define=CONEXO_BACKEND=supabase`.
+const _backend = String.fromEnvironment('CONEXO_BACKEND', defaultValue: 'mock');
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ConexoApp());
+  runApp(_backend == 'supabase' ? const ConexoApp() : const ConexoRedesignApp());
 }
 
 class ConexoApp extends StatefulWidget {
