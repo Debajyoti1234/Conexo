@@ -1,9 +1,7 @@
-/// Mock data for the redesigned front end.
+/// Data models plus the local demo dataset.
 ///
-/// The database is intentionally disconnected. Everything here is local so the
-/// full journey (sign up → profile → discover → match → chat) can be tested
-/// end to end. Shapes loosely mirror the Supabase-backed models so wiring the
-/// real repositories back in later is a mapping job, not a rewrite.
+/// The models are shared by both data sources: [MockDataSource] fills them
+/// from the demo data below, and [SupabaseDataSource] maps real rows into them.
 library;
 
 class Prompt {
@@ -26,7 +24,9 @@ class Person {
     this.pronouns,
     this.school,
     this.height,
-    this.lookingFor = 'Something real',
+    this.birthday,
+    this.gender,
+    this.lookingFor = '',
     this.verified = false,
     this.activeNow = false,
     this.likesYou = false,
@@ -34,78 +34,118 @@ class Person {
 
   final String id;
   final String name;
+
+  /// 0 when unknown.
   final int age;
   final String city;
   final String job;
   final String? pronouns;
   final String? school;
   final String? height;
+  final DateTime? birthday;
+  final String? gender;
+
+  /// Either an `assets/...` path or a storage path in the profile-photos bucket.
   final List<String> photos;
   final List<Prompt> prompts;
   final List<String> vibes;
+
+  /// 0 when unknown.
   final int distanceKm;
   final String lookingFor;
   final bool verified;
   final bool activeNow;
 
-  /// When true, liking this person creates an instant match (mock behaviour).
+  /// Demo only: liking this person creates an instant match.
   final bool likesYou;
 
-  String get firstPhoto => photos.first;
+  String get firstPhoto => photos.isEmpty ? '' : photos.first;
 }
 
-enum LikeTarget { photo, prompt }
+enum LikeTarget { photo, prompt, profile }
 
 class Like {
   const Like({
+    required this.id,
     required this.from,
     required this.target,
     required this.targetLabel,
     this.comment,
   });
+
+  /// Connection id when live.
+  final String id;
   final Person from;
   final LikeTarget target;
 
-  /// The photo index or prompt question that was liked.
+  /// The photo or prompt question that was liked.
   final String targetLabel;
   final String? comment;
 }
 
 class Message {
   Message({
+    required this.id,
     required this.text,
     required this.fromMe,
     required this.at,
-    this.reaction,
-  });
+    Set<String>? likedBy,
+  }) : likedBy = likedBy ?? <String>{};
+
+  final String id;
   final String text;
   final bool fromMe;
   final DateTime at;
-  String? reaction;
+
+  /// User ids that hearted this message.
+  final Set<String> likedBy;
+
+  String? get reaction => likedBy.isEmpty ? null : '❤️';
 }
 
 class Match {
   Match({
+    required this.id,
     required this.person,
     required this.matchedAt,
     List<Message>? messages,
     this.unread = 0,
     this.openingLine,
+    this.conversationId,
+    this.lastMessage,
   }) : messages = messages ?? [];
 
+  /// Connection id when live.
+  final String id;
   final Person person;
   final DateTime matchedAt;
   final List<Message> messages;
   int unread;
-
-  /// What sparked the match, e.g. the prompt that was liked.
   final String? openingLine;
+  String? conversationId;
 
-  Message? get last => messages.isEmpty ? null : messages.last;
-  bool get yourMove => messages.isEmpty || !messages.last.fromMe;
+  /// Preview used before the conversation has been opened.
+  Message? lastMessage;
+  bool loading = false;
+
+  Message? get last => messages.isNotEmpty ? messages.last : lastMessage;
+  bool get yourMove => last == null || !last!.fromMe;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Demo dataset
+// ─────────────────────────────────────────────────────────────────────────────
+
 const _p = 'assets/images/people';
+
+const samplePhotoPool = [
+  '$_p/me_1.jpg',
+  '$_p/hero.jpg',
+  '$_p/meera_2.jpg',
+  '$_p/kabir_2.jpg',
+  '$_p/rohan_2.jpg',
+  '$_p/zoya_1.jpg',
+];
 
 final ananya = Person(
   id: 'ananya',
@@ -142,6 +182,7 @@ final kabir = Person(
   verified: true,
   photos: const ['$_p/kabir_1.jpg', '$_p/kabir_2.jpg'],
   vibes: const ['Cycling', 'Home cook', 'Old Bollywood', 'Early riser'],
+  lookingFor: 'Something real',
   prompts: const [
     Prompt('I\'m weirdly attracted to', 'People who order for the table and nail it.'),
     Prompt('Green flags I look for', 'You text back, you tip well, you\'re nice to the waiter.'),
@@ -181,6 +222,7 @@ final rohan = Person(
   activeNow: true,
   photos: const ['$_p/rohan_1.jpg', '$_p/rohan_2.jpg'],
   vibes: const ['Open mics', 'Trekking', 'Vinyl', 'Night owl'],
+  lookingFor: 'Something real',
   prompts: const [
     Prompt('Two truths and a lie', 'I\'ve played for 3,000 people. I can\'t whistle. I love karaoke.'),
     Prompt('Typical Sunday', 'Recovering from Saturday\'s gig with parathas and a hill trail.'),
@@ -223,11 +265,13 @@ final dev = Person(
   ],
 );
 
-/// The signed-in user in mock mode.
+/// The signed-in user in demo mode.
 final me = Person(
   id: 'me',
   name: 'Sam',
   age: 25,
+  birthday: DateTime(2001, 4, 18),
+  gender: 'Non-binary',
   pronouns: 'they/them',
   city: 'Bandra, Mumbai',
   job: 'Growth @ a fintech startup',
@@ -247,30 +291,33 @@ final discoverQueue = [ananya, kabir, rohan, meera, dev, zoya];
 
 final seedLikesYou = [
   Like(
+    id: 'like-meera',
     from: meera,
     target: LikeTarget.prompt,
     targetLabel: 'My simple pleasures',
     comment: 'Window seat people are the best people. What\'s on the playlist?',
   ),
-  Like(from: zoya, target: LikeTarget.photo, targetLabel: 'Photo 1'),
+  Like(id: 'like-zoya', from: zoya, target: LikeTarget.photo, targetLabel: 'Photo 1'),
 ];
 
 List<Match> seedMatches() {
   final now = DateTime.now();
   return [
     Match(
+      id: 'match-dev',
       person: dev,
       matchedAt: now.subtract(const Duration(days: 2)),
       unread: 2,
       openingLine: 'Liked your prompt: I\'ll pick the spot if…',
       messages: [
-        Message(text: 'Okay but dessert without asking is a bold ask.', fromMe: false, at: now.subtract(const Duration(days: 1, hours: 3))),
-        Message(text: 'Bold asks get bold desserts. I know a place.', fromMe: true, at: now.subtract(const Duration(days: 1, hours: 2))),
-        Message(text: 'Say the word. Saturday?', fromMe: false, at: now.subtract(const Duration(minutes: 42))),
-        Message(text: 'Also, the chai stall near Salt Lake. You in?', fromMe: false, at: now.subtract(const Duration(minutes: 40))),
+        Message(id: 'dev-1', text: 'Okay but dessert without asking is a bold ask.', fromMe: false, at: now.subtract(const Duration(days: 1, hours: 3))),
+        Message(id: 'dev-2', text: 'Bold asks get bold desserts. I know a place.', fromMe: true, at: now.subtract(const Duration(days: 1, hours: 2))),
+        Message(id: 'dev-3', text: 'Say the word. Saturday?', fromMe: false, at: now.subtract(const Duration(minutes: 42))),
+        Message(id: 'dev-4', text: 'Also, the chai stall near Salt Lake. You in?', fromMe: false, at: now.subtract(const Duration(minutes: 40))),
       ],
     ),
     Match(
+      id: 'match-kabir',
       person: kabir,
       matchedAt: now.subtract(const Duration(hours: 9)),
       openingLine: 'You liked his photo',
@@ -298,6 +345,9 @@ const vibeLibrary = [
   'Gym rat', 'Thrifting', 'Indie music', 'Cricket', 'Football', 'Yoga',
   'Night owl', 'Early riser', 'Dog person', 'Cat person', 'Travel',
 ];
+
+/// Values stored in `profiles.gender`; discovery pairs people by these.
+const genderOptions = ['Woman', 'Man', 'Non-binary', 'Prefer not to say'];
 
 const cannedReplies = [
   'Haha okay, you have my attention 👀',

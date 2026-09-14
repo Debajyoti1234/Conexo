@@ -8,6 +8,7 @@ import '../../data/mock_data.dart';
 import '../../design/routes.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets.dart';
+import '../../widgets/cx_image.dart';
 import '../chat/chat_screen.dart';
 
 /// The match moment. Two photos slide together while the logo's C-arc draws
@@ -196,7 +197,7 @@ class _Polaroid extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(21),
-        child: Image.asset(photo, fit: BoxFit.cover),
+        child: CxImage(photo),
       ),
     );
   }

@@ -20,88 +20,116 @@ String ago(DateTime t) {
 class MatchesScreen extends StatelessWidget {
   const MatchesScreen({super.key});
 
-  void _open(BuildContext context, Match m) =>
-      Navigator.of(context).push(cxRoute(ChatScreen(match: m)));
+  void _open(BuildContext context, Match m) => Navigator.of(context).push(cxRoute(ChatScreen(match: m)));
 
   @override
   Widget build(BuildContext context) {
     final c = context.cx;
     final s = ConexoScope.of(context);
-    final fresh = s.matches.where((m) => m.messages.isEmpty).toList();
-    final chats = s.matches.where((m) => m.messages.isNotEmpty).toList()
+    final fresh = s.matches.where((m) => m.last == null).toList();
+    final chats = s.matches.where((m) => m.last != null).toList()
       ..sort((a, b) => b.last!.at.compareTo(a.last!.at));
     final unread = s.unreadTotal;
+    final emptyHeight = MediaQuery.sizeOf(context).height * .6;
 
     return SafeArea(
       bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: 130),
-        children: [
-          ScreenTitle(
-            title: 'Matches',
-            subtitle: s.matches.isEmpty
-                ? null
-                : unread > 0
-                ? '$unread unread. Don\'t leave them hanging.'
-                : 'Keep the good conversations going.',
-          ),
-          if (s.matches.isEmpty)
-            SizedBox(
-              height: MediaQuery.sizeOf(context).height * .6,
-              child: EmptyState(
-                icon: Icons.chat_bubble_rounded,
-                title: 'No matches yet',
-                body: 'Likes with a comment land better. Go find a prompt worth replying to.',
-                action: 'Start discovering',
-                onAction: () => HomeShell.of(context)?.go(0),
-              ),
+      child: RefreshIndicator(
+        color: c.violet,
+        backgroundColor: c.surface,
+        onRefresh: s.refreshMatches,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 130),
+          children: [
+            ScreenTitle(
+              title: 'Matches',
+              subtitle: s.matches.isEmpty
+                  ? null
+                  : unread > 0
+                  ? '$unread unread. Don\'t leave them hanging.'
+                  : 'Keep the good conversations going.',
             ),
-          if (fresh.isNotEmpty) ...[
-            _Label('New matches', count: fresh.length),
-            SizedBox(
-              height: 128,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: fresh.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 16),
-                itemBuilder: (context, i) {
-                  final m = fresh[i];
-                  return Reveal(
-                    index: i,
-                    child: Pressable(
-                      onTap: () => _open(context, m),
-                      child: SizedBox(
-                        width: 80,
-                        child: Column(
-                          children: [
-                            Avatar(photo: m.person.firstPhoto, size: 76, ring: true),
-                            const SizedBox(height: 8),
-                            Text(
-                              m.person.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: ConexoType.body(c.ink, size: 13.5, w: FontWeight.w700),
-                            ),
-                            Text('Your move', style: ConexoType.label(c.violet, size: 11)),
-                          ],
+            if (s.matches.isEmpty && s.loadingMatches)
+              SizedBox(
+                height: emptyHeight,
+                child: Center(
+                  child: SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2.6, color: c.violet)),
+                ),
+              )
+            else if (s.matches.isEmpty && s.matchesError != null)
+              SizedBox(
+                height: emptyHeight,
+                child: EmptyState(
+                  icon: Icons.wifi_off_rounded,
+                  title: 'Matches didn\'t load',
+                  body: s.matchesError!,
+                  action: 'Try again',
+                  onAction: s.refreshMatches,
+                ),
+              )
+            else if (s.matches.isEmpty)
+              SizedBox(
+                height: emptyHeight,
+                child: EmptyState(
+                  icon: Icons.chat_bubble_rounded,
+                  title: 'No matches yet',
+                  body: 'Likes with a comment land better. Go find a prompt worth replying to.',
+                  action: 'Start discovering',
+                  onAction: () => HomeShell.of(context)?.go(0),
+                ),
+              ),
+            if (fresh.isNotEmpty) ...[
+              _Label('New matches', count: fresh.length),
+              SizedBox(
+                height: 128,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: fresh.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 16),
+                  itemBuilder: (context, i) {
+                    final m = fresh[i];
+                    return Reveal(
+                      index: i,
+                      child: Pressable(
+                        onTap: () => _open(context, m),
+                        child: SizedBox(
+                          width: 80,
+                          child: Column(
+                            children: [
+                              Avatar(photo: m.person.firstPhoto, size: 76, ring: true),
+                              const SizedBox(height: 8),
+                              Text(
+                                m.person.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: ConexoType.body(c.ink, size: 13.5, w: FontWeight.w700),
+                              ),
+                              Text('Your move', style: ConexoType.label(c.violet, size: 11)),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
+            ],
+            if (chats.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const _Label('Conversations'),
+              for (var i = 0; i < chats.length; i++)
+                Reveal(
+                  index: i + 1,
+                  child: _ChatTile(
+                    match: chats[i],
+                    typing: s.typing.contains(chats[i].person.id),
+                    onTap: () => _open(context, chats[i]),
+                  ),
+                ),
+            ],
           ],
-          if (chats.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            const _Label('Conversations'),
-            for (var i = 0; i < chats.length; i++)
-              Reveal(
-                index: i + 1,
-                child: _ChatTile(match: chats[i], typing: s.typing.contains(chats[i].person.id), onTap: () => _open(context, chats[i])),
-              ),
-          ],
-        ],
+        ),
       ),
     );
   }

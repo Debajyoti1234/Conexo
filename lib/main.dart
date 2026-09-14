@@ -11,17 +11,26 @@ import 'core/services/push_notification_service.dart';
 import 'core/supabase/auth_service.dart';
 import 'core/supabase/supabase_client.dart';
 import 'conexo/conexo_app.dart';
+import 'conexo/data/mock_data_source.dart';
+import 'conexo/data/supabase_data_source.dart';
 import 'features/login_screen.dart';
 import 'features/splash/splash_screen.dart';
 
-/// `mock` (default) runs the redesigned front end on local mock data with the
-/// database disconnected. The legacy Supabase-backed app is only reachable
-/// with an explicit `--dart-define=CONEXO_BACKEND=supabase`.
-const _backend = String.fromEnvironment('CONEXO_BACKEND', defaultValue: 'mock');
+/// Which front end and backend to run:
+/// * default  → redesigned app on Supabase (needs the dart-define config file;
+///              falls back to demo data when no Supabase URL is provided)
+/// * `mock`   → redesigned app on local demo data
+/// * `legacy` → the previous Supabase app
+const _backend = String.fromEnvironment('CONEXO_BACKEND');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(_backend == 'supabase' ? const ConexoApp() : const ConexoRedesignApp());
+  if (_backend == 'legacy') {
+    runApp(const ConexoApp());
+    return;
+  }
+  final live = _backend != 'mock' && SupabaseClientConfig.url.isNotEmpty;
+  runApp(ConexoRedesignApp(source: live ? SupabaseDataSource() : MockDataSource()));
 }
 
 class ConexoApp extends StatefulWidget {

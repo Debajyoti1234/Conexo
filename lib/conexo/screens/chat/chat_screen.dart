@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/app_state.dart';
+import '../../data/data_source.dart';
 import '../../data/mock_data.dart';
 import '../../design/routes.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets.dart';
+import '../auth/auth_scaffold.dart' show showCxSnack;
 import '../matches/matches_screen.dart' show ago;
 import '../profile/person_screen.dart';
 
@@ -20,30 +22,65 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
+  ConexoState? _state;
   int _lastCount = 0;
 
   @override
   void initState() {
     super.initState();
     _input.addListener(() => setState(() {}));
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ConexoScope.read(context).markRead(widget.match);
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _open());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _state ??= ConexoScope.read(context);
+  }
+
+  Future<void> _open() async {
+    try {
+      await _state!.openChat(widget.match);
+    } on ConexoFailure catch (e) {
+      if (mounted) showCxSnack(context, e.message);
+    } catch (_) {
+      if (mounted) showCxSnack(context, 'Messages didn\'t load. Go back and try again.');
+    }
   }
 
   @override
   void dispose() {
+    _state?.closeChat(widget.match);
     _input.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
-  void _send([String? text]) {
+  Future<void> _send([String? text]) async {
     final t = text ?? _input.text;
     if (t.trim().isEmpty) return;
     HapticFeedback.lightImpact();
-    ConexoScope.read(context).send(widget.match, t);
     _input.clear();
+    try {
+      await _state!.send(widget.match, t);
+    } on ConexoFailure catch (e) {
+      if (!mounted) return;
+      showCxSnack(context, e.message);
+      if (text == null) _input.text = t;
+    } catch (_) {
+      if (!mounted) return;
+      showCxSnack(context, 'Message didn\'t send. Try again.');
+      if (text == null) _input.text = t;
+    }
+  }
+
+  Future<void> _react(Message msg) async {
+    HapticFeedback.lightImpact();
+    try {
+      await _state!.react(widget.match, msg);
+    } catch (_) {
+      if (mounted) showCxSnack(context, 'That reaction didn\'t save. Try again.');
+    }
   }
 
   void _toBottom() {
@@ -60,7 +97,6 @@ class _ChatScreenState extends State<ChatScreen> {
   ];
 
   Future<void> _menu(String action) async {
-    final s = ConexoScope.read(context);
     final p = widget.match.person;
     switch (action) {
       case 'profile':
@@ -91,14 +127,15 @@ class _ChatScreenState extends State<ChatScreen> {
             );
           },
         );
-        if (ok == true && mounted) {
-          s.unmatch(widget.match);
-          Navigator.of(context).pop();
+        if (ok != true || !mounted) return;
+        try {
+          await _state!.unmatch(widget.match);
+          if (mounted) Navigator.of(context).pop();
+        } on ConexoFailure catch (e) {
+          if (mounted) showCxSnack(context, e.message);
+        } catch (_) {
+          if (mounted) showCxSnack(context, 'Couldn\'t unmatch right now. Try again.');
         }
-      case 'report':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thanks for flagging. Our safety team will take a look.')),
-        );
     }
   }
 
@@ -121,7 +158,6 @@ class _ChatScreenState extends State<ChatScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 8, 8),
               child: Row(
@@ -173,7 +209,6 @@ class _ChatScreenState extends State<ChatScreen> {
                     onSelected: _menu,
                     itemBuilder: (_) => [
                       _item('profile', Icons.person_outline_rounded, 'View profile', c.ink),
-                      _item('report', Icons.flag_outlined, 'Report', c.ink),
                       _item('unmatch', Icons.heart_broken_outlined, 'Unmatch', c.danger),
                     ],
                   ),
@@ -181,44 +216,45 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
             Divider(height: 1, color: c.line),
-            // Messages
             Expanded(
-              child: ListView.builder(
-                controller: _scroll,
-                reverse: true,
-                padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
-                itemCount: msgs.length + 2,
-                itemBuilder: (context, i) {
-                  if (i == 0) {
-                    return AnimatedSize(
-                      duration: const Duration(milliseconds: 220),
-                      child: typing ? const _TypingBubble() : const SizedBox(width: double.infinity),
-                    );
-                  }
-                  if (i == msgs.length + 1) return _MatchIntro(match: m, me: s.profile);
-                  final idx = i - 1;
-                  final msg = msgs[idx];
-                  final older = idx + 1 < msgs.length ? msgs[idx + 1] : null;
-                  final newer = idx > 0 ? msgs[idx - 1] : null;
-                  final firstInGroup = older == null || older.fromMe != msg.fromMe;
-                  final lastInGroup = newer == null || newer.fromMe != msg.fromMe;
-                  return _Bubble(
-                    msg: msg,
-                    first: firstInGroup,
-                    last: lastInGroup,
-                    onReact: () {
-                      HapticFeedback.lightImpact();
-                      s.react(msg, '❤️');
-                    },
-                  );
-                },
-              ),
+              child: m.loading && m.messages.isEmpty
+                  ? Center(
+                      child: SizedBox(
+                        width: 26,
+                        height: 26,
+                        child: CircularProgressIndicator(strokeWidth: 2.4, color: c.violet),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scroll,
+                      reverse: true,
+                      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                      itemCount: msgs.length + 2,
+                      itemBuilder: (context, i) {
+                        if (i == 0) {
+                          return AnimatedSize(
+                            duration: const Duration(milliseconds: 220),
+                            child: typing ? const _TypingBubble() : const SizedBox(width: double.infinity),
+                          );
+                        }
+                        if (i == msgs.length + 1) return _MatchIntro(match: m, me: s.profile);
+                        final idx = i - 1;
+                        final msg = msgs[idx];
+                        final older = idx + 1 < msgs.length ? msgs[idx + 1] : null;
+                        final newer = idx > 0 ? msgs[idx - 1] : null;
+                        return _Bubble(
+                          msg: msg,
+                          first: older == null || older.fromMe != msg.fromMe,
+                          last: newer == null || newer.fromMe != msg.fromMe,
+                          onReact: () => _react(msg),
+                        );
+                      },
+                    ),
             ),
-            // Icebreakers
             AnimatedSize(
               duration: const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
-              child: m.messages.length < 2 && !typing
+              child: m.messages.length < 2 && !typing && !m.loading
                   ? SizedBox(
                       height: 52,
                       child: ListView.separated(
@@ -234,8 +270,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     )
                   : const SizedBox(width: double.infinity),
             ),
-            // Composer
-            Container(
+            Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 10, 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -362,6 +397,7 @@ class _Bubble extends StatelessWidget {
       topRight: mine && !first ? tight : r,
       bottomRight: mine && !last ? tight : r,
     );
+    final pending = msg.id.startsWith('local-');
 
     return Padding(
       padding: EdgeInsets.only(top: first ? 10 : 2, bottom: msg.reaction != null ? 12 : 0),
@@ -370,13 +406,13 @@ class _Bubble extends StatelessWidget {
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .74),
           child: GestureDetector(
-            onDoubleTap: onReact,
+            onDoubleTap: pending ? null : onReact,
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: 1),
               duration: const Duration(milliseconds: 320),
               curve: Curves.easeOutCubic,
               builder: (_, v, child) => Opacity(
-                opacity: v,
+                opacity: v * (pending ? .7 : 1),
                 child: Transform.translate(offset: Offset(0, 10 * (1 - v)), child: child),
               ),
               child: Stack(
@@ -390,10 +426,7 @@ class _Bubble extends StatelessWidget {
                       borderRadius: radius,
                       border: mine ? null : Border.all(color: c.line),
                     ),
-                    child: Text(
-                      msg.text,
-                      style: ConexoType.body(mine ? Colors.white : c.ink, size: 15.5),
-                    ),
+                    child: Text(msg.text, style: ConexoType.body(mine ? Colors.white : c.ink, size: 15.5)),
                   ),
                   if (msg.reaction != null)
                     Positioned(
@@ -464,16 +497,17 @@ class _TypingBubbleState extends State<_TypingBubble> with SingleTickerProviderS
             mainAxisSize: MainAxisSize.min,
             children: List.generate(3, (i) {
               final t = ((_c.value - i * .18) % 1.0);
-              final lift = t < .4 ? Curves.easeInOut.transform(t / .4) : t < .8 ? 1 - Curves.easeInOut.transform((t - .4) / .4) : 0.0;
+              final lift = t < .4
+                  ? Curves.easeInOut.transform(t / .4)
+                  : t < .8
+                  ? 1 - Curves.easeInOut.transform((t - .4) / .4)
+                  : 0.0;
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 2.5),
                 transform: Matrix4.translationValues(0, -4 * lift, 0),
                 width: 7,
                 height: 7,
-                decoration: BoxDecoration(
-                  color: Color.lerp(c.inkMute, c.violet, lift),
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: Color.lerp(c.inkMute, c.violet, lift), shape: BoxShape.circle),
               );
             }),
           ),

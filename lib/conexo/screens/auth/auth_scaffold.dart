@@ -18,8 +18,8 @@ class AuthScaffold extends StatelessWidget {
   final String title;
   final String accent;
   final String subtitle;
-  final List<Widget> children;
   final Widget? footer;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
@@ -87,39 +87,39 @@ class OrDivider extends StatelessWidget {
   }
 }
 
-class SocialRow extends StatelessWidget {
-  const SocialRow({required this.onTap, super.key});
-  final ValueChanged<String> onTap;
+class GoogleButton extends StatelessWidget {
+  const GoogleButton({required this.onTap, this.loading = false, super.key});
+  final VoidCallback? onTap;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
     final c = context.cx;
-    Widget tile(String id, Widget glyph, String label) => Expanded(
-      child: Pressable(
-        onTap: () => onTap(id),
-        child: Container(
-          height: 54,
-          decoration: BoxDecoration(
-            color: c.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: c.line, width: 1.2),
-          ),
-          child: Semantics(
-            label: 'Continue with $label',
-            child: Center(child: glyph),
-          ),
+    return Pressable(
+      onTap: loading ? null : onTap,
+      child: Container(
+        height: 54,
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(27),
+          border: Border.all(color: c.line, width: 1.2),
         ),
+        alignment: Alignment.center,
+        child: loading
+            ? SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.2, color: c.ink),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('G', style: ConexoType.title(c.ink, size: 20)),
+                  const SizedBox(width: 10),
+                  Text('Continue with Google', style: ConexoType.body(c.ink, size: 15, w: FontWeight.w700)),
+                ],
+              ),
       ),
-    );
-
-    return Row(
-      children: [
-        tile('google', Text('G', style: ConexoType.title(c.ink, size: 22)), 'Google'),
-        const SizedBox(width: 10),
-        tile('apple', Icon(Icons.apple_rounded, color: c.ink, size: 26), 'Apple'),
-        const SizedBox(width: 10),
-        tile('phone', Icon(Icons.phone_iphone_rounded, color: c.ink, size: 22), 'phone'),
-      ],
     );
   }
 }
@@ -167,3 +167,9 @@ String? validateEmail(String? v) {
 
 String? validatePassword(String? v) =>
     (v ?? '').length < 8 ? 'Use at least 8 characters.' : null;
+
+void showCxSnack(BuildContext context, String message) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}

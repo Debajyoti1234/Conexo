@@ -4,6 +4,7 @@ import '../../data/app_state.dart';
 import '../../design/routes.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets.dart';
+import '../../widgets/cx_image.dart';
 import '../settings/settings_screen.dart';
 import 'edit_profile_screen.dart';
 import 'person_screen.dart';
@@ -72,7 +73,7 @@ class MyProfileScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('${me.name}, ${me.age}', style: ConexoType.display(c.ink, size: 32)),
+                    Text(me.age > 0 ? '${me.name}, ${me.age}' : me.name, style: ConexoType.display(c.ink, size: 32)),
                     if (me.verified) ...[
                       const SizedBox(width: 8),
                       Icon(Icons.verified_rounded, color: c.cyan, size: 22),
@@ -80,7 +81,10 @@ class MyProfileScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('${me.job}  ·  ${me.city}', style: ConexoType.body(c.inkSoft, size: 14)),
+                Text(
+                  [me.job, me.city].where((x) => x.isNotEmpty).join('  ·  '),
+                  style: ConexoType.body(c.inkSoft, size: 14),
+                ),
               ],
             ),
           ),
@@ -181,7 +185,7 @@ class MyProfileScreen extends StatelessWidget {
                             separatorBuilder: (_, _) => const SizedBox(width: 10),
                             itemBuilder: (_, i) => ClipRRect(
                               borderRadius: BorderRadius.circular(18),
-                              child: Image.asset(me.photos[i], width: 96, height: 120, fit: BoxFit.cover),
+                              child: CxImage(me.photos[i], width: 96, height: 120),
                             ),
                           ),
                         ),

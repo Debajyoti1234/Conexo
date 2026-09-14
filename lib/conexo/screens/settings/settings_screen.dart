@@ -1,18 +1,78 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_state.dart';
+import '../../data/data_source.dart';
 import '../../design/routes.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets.dart';
+import '../auth/auth_scaffold.dart' show showCxSnack;
 import '../auth/welcome_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  static const _minAge = 18.0;
+  static const _maxAge = 60.0;
+  static const _maxDistance = 100.0;
+
+  RangeValues? _age;
+  double? _distance;
+  bool _signingOut = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_age != null) return;
+    final prefs = ConexoScope.read(context).prefs;
+    final lo = (prefs.minAge?.toDouble() ?? _minAge).clamp(_minAge, _maxAge);
+    final hi = (prefs.maxAge?.toDouble() ?? _maxAge).clamp(lo, _maxAge);
+    _age = RangeValues(lo, hi);
+    _distance = (prefs.distanceKm?.toDouble() ?? _maxDistance).clamp(1.0, _maxDistance);
+  }
+
+  Future<void> _savePrefs() async {
+    final age = _age!;
+    final distance = _distance!.round();
+    try {
+      await ConexoScope.read(context).savePrefs(
+        Preferences(
+          minAge: age.start.round(),
+          maxAge: age.end >= _maxAge ? null : age.end.round(),
+          distanceKm: distance >= _maxDistance ? null : distance,
+        ),
+      );
+    } on ConexoFailure catch (e) {
+      if (mounted) showCxSnack(context, e.message);
+    } catch (_) {
+      if (mounted) showCxSnack(context, 'Your preferences didn\'t save. Try again.');
+    }
+  }
+
+  Future<void> _signOut() async {
+    setState(() => _signingOut = true);
+    try {
+      await ConexoScope.read(context).signOut();
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(cxRoute(const WelcomeScreen()), (_) => false);
+    } catch (_) {
+      if (mounted) {
+        showCxSnack(context, 'Couldn\'t sign out. Check your connection and try again.');
+        setState(() => _signingOut = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.cx;
     final s = ConexoScope.of(context);
+    final age = _age!;
+    final distance = _distance!;
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -36,141 +96,78 @@ class SettingsScreen extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(6, 20, 6, 8),
                   child: Text('Settings', style: ConexoType.display(c.ink, size: 38)),
                 ),
-
-                // ── Appearance ─────────────────────────────────────────────
                 _Group(
                   title: 'Appearance',
-                  children: [
-                    _NightModeTile(value: s.night, onChanged: s.setNight),
-                  ],
+                  children: [_NightModeTile(value: s.night, onChanged: s.setNight)],
                 ),
-
-                // ── Dating preferences ─────────────────────────────────────
                 _Group(
                   title: 'Who you\'ll see',
+                  footer: 'Discover pairs people by the gender on their profile, then applies these limits.',
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Show me', style: ConexoType.body(c.ink, size: 15, w: FontWeight.w700)),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              for (final o in ['Women', 'Men', 'Everyone'])
-                                VibeChip(
-                                  label: o,
-                                  selected: s.interestedIn == o,
-                                  onTap: () => s.update(() => s.interestedIn = o),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
                     _SliderTile(
                       title: 'Age range',
-                      value: '${s.ageRange.start.round()}–${s.ageRange.end.round()}',
+                      value: '${age.start.round()}–${age.end >= _maxAge ? '60+' : age.end.round()}',
                       child: RangeSlider(
-                        values: s.ageRange,
-                        min: 18,
-                        max: 60,
-                        divisions: 42,
+                        values: age,
+                        min: _minAge,
+                        max: _maxAge,
+                        divisions: (_maxAge - _minAge).round(),
                         activeColor: c.violet,
                         inactiveColor: c.line,
-                        onChanged: (v) => s.update(() => s.ageRange = v),
+                        onChanged: (v) => setState(() => _age = v),
+                        onChangeEnd: (_) => _savePrefs(),
                       ),
                     ),
                     _SliderTile(
                       title: 'Maximum distance',
-                      value: '${s.maxDistance.round()} km',
+                      value: distance >= _maxDistance ? 'Any distance' : '${distance.round()} km',
                       child: Slider(
-                        value: s.maxDistance,
+                        value: distance,
                         min: 1,
-                        max: 100,
+                        max: _maxDistance,
                         activeColor: c.violet,
                         inactiveColor: c.line,
-                        onChanged: (v) => s.update(() => s.maxDistance = v),
+                        onChanged: (v) => setState(() => _distance = v),
+                        onChangeEnd: (_) => _savePrefs(),
                       ),
                     ),
-                    _SwitchTile(
-                      icon: Icons.visibility_off_outlined,
-                      title: 'Incognito',
-                      body: 'Only people you like can see your profile.',
-                      value: s.incognito,
-                      onChanged: (v) => s.update(() => s.incognito = v),
-                    ),
                   ],
                 ),
-
-                // ── Notifications ──────────────────────────────────────────
-                _Group(
-                  title: 'Notifications',
-                  children: [
-                    _SwitchTile(
-                      icon: Icons.favorite_border_rounded,
-                      title: 'New matches',
-                      value: s.pushMatches,
-                      onChanged: (v) => s.update(() => s.pushMatches = v),
-                    ),
-                    _SwitchTile(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      title: 'Messages',
-                      value: s.pushMessages,
-                      onChanged: (v) => s.update(() => s.pushMessages = v),
-                    ),
-                    _SwitchTile(
-                      icon: Icons.auto_awesome_outlined,
-                      title: 'Someone likes you',
-                      value: s.pushLikes,
-                      onChanged: (v) => s.update(() => s.pushLikes = v),
-                    ),
-                  ],
-                ),
-
-                // ── Privacy & safety ───────────────────────────────────────
-                _Group(
-                  title: 'Privacy & safety',
-                  children: [
-                    _SwitchTile(
-                      icon: Icons.done_all_rounded,
-                      title: 'Read receipts',
-                      body: 'Let matches see when you\'ve read their message.',
-                      value: s.readReceipts,
-                      onChanged: (v) => s.update(() => s.readReceipts = v),
-                    ),
-                    _NavTile(icon: Icons.shield_outlined, title: 'Safety tips for meeting up'),
-                    _NavTile(icon: Icons.block_rounded, title: 'Blocked people'),
-                    _NavTile(icon: Icons.verified_outlined, title: 'Photo verification', trailing: 'Verified'),
-                  ],
-                ),
-
-                // ── Account ────────────────────────────────────────────────
                 _Group(
                   title: 'Account',
                   children: [
-                    _NavTile(icon: Icons.mail_outline_rounded, title: 'Email', trailing: 'sam@conexo.app'),
-                    _NavTile(icon: Icons.pause_circle_outline_rounded, title: 'Pause my profile'),
-                    _NavTile(icon: Icons.help_outline_rounded, title: 'Help & support'),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                      child: Row(
+                        children: [
+                          Icon(Icons.mail_outline_rounded, size: 21, color: c.violet),
+                          const SizedBox(width: 14),
+                          Text('Email', style: ConexoType.body(c.ink, size: 15, w: FontWeight.w600)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              s.source.myEmail ?? '—',
+                              textAlign: TextAlign.right,
+                              overflow: TextOverflow.ellipsis,
+                              style: ConexoType.body(c.inkMute, size: 13.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 CxButton(
                   label: 'Sign out',
                   variant: CxButtonVariant.soft,
-                  onTap: () {
-                    s.signOut();
-                    Navigator.of(context).pushAndRemoveUntil(cxRoute(const WelcomeScreen()), (_) => false);
-                  },
+                  loading: _signingOut,
+                  onTap: _signOut,
                 ),
                 const SizedBox(height: 8),
                 Center(
                   child: TextButton(
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Account deletion is disabled in demo mode.')),
-                    ),
+                    onPressed: () => showCxSnack(context, 'Account deletion isn\'t available in the app yet.'),
                     child: Text('Delete account', style: ConexoType.label(c.danger, size: 14)),
                   ),
                 ),
@@ -179,7 +176,10 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     const ConexoMark(size: 36),
                     const SizedBox(height: 6),
-                    Text('Conexo 1.0  ·  Demo mode, database off', style: ConexoType.body(c.inkMute, size: 12)),
+                    Text(
+                      s.source.isLive ? 'Conexo 1.0' : 'Conexo 1.0  ·  Demo mode, database off',
+                      style: ConexoType.body(c.inkMute, size: 12),
+                    ),
                   ],
                 ),
               ],
@@ -192,8 +192,9 @@ class SettingsScreen extends StatelessWidget {
 }
 
 class _Group extends StatelessWidget {
-  const _Group({required this.title, required this.children});
+  const _Group({required this.title, required this.children, this.footer});
   final String title;
+  final String? footer;
   final List<Widget> children;
 
   @override
@@ -219,6 +220,11 @@ class _Group extends StatelessWidget {
               ],
             ),
           ),
+          if (footer != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+              child: Text(footer!, style: ConexoType.body(c.inkMute, size: 12.5)),
+            ),
         ],
       ),
     );
@@ -286,39 +292,6 @@ class _NightModeTile extends StatelessWidget {
   }
 }
 
-class _SwitchTile extends StatelessWidget {
-  const _SwitchTile({required this.icon, required this.title, required this.value, required this.onChanged, this.body});
-  final IconData icon;
-  final String title;
-  final String? body;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.cx;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 10, 12, 10),
-      child: Row(
-        children: [
-          Icon(icon, size: 21, color: c.violet),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: ConexoType.body(c.ink, size: 15, w: FontWeight.w600)),
-                if (body != null) Text(body!, style: ConexoType.body(c.inkMute, size: 12.5)),
-              ],
-            ),
-          ),
-          Switch(value: value, activeTrackColor: c.violet, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}
-
 class _SliderTile extends StatelessWidget {
   const _SliderTile({required this.title, required this.value, required this.child});
   final String title;
@@ -343,38 +316,6 @@ class _SliderTile extends StatelessWidget {
           ),
           child,
         ],
-      ),
-    );
-  }
-}
-
-class _NavTile extends StatelessWidget {
-  const _NavTile({required this.icon, required this.title, this.trailing});
-  final IconData icon;
-  final String title;
-  final String? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.cx;
-    return Pressable(
-      scale: .99,
-      onTap: () {},
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 16, 14, 16),
-        child: Row(
-          children: [
-            Icon(icon, size: 21, color: c.violet),
-            const SizedBox(width: 14),
-            Expanded(child: Text(title, style: ConexoType.body(c.ink, size: 15, w: FontWeight.w600))),
-            if (trailing != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Text(trailing!, style: ConexoType.body(c.inkMute, size: 13.5)),
-              ),
-            Icon(Icons.chevron_right_rounded, color: c.inkMute),
-          ],
-        ),
       ),
     );
   }

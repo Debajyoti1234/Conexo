@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_state.dart';
+import '../../data/data_source.dart';
 import '../../data/mock_data.dart';
 import '../../design/routes.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets.dart';
+import '../../widgets/cx_image.dart';
 import '../../widgets/profile_view.dart';
+import '../auth/auth_scaffold.dart' show showCxSnack;
 import '../match/match_screen.dart';
 import '../profile/edit_profile_screen.dart';
+
+String _likeLabel(Like like) => switch (like.target) {
+  LikeTarget.prompt => 'Liked your prompt',
+  LikeTarget.photo => 'Liked your photo',
+  LikeTarget.profile => 'Likes your profile',
+};
 
 class LikesScreen extends StatelessWidget {
   const LikesScreen({super.key});
@@ -18,53 +27,82 @@ class LikesScreen extends StatelessWidget {
     final s = ConexoScope.of(context);
     final likes = s.likesYou;
 
+    final Widget content;
+    if (likes.isEmpty && s.loadingLikes) {
+      content = SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2.6, color: c.violet)),
+        ),
+      );
+    } else if (likes.isEmpty && s.likesError != null) {
+      content = SliverFillRemaining(
+        hasScrollBody: false,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 120),
+          child: EmptyState(
+            icon: Icons.wifi_off_rounded,
+            title: 'Likes didn\'t load',
+            body: s.likesError!,
+            action: 'Try again',
+            onAction: s.refreshLikes,
+          ),
+        ),
+      );
+    } else if (likes.isEmpty) {
+      content = SliverFillRemaining(
+        hasScrollBody: false,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 120),
+          child: EmptyState(
+            icon: Icons.favorite_rounded,
+            title: 'No likes yet',
+            body: 'Profiles with three prompts get noticed a lot more. Just saying.',
+            action: 'Polish my profile',
+            onAction: () => Navigator.of(context).push(cxRoute(const EditProfileScreen())),
+          ),
+        ),
+      );
+    } else {
+      content = SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 130),
+        sliver: SliverGrid(
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 260,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: .66,
+          ),
+          delegate: SliverChildBuilderDelegate(
+            (context, i) => Reveal(index: i, child: _LikeCard(likes[i])),
+            childCount: likes.length,
+          ),
+        ),
+      );
+    }
+
     return SafeArea(
       bottom: false,
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: ScreenTitle(
-              title: 'Likes you',
-              subtitle: likes.isEmpty
-                  ? 'Nothing yet — good things take a minute.'
-                  : likes.length == 1
-                  ? 'Someone\'s into you. Your move.'
-                  : '${likes.length} people are into you. Your move.',
-            ),
-          ),
-          if (likes.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 120),
-                child: EmptyState(
-                  icon: Icons.favorite_rounded,
-                  title: 'No likes yet',
-                  body: 'Profiles with three prompts get noticed a lot more. Just saying.',
-                  action: 'Polish my profile',
-                  onAction: () => Navigator.of(context).push(cxRoute(const EditProfileScreen())),
-                ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 130),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: 260,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: .66,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => Reveal(index: i, child: _LikeCard(likes[i])),
-                  childCount: likes.length,
-                ),
+      child: RefreshIndicator(
+        color: c.violet,
+        backgroundColor: c.surface,
+        onRefresh: s.refreshLikes,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: ScreenTitle(
+                title: 'Likes you',
+                subtitle: likes.isEmpty
+                    ? 'Nothing yet — good things take a minute.'
+                    : likes.length == 1
+                    ? 'Someone\'s into you. Your move.'
+                    : '${likes.length} people are into you. Your move.',
               ),
             ),
-          if (likes.isNotEmpty)
-            SliverToBoxAdapter(child: SizedBox(height: c.isNight ? 0 : 0)),
-        ],
+            content,
+          ],
+        ),
       ),
     );
   }
@@ -85,7 +123,7 @@ class _LikeCard extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Hero(tag: 'like-${p.id}', child: Image.asset(p.firstPhoto, fit: BoxFit.cover)),
+            CxImage(p.firstPhoto),
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -124,12 +162,14 @@ class _LikeCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                   ],
-                  Text('${p.name}, ${p.age}', style: ConexoType.title(Colors.white, size: 21)),
-                  const SizedBox(height: 2),
                   Text(
-                    like.target == LikeTarget.prompt ? 'Liked your prompt' : 'Liked your photo',
-                    style: ConexoType.label(Colors.white.withValues(alpha: .8), size: 12),
+                    p.age > 0 ? '${p.name}, ${p.age}' : p.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: ConexoType.title(Colors.white, size: 21),
                   ),
+                  const SizedBox(height: 2),
+                  Text(_likeLabel(like), style: ConexoType.label(Colors.white.withValues(alpha: .8), size: 12)),
                 ],
               ),
             ),
@@ -140,15 +180,48 @@ class _LikeCard extends StatelessWidget {
   }
 }
 
-class LikeDetailScreen extends StatelessWidget {
+class LikeDetailScreen extends StatefulWidget {
   const LikeDetailScreen({required this.like, super.key});
   final Like like;
+
+  @override
+  State<LikeDetailScreen> createState() => _LikeDetailScreenState();
+}
+
+class _LikeDetailScreenState extends State<LikeDetailScreen> {
+  bool _busy = false;
+
+  Future<void> _match() async {
+    setState(() => _busy = true);
+    try {
+      final m = await ConexoScope.read(context).acceptLike(widget.like);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(cxRoute(MatchScreen(match: m), fullscreen: true));
+    } on ConexoFailure catch (e) {
+      if (mounted) showCxSnack(context, e.message);
+    } catch (_) {
+      if (mounted) showCxSnack(context, 'That didn\'t go through. Try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _remove() async {
+    final s = ConexoScope.read(context);
+    final messenger = ScaffoldMessenger.of(context);
+    Navigator.of(context).pop();
+    try {
+      await s.dismissLike(widget.like);
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('Couldn\'t remove that like. Try again.')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.cx;
     final s = ConexoScope.of(context);
-    final p = like.from;
+    final p = widget.like.from;
 
     return Scaffold(
       backgroundColor: c.bg,
@@ -171,10 +244,7 @@ class LikeDetailScreen extends StatelessWidget {
             Expanded(
               child: Stack(
                 children: [
-                  ProfileView(
-                    person: p,
-                    header: _LikedBanner(like: like, me: s.profile),
-                  ),
+                  ProfileView(person: p, header: _LikedBanner(like: widget.like, me: s.profile)),
                   Positioned(
                     left: 16,
                     right: 16,
@@ -184,10 +254,7 @@ class LikeDetailScreen extends StatelessWidget {
                         Tooltip(
                           message: 'Remove',
                           child: Pressable(
-                            onTap: () {
-                              s.dismissLike(like);
-                              Navigator.of(context).pop();
-                            },
+                            onTap: _busy ? null : _remove,
                             scale: .88,
                             child: Container(
                               width: 58,
@@ -208,12 +275,8 @@ class LikeDetailScreen extends StatelessWidget {
                             label: 'Match with ${p.name}',
                             icon: Icons.favorite_rounded,
                             height: 58,
-                            onTap: () {
-                              final m = s.acceptLike(like);
-                              Navigator.of(context).pushReplacement(
-                                cxRoute(MatchScreen(match: m), fullscreen: true),
-                              );
-                            },
+                            loading: _busy,
+                            onTap: _match,
                           ),
                         ),
                       ],
@@ -251,20 +314,22 @@ class _LikedBanner extends StatelessWidget {
                 child: const Icon(Icons.favorite_rounded, size: 18),
               ),
               const SizedBox(width: 8),
-              Text(
-                like.target == LikeTarget.prompt ? 'Liked your prompt' : 'Liked your photo',
-                style: ConexoType.label(c.inkSoft, size: 13),
-              ),
+              Text(_likeLabel(like), style: ConexoType.label(c.inkSoft, size: 13)),
             ],
           ),
-          const SizedBox(height: 12),
-          if (prompt != null)
-            PromptPreview(prompt)
-          else
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Image.asset(me.firstPhoto, height: 120, width: 96, fit: BoxFit.cover),
-            ),
+          if (like.target == LikeTarget.profile) ...[
+            const SizedBox(height: 6),
+            Text('Match to start chatting.', style: ConexoType.body(c.inkMute, size: 13)),
+          ] else ...[
+            const SizedBox(height: 12),
+            if (prompt != null)
+              PromptPreview(prompt)
+            else
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: CxImage(me.firstPhoto, height: 120, width: 96),
+              ),
+          ],
           if (like.comment != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -278,10 +343,7 @@ class _LikedBanner extends StatelessWidget {
                   bottomLeft: Radius.circular(6),
                 ),
               ),
-              child: Text(
-                like.comment!,
-                style: ConexoType.body(Colors.white, size: 15, w: FontWeight.w600),
-              ),
+              child: Text(like.comment!, style: ConexoType.body(Colors.white, size: 15, w: FontWeight.w600)),
             ),
           ],
         ],

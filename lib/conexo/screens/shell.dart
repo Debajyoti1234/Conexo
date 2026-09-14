@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../data/app_state.dart';
 import '../design/tokens.dart';
 import '../design/widgets.dart';
+import '../widgets/cx_image.dart';
 import 'discover/discover_screen.dart';
 import 'likes/likes_screen.dart';
 import 'matches/matches_screen.dart';
@@ -165,7 +166,7 @@ class _NavItem extends StatelessWidget {
           shape: BoxShape.circle,
           border: Border.all(color: selected ? fg : c.line, width: 1.5),
         ),
-        child: ClipOval(child: Image.asset(avatar!, fit: BoxFit.cover)),
+        child: ClipOval(child: CxImage(avatar!)),
       );
     } else {
       glyph = Icon(selected ? activeIcon : icon, size: 23, color: fg);

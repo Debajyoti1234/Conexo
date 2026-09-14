@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../widgets/cx_image.dart';
 import 'tokens.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -657,7 +658,7 @@ class Avatar extends StatelessWidget {
               padding: EdgeInsets.all(ring ? 2 : 0),
               decoration: BoxDecoration(shape: BoxShape.circle, color: c.bg),
               child: ClipOval(
-                child: Image.asset(photo, fit: BoxFit.cover, width: size, height: size),
+                child: CxImage(photo, width: size, height: size),
               ),
             ),
           ),

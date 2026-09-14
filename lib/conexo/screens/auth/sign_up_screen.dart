@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_state.dart';
+import '../../data/data_source.dart';
 import '../../design/routes.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets.dart';
 import '../setup/profile_setup_screen.dart';
+import 'auth_routing.dart';
 import 'auth_scaffold.dart';
+import 'check_inbox_screen.dart';
 import 'sign_in_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -22,6 +25,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _password = TextEditingController();
   bool _agreed = false;
   bool _loading = false;
+  bool _googleLoading = false;
 
   @override
   void initState() {
@@ -49,18 +53,48 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Future<void> _submit() async {
     if (!(_form.currentState?.validate() ?? false)) return;
     if (!_agreed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tick the box to confirm you\'re 18+ and cool with the Terms.')),
-      );
+      showCxSnack(context, 'Tick the box to confirm you\'re 18+ and cool with the Terms.');
       return;
     }
     setState(() => _loading = true);
-    await ConexoScope.read(context).signIn();
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      cxRoute(ProfileSetupScreen(firstName: _name.text.trim())),
-      (_) => false,
-    );
+    final name = _name.text.trim();
+    final email = _email.text.trim();
+    try {
+      final needsConfirmation = await ConexoScope.read(context).signUp(
+        name: name,
+        email: email,
+        password: _password.text,
+      );
+      if (!mounted) return;
+      if (needsConfirmation) {
+        Navigator.of(context).pushReplacement(cxRoute(CheckInboxScreen(email: email)));
+      } else {
+        Navigator.of(context).pushAndRemoveUntil(
+          cxRoute(ProfileSetupScreen(firstName: name)),
+          (_) => false,
+        );
+      }
+    } on ConexoFailure catch (e) {
+      if (mounted) showCxSnack(context, e.message);
+    } catch (_) {
+      if (mounted) showCxSnack(context, 'Couldn\'t reach Conexo. Check your connection and try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _google() async {
+    setState(() => _googleLoading = true);
+    try {
+      final s = ConexoScope.read(context);
+      final stage = await s.signInWithGoogle();
+      if (!mounted || stage == null || stage == SessionStage.signedOut) return;
+      Navigator.of(context).pushAndRemoveUntil(cxRoute(destinationFor(stage, s)), (_) => false);
+    } on ConexoFailure catch (e) {
+      if (mounted) showCxSnack(context, e.message);
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
   }
 
   @override
@@ -73,6 +107,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
         title: 'Let\'s get',
         accent: 'you in.',
         subtitle: 'Thirty seconds here, then the fun part: building a profile people actually want to reply to.',
+        footer: FooterLink(
+          prompt: 'Already on Conexo?',
+          action: 'Sign in',
+          onTap: () => Navigator.of(context).pushReplacement(cxRoute(const SignInScreen())),
+        ),
         children: [
           CxField(
             controller: _name,
@@ -109,9 +148,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     height: 4,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(4),
-                      color: i < _strength
-                          ? [c.danger, c.magenta, c.success][_strength - 1]
-                          : c.line,
+                      color: i < _strength ? [c.danger, c.magenta, c.success][_strength - 1] : c.line,
                     ),
                   ),
                 ),
@@ -144,9 +181,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     gradient: _agreed ? c.warm : null,
                     border: _agreed ? null : Border.all(color: c.line, width: 1.6),
                   ),
-                  child: _agreed
-                      ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-                      : null,
+                  child: _agreed ? const Icon(Icons.check_rounded, size: 16, color: Colors.white) : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -163,22 +198,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           const SizedBox(height: 26),
           const OrDivider(),
           const SizedBox(height: 22),
-          SocialRow(
-            onTap: (_) async {
-              await ConexoScope.read(context).signIn();
-              if (!context.mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                cxRoute(const ProfileSetupScreen(firstName: 'Sam')),
-                (_) => false,
-              );
-            },
-          ),
+          GoogleButton(onTap: _google, loading: _googleLoading),
         ],
-        footer: FooterLink(
-          prompt: 'Already on Conexo?',
-          action: 'Sign in',
-          onTap: () => Navigator.of(context).pushReplacement(cxRoute(const SignInScreen())),
-        ),
       ),
     );
   }

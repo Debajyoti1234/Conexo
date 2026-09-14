@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../features/profile/profile_data.dart' show kMinInterests, kMinProfilePhotos;
 import '../../data/app_state.dart';
+import '../../data/data_source.dart';
 import '../../data/mock_data.dart';
 import '../../design/routes.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets.dart';
+import '../../widgets/cx_image.dart';
+import '../auth/auth_scaffold.dart' show showCxSnack;
 import '../shell.dart';
 
 /// Profile creation in five light steps. When [initial] is given it acts as
@@ -20,50 +24,51 @@ class ProfileSetupScreen extends StatefulWidget {
 }
 
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
-  static const _photoPool = [
-    'assets/images/people/me_1.jpg',
-    'assets/images/people/hero.jpg',
-    'assets/images/people/meera_2.jpg',
-    'assets/images/people/kabir_2.jpg',
-    'assets/images/people/rohan_2.jpg',
-    'assets/images/people/zoya_1.jpg',
-  ];
+  static const _steps = 5;
 
   bool get _editing => widget.initial != null;
   int _step = 0;
 
   // Basics
-  DateTime? _birthday;
-  String? _pronouns;
-  String _interestedIn = 'Everyone';
+  late final _name = TextEditingController(text: widget.initial?.name ?? widget.firstName);
+  late DateTime? _birthday = widget.initial?.birthday;
+  late String? _gender = widget.initial?.gender;
   late final _job = TextEditingController(text: widget.initial?.job ?? '');
   late final _city = TextEditingController(text: widget.initial?.city ?? '');
 
   // Content
   late final List<String> _photos = [...?widget.initial?.photos];
-  late final List<String> _questions = widget.initial?.prompts.map((p) => p.question).toList() ??
-      [promptLibrary[0], promptLibrary[1]];
+  bool _uploading = false;
+  late final List<String> _questions =
+      widget.initial?.prompts.map((p) => p.question).toList() ?? [promptLibrary[0], promptLibrary[1]];
   late final List<TextEditingController> _answers = [
     for (final p in widget.initial?.prompts ?? const <Prompt>[]) TextEditingController(text: p.answer),
-    if (widget.initial == null) ...[TextEditingController(), TextEditingController()],
+    if (widget.initial == null || widget.initial!.prompts.isEmpty) ...[
+      TextEditingController(),
+      TextEditingController(),
+    ],
   ];
   late final Set<String> _vibes = {...?widget.initial?.vibes};
+
+  // Finish
+  LocationFix? _fix;
+  bool _locating = false;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    if (_editing) {
-      _birthday = DateTime(2000, 5, 12);
-      _pronouns = widget.initial!.pronouns;
+    while (_questions.length < _answers.length) {
+      _questions.add(promptLibrary.firstWhere((q) => !_questions.contains(q)));
     }
-    for (final a in _answers) {
-      a.addListener(() => setState(() {}));
+    for (final ctrl in [_name, _job, _city, ..._answers]) {
+      ctrl.addListener(() => setState(() {}));
     }
-    _job.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
+    _name.dispose();
     _job.dispose();
     _city.dispose();
     for (final a in _answers) {
@@ -72,14 +77,25 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     super.dispose();
   }
 
-  static const _steps = 5;
+  bool get _live => ConexoScope.read(context).source.isLive;
+  int get _minPhotos => _live ? kMinProfilePhotos : 2;
+  int get _minVibes => _live ? kMinInterests : 3;
+
+  List<Prompt> get _answered => [
+    for (var i = 0; i < _answers.length; i++)
+      if (_answers[i].text.trim().length >= 3) Prompt(_questions[i], _answers[i].text.trim()),
+  ];
 
   bool get _valid => switch (_step) {
-    0 => _birthday != null && _job.text.trim().isNotEmpty,
-    1 => _photos.length >= 2,
-    2 => _answers.where((a) => a.text.trim().length >= 3).length >= 2,
-    3 => _vibes.length >= 3,
-    _ => true,
+    0 => _name.text.trim().length >= 2 &&
+        _birthday != null &&
+        _gender != null &&
+        _job.text.trim().isNotEmpty &&
+        _city.text.trim().isNotEmpty,
+    1 => _photos.length >= _minPhotos && !_uploading,
+    2 => _answered.length >= 2,
+    3 => _vibes.length >= _minVibes,
+    _ => !_saving,
   };
 
   void _next() {
@@ -100,34 +116,73 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     setState(() => _step--);
   }
 
-  void _finish() {
-    final s = ConexoScope.read(context);
-    final base = widget.initial ?? me;
-    final age = _birthday == null ? base.age : (DateTime.now().difference(_birthday!).inDays ~/ 365);
-    s.saveProfile(
-      Person(
-        id: 'me',
-        name: widget.firstName.isEmpty ? base.name : widget.firstName,
-        age: age,
-        pronouns: _pronouns,
-        city: _city.text.trim().isEmpty ? base.city : _city.text.trim(),
-        job: _job.text.trim(),
-        school: base.school,
-        height: base.height,
-        distanceKm: 0,
-        verified: base.verified,
-        photos: [..._photos],
-        vibes: [..._vibes],
-        prompts: [
-          for (var i = 0; i < _answers.length; i++)
-            if (_answers[i].text.trim().isNotEmpty) Prompt(_questions[i], _answers[i].text.trim()),
-        ],
-      ),
+  Future<void> _addPhoto() async {
+    if (_uploading) return;
+    setState(() => _uploading = true);
+    try {
+      final path = await ConexoScope.read(context).addPhoto(_photos);
+      if (path != null && mounted) setState(() => _photos.add(path));
+    } on ConexoFailure catch (e) {
+      if (mounted) showCxSnack(context, e.message);
+    } catch (_) {
+      if (mounted) showCxSnack(context, 'That photo didn\'t upload. Try a different one.');
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  Future<void> _locate() async {
+    setState(() => _locating = true);
+    try {
+      final fix = await ConexoScope.read(context).detectLocation();
+      if (fix != null && mounted) {
+        setState(() {
+          _fix = fix;
+          if (_city.text.trim().isEmpty && fix.areaName != null) _city.text = fix.areaName!;
+        });
+      }
+    } on ConexoFailure catch (e) {
+      if (mounted) showCxSnack(context, e.message);
+    } catch (_) {
+      if (mounted) showCxSnack(context, 'We couldn\'t get your location. Try again in a moment.');
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Future<void> _finish() async {
+    setState(() => _saving = true);
+    final input = ProfileInput(
+      name: _name.text.trim(),
+      birthday: _birthday!,
+      gender: _gender!,
+      job: _job.text.trim(),
+      city: _city.text.trim(),
+      photos: [..._photos],
+      prompts: _answered,
+      vibes: [..._vibes],
+      location: _fix,
     );
+    try {
+      await ConexoScope.read(context).saveProfile(input);
+    } on ConexoFailure catch (e) {
+      if (mounted) {
+        showCxSnack(context, e.message);
+        setState(() => _saving = false);
+      }
+      return;
+    } catch (_) {
+      if (mounted) {
+        showCxSnack(context, 'We couldn\'t save your profile. Check your connection and try again.');
+        setState(() => _saving = false);
+      }
+      return;
+    }
+    if (!mounted) return;
     HapticFeedback.mediumImpact();
     if (_editing) {
       Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved. Looking sharp.')));
+      showCxSnack(context, 'Saved. Looking sharp.');
     } else {
       Navigator.of(context).pushAndRemoveUntil(cxRoute(const HomeShell()), (_) => false);
     }
@@ -136,12 +191,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.cx;
-    final name = widget.firstName.isEmpty ? 'you' : widget.firstName;
+    final name = _name.text.trim().isEmpty ? 'you' : _name.text.trim();
     final headings = [
       ('Nice to meet you,', '$name.', 'The basics first. You can change these any time.'),
-      ('Show off', 'a little.', 'Add at least two. Candid beats posed, every single time.'),
+      ('Show off', 'a little.', 'Add at least $_minPhotos. Candid beats posed, every single time.'),
       ('Give them something', 'to reply to.', 'Answer two prompts. Specific is magnetic; "I love travel" is not.'),
-      ('What\'s your', 'vibe?', 'Pick at least three. We\'ll use them to find your people.'),
+      ('What\'s your', 'vibe?', 'Pick at least $_minVibes. We\'ll use them to find your people.'),
       (_editing ? 'Looking' : 'You\'re', _editing ? 'good.' : 'all set.', 'Here\'s a peek at what people will see first.'),
     ];
     final h = headings[_step];
@@ -162,7 +217,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         icon: _step == 0 && _editing ? Icons.close_rounded : Icons.arrow_back_rounded,
                         tooltip: 'Back',
                         filled: false,
-                        onTap: _back,
+                        onTap: _step == 0 && !_editing ? null : _back,
                       ),
                       const SizedBox(width: 8),
                       Expanded(child: StepBar(count: _steps, index: _step)),
@@ -206,10 +261,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
                   child: CxButton(
-                    label: _step == _steps - 1
-                        ? (_editing ? 'Save changes' : 'Start meeting people')
-                        : 'Continue',
+                    label: _step == _steps - 1 ? (_editing ? 'Save changes' : 'Start meeting people') : 'Continue',
                     icon: _step == _steps - 1 ? Icons.auto_awesome_rounded : null,
+                    loading: _saving,
                     onTap: _valid ? _next : null,
                   ),
                 ),
@@ -226,7 +280,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _FieldLabel('Birthday'),
+        CxField(controller: _name, label: 'First name', hint: 'What your friends call you'),
+        const SizedBox(height: 22),
+        const _FieldLabel('Birthday'),
         Pressable(
           scale: .98,
           onTap: () async {
@@ -253,9 +309,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    _birthday == null
-                        ? 'Pick a date'
-                        : '${_birthday!.day} / ${_birthday!.month} / ${_birthday!.year}',
+                    _birthday == null ? 'Pick a date' : '${_birthday!.day} / ${_birthday!.month} / ${_birthday!.year}',
                     style: ConexoType.body(_birthday == null ? c.inkMute : c.ink, size: 16, w: FontWeight.w600),
                   ),
                 ),
@@ -269,33 +323,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ),
         ),
         const SizedBox(height: 22),
+        const _FieldLabel('I am'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final g in genderOptions)
+              VibeChip(label: g, selected: _gender == g, onTap: () => setState(() => _gender = g)),
+          ],
+        ),
+        const SizedBox(height: 22),
         CxField(controller: _job, label: 'What do you do?', hint: 'e.g. Designer, student, chef', icon: Icons.work_outline_rounded),
         const SizedBox(height: 18),
         CxField(controller: _city, label: 'Where are you based?', hint: 'e.g. Bandra, Mumbai', icon: Icons.location_on_outlined),
-        const SizedBox(height: 22),
-        _FieldLabel('Pronouns (optional)'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final p in ['she/her', 'he/him', 'they/them'])
-              VibeChip(
-                label: p,
-                selected: _pronouns == p,
-                onTap: () => setState(() => _pronouns = _pronouns == p ? null : p),
-              ),
-          ],
-        ),
-        const SizedBox(height: 22),
-        _FieldLabel('Show me'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final p in ['Women', 'Men', 'Everyone'])
-              VibeChip(label: p, selected: _interestedIn == p, onTap: () => setState(() => _interestedIn = p)),
-          ],
-        ),
       ],
     );
   }
@@ -317,6 +357,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           ),
           itemBuilder: (context, i) {
             final has = i < _photos.length;
+            final isNext = i == _photos.length;
             return AnimatedSwitcher(
               duration: const Duration(milliseconds: 320),
               transitionBuilder: (child, a) => ScaleTransition(
@@ -328,10 +369,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       key: ValueKey(_photos[i]),
                       fit: StackFit.expand,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.asset(_photos[i], fit: BoxFit.cover),
-                        ),
+                        ClipRRect(borderRadius: BorderRadius.circular(20), child: CxImage(_photos[i])),
                         if (i == 0)
                           Positioned(
                             left: 8,
@@ -359,28 +397,26 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     )
                   : Pressable(
                       key: ValueKey('empty$i'),
-                      onTap: i == _photos.length
-                          ? () {
-                              final next = _photoPool.firstWhere(
-                                (p) => !_photos.contains(p),
-                                orElse: () => _photoPool.first,
-                              );
-                              setState(() => _photos.add(next));
-                            }
-                          : null,
+                      onTap: isNext && !_uploading ? _addPhoto : null,
                       child: CustomPaint(
-                        painter: _DashedRRect(color: i == _photos.length ? c.violet : c.line),
+                        painter: _DashedRRect(color: isNext ? c.violet : c.line),
                         child: Center(
-                          child: Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              gradient: i == _photos.length ? c.warm : null,
-                              color: i == _photos.length ? null : c.surfaceAlt,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.add_rounded, size: 20, color: i == _photos.length ? Colors.white : c.inkMute),
-                          ),
+                          child: isNext && _uploading
+                              ? SizedBox(
+                                  width: 26,
+                                  height: 26,
+                                  child: CircularProgressIndicator(strokeWidth: 2.4, color: c.violet),
+                                )
+                              : Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    gradient: isNext ? c.warm : null,
+                                    color: isNext ? null : c.surfaceAlt,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.add_rounded, size: 20, color: isNext ? Colors.white : c.inkMute),
+                                ),
                         ),
                       ),
                     ),
@@ -394,7 +430,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Demo mode: tapping + adds a sample photo.',
+                _live
+                    ? 'Clear, recent photos of just you work best. The first one is your main photo.'
+                    : 'Demo mode: tapping + adds a sample photo.',
                 style: ConexoType.body(c.inkMute, size: 12.5),
               ),
             ),
@@ -511,7 +549,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           spacing: 8,
           runSpacing: 10,
           children: [
-            for (final v in vibeLibrary)
+            for (final v in {...vibeLibrary, ..._vibes})
               VibeChip(
                 label: v,
                 selected: _vibes.contains(v),
@@ -525,9 +563,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           child: Text(
-            _vibes.length < 3 ? '${3 - _vibes.length} more to go' : '${_vibes.length} of 8 picked. Nice taste.',
+            _vibes.length < _minVibes
+                ? '${_minVibes - _vibes.length} more to go'
+                : '${_vibes.length} of 8 picked. Nice taste.',
             key: ValueKey(_vibes.length),
-            style: ConexoType.label(_vibes.length < 3 ? c.inkMute : c.violet, size: 13),
+            style: ConexoType.label(_vibes.length < _minVibes ? c.inkMute : c.violet, size: 13),
           ),
         ),
       ],
@@ -536,10 +576,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   // ── Step 4 ────────────────────────────────────────────────────────────────
   Widget _preview(ConexoColors c) {
-    final answered = [
-      for (var i = 0; i < _answers.length; i++)
-        if (_answers[i].text.trim().isNotEmpty) Prompt(_questions[i], _answers[i].text.trim()),
-    ];
+    final answered = _answered;
     return Column(
       children: [
         CxCard(
@@ -551,7 +588,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 aspectRatio: 4 / 4.2,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Image.asset(_photos.first, fit: BoxFit.cover),
+                  child: CxImage(_photos.isEmpty ? '' : _photos.first),
                 ),
               ),
               Padding(
@@ -559,9 +596,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.firstName.isEmpty ? 'You' : widget.firstName, style: ConexoType.display(c.ink, size: 30)),
+                    Text(_name.text.trim(), style: ConexoType.display(c.ink, size: 30)),
                     const SizedBox(height: 2),
-                    Text(_job.text, style: ConexoType.body(c.inkSoft, size: 14)),
+                    Text(
+                      [_job.text.trim(), _city.text.trim()].where((x) => x.isNotEmpty).join('  ·  '),
+                      style: ConexoType.body(c.inkSoft, size: 14),
+                    ),
                     if (answered.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       Text(answered.first.question, style: ConexoType.label(c.inkSoft, size: 12.5)),
@@ -574,20 +614,47 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
             ],
           ),
         ),
-        if (!_editing) ...[
-          const SizedBox(height: 16),
-          _PermissionRow(
-            icon: Icons.near_me_outlined,
-            title: 'Show people nearby',
-            body: 'Uses your location while the app is open.',
+        const SizedBox(height: 16),
+        CxCard(
+          padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
+          child: Row(
+            children: [
+              Icon(Icons.near_me_outlined, color: c.violet),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _fix == null ? 'Show people nearby' : 'Location on',
+                      style: ConexoType.body(c.ink, size: 15, w: FontWeight.w700),
+                    ),
+                    Text(
+                      _fix == null
+                          ? 'Conexo uses your location to find people around you.'
+                          : (_fix!.areaName ?? 'We\'ll show people near you.'),
+                      style: ConexoType.body(c.inkMute, size: 12.5),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (_fix == null)
+                SizedBox(
+                  width: 96,
+                  child: CxButton(
+                    label: 'Share',
+                    height: 42,
+                    variant: CxButtonVariant.ink,
+                    loading: _locating,
+                    onTap: _locate,
+                  ),
+                )
+              else
+                Icon(Icons.check_circle_rounded, color: c.success),
+            ],
           ),
-          const SizedBox(height: 10),
-          _PermissionRow(
-            icon: Icons.notifications_none_rounded,
-            title: 'Know when it\'s mutual',
-            body: 'Matches and messages, nothing spammy.',
-          ),
-        ],
+        ),
       ],
     );
   }
@@ -604,56 +671,13 @@ class _FieldLabel extends StatelessWidget {
   );
 }
 
-class _PermissionRow extends StatefulWidget {
-  const _PermissionRow({required this.icon, required this.title, required this.body});
-  final IconData icon;
-  final String title;
-  final String body;
-
-  @override
-  State<_PermissionRow> createState() => _PermissionRowState();
-}
-
-class _PermissionRowState extends State<_PermissionRow> {
-  bool _on = true;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.cx;
-    return CxCard(
-      padding: const EdgeInsets.fromLTRB(18, 12, 10, 12),
-      child: Row(
-        children: [
-          Icon(widget.icon, color: c.violet),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.title, style: ConexoType.body(c.ink, size: 15, w: FontWeight.w700)),
-                Text(widget.body, style: ConexoType.body(c.inkMute, size: 12.5)),
-              ],
-            ),
-          ),
-          Switch(
-            value: _on,
-            activeTrackColor: c.violet,
-            onChanged: (v) => setState(() => _on = v),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DashedRRect extends CustomPainter {
   _DashedRRect({required this.color});
   final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..addRRect(RRect.fromRectAndRadius((Offset.zero & size).deflate(1), const Radius.circular(20)));
+    final path = Path()..addRRect(RRect.fromRectAndRadius((Offset.zero & size).deflate(1), const Radius.circular(20)));
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke

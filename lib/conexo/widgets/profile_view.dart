@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/mock_data.dart';
 import '../design/tokens.dart';
 import '../design/widgets.dart';
+import 'cx_image.dart';
 
 /// Called when the viewer likes a specific photo or prompt.
 typedef LikeCallback = void Function(String what, Widget preview);
@@ -110,7 +111,10 @@ class _NameHeader extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            [?p.pronouns, '${p.distanceKm} km away'].join('  ·  '),
+            [
+              ?p.pronouns,
+              if (p.distanceKm > 0) '${p.distanceKm} km away' else if (p.city.isNotEmpty) p.city,
+            ].join('  ·  '),
             style: ConexoType.body(c.inkSoft, size: 14),
           ),
         ],
@@ -135,7 +139,7 @@ class _PhotoBlock extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(28),
-            child: Image.asset(photo, fit: BoxFit.cover),
+            child: CxImage(photo),
           ),
           if (onLike != null)
             Positioned(
@@ -146,7 +150,7 @@ class _PhotoBlock extends StatelessWidget {
                   'photo ${i + 1}',
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
-                    child: Image.asset(photo, height: 220, width: double.infinity, fit: BoxFit.cover),
+                    child: CxImage(photo, height: 220, width: double.infinity),
                   ),
                 ),
               ),
@@ -225,19 +229,21 @@ class _Vitals extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.cx;
     final quick = <(IconData, String)>[
-      (Icons.cake_outlined, '${p.age}'),
+      if (p.age > 0) (Icons.cake_outlined, '${p.age}'),
       if (p.height != null) (Icons.straighten_rounded, p.height!),
-      (Icons.location_on_outlined, p.city),
+      if (p.city.isNotEmpty) (Icons.location_on_outlined, p.city),
     ];
     final rows = <(IconData, String)>[
-      (Icons.work_outline_rounded, p.job),
+      if (p.job.isNotEmpty) (Icons.work_outline_rounded, p.job),
       if (p.school != null) (Icons.school_outlined, p.school!),
-      (Icons.favorite_border_rounded, p.lookingFor),
+      if (p.lookingFor.isNotEmpty) (Icons.favorite_border_rounded, p.lookingFor),
     ];
+    if (quick.isEmpty && rows.isEmpty) return const SizedBox.shrink();
     return CxCard(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         children: [
+          if (quick.isNotEmpty)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),

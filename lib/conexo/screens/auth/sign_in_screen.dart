@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_state.dart';
+import '../../data/data_source.dart';
 import '../../design/routes.dart';
 import '../../design/tokens.dart';
 import '../../design/widgets.dart';
-import '../shell.dart';
+import 'auth_routing.dart';
 import 'auth_scaffold.dart';
 import 'sign_up_screen.dart';
 
@@ -20,6 +21,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
+  bool _googleLoading = false;
 
   @override
   void dispose() {
@@ -28,16 +30,52 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    if (!(_form.currentState?.validate() ?? false)) return;
-    await _enter();
+  void _go(SessionStage stage) {
+    Navigator.of(context).pushAndRemoveUntil(
+      cxRoute(destinationFor(stage, ConexoScope.read(context))),
+      (_) => false,
+    );
   }
 
-  Future<void> _enter() async {
+  Future<void> _submit() async {
+    if (!(_form.currentState?.validate() ?? false)) return;
     setState(() => _loading = true);
-    await ConexoScope.read(context).signIn();
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(cxRoute(const HomeShell()), (_) => false);
+    try {
+      final stage = await ConexoScope.read(context).signIn(_email.text.trim(), _password.text);
+      if (mounted) _go(stage);
+    } on ConexoFailure catch (e) {
+      if (mounted) showCxSnack(context, e.message);
+    } catch (_) {
+      if (mounted) showCxSnack(context, 'Couldn\'t reach Conexo. Check your connection and try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _google() async {
+    setState(() => _googleLoading = true);
+    try {
+      final stage = await ConexoScope.read(context).signInWithGoogle();
+      if (!mounted || stage == null || stage == SessionStage.signedOut) return;
+      _go(stage);
+    } on ConexoFailure catch (e) {
+      if (mounted) showCxSnack(context, e.message);
+    } finally {
+      if (mounted) setState(() => _googleLoading = false);
+    }
+  }
+
+  Future<void> _forgot() async {
+    if (validateEmail(_email.text) != null) {
+      showCxSnack(context, 'Type your email above first, then tap Forgot password.');
+      return;
+    }
+    try {
+      await ConexoScope.read(context).resetPassword(_email.text.trim());
+      if (mounted) showCxSnack(context, 'Reset link sent to ${_email.text.trim()}. Check your inbox.');
+    } on ConexoFailure catch (e) {
+      if (mounted) showCxSnack(context, e.message);
+    }
   }
 
   @override
@@ -49,6 +87,11 @@ class _SignInScreenState extends State<SignInScreen> {
         title: 'Hey, you\'re',
         accent: 'back.',
         subtitle: 'Pick up where you left off. Someone might be waiting on your reply.',
+        footer: FooterLink(
+          prompt: 'New to Conexo?',
+          action: 'Create an account',
+          onTap: () => Navigator.of(context).pushReplacement(cxRoute(const SignUpScreen())),
+        ),
         children: [
           CxField(
             controller: _email,
@@ -71,9 +114,7 @@ class _SignInScreenState extends State<SignInScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Reset link sent. Check your inbox.')),
-              ),
+              onPressed: _forgot,
               style: TextButton.styleFrom(foregroundColor: c.violet),
               child: Text('Forgot password?', style: ConexoType.label(c.violet, size: 13)),
             ),
@@ -83,13 +124,8 @@ class _SignInScreenState extends State<SignInScreen> {
           const SizedBox(height: 26),
           const OrDivider(),
           const SizedBox(height: 22),
-          SocialRow(onTap: (_) => _enter()),
+          GoogleButton(onTap: _google, loading: _googleLoading),
         ],
-        footer: FooterLink(
-          prompt: 'New to Conexo?',
-          action: 'Create an account',
-          onTap: () => Navigator.of(context).pushReplacement(cxRoute(const SignUpScreen())),
-        ),
       ),
     );
   }
