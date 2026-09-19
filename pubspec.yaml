@@ -69,6 +69,12 @@ dependencies:
   firebase_messaging: ^16.5.0
   flutter_local_notifications: ^22.3.0
 
+  # Maps — Admin live-location visualization. flutter_map is pure-Dart and
+  # web/desktop safe; latlong2 is its required LatLng type (not a 2nd map
+  # provider).
+  flutter_map: ^8.3.2
+  latlong2: ^0.10.1
+
 
 dev_dependencies:
   flutter_test:

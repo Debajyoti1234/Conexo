@@ -7,10 +7,14 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/router/app_router.dart';
+import '../../core/services/app_navigator.dart';
 import '../../core/services/permission_manager.dart';
 import '../../core/supabase/auth_service.dart';
 import '../../core/supabase/auth_gate.dart';
 import '../../core/supabase/supabase_client.dart';
+import '../admin/admin_access_denied_screen.dart';
+import '../admin/admin_login_screen.dart';
+import '../admin/admin_placeholder_screen.dart';
 import '../onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -105,6 +109,12 @@ class _SplashScreenState extends State<SplashScreen>
 
       if (!mounted) return;
 
+      // Web-only: detect /admin path and route to the isolated Admin flow.
+      if (kIsWeb && _isAdminPath(Uri.base)) {
+        await _navigateToAdmin();
+        return;
+      }
+
       if (kIsWeb) {
         await GoogleSignIn.instance.initialize(
           clientId: const String.fromEnvironment(
@@ -171,6 +181,85 @@ class _SplashScreenState extends State<SplashScreen>
     } on UnsupportedError {
       return true;
     } on Exception {
+      return false;
+    }
+  }
+
+  /// Web-only: returns true when the current URL path is `/admin` (or any
+  /// path under `/admin/`). This is the ONLY entry point for the isolated
+  /// Admin flow — consumer navigation is never reached from here.
+  static bool _isAdminPath(Uri uri) {
+    final path = uri.path.toLowerCase();
+    return path == '/admin' || path.startsWith('/admin/');
+  }
+
+  /// Web-only: navigates to the isolated Admin flow.
+  ///
+  /// Flow:
+  ///   1. If no Supabase session exists → AdminLoginScreen.
+  ///   2. If a session exists but `is_admin()` returns false (normal Conexo
+  ///      user) → AdminAccessDeniedScreen.
+  ///   3. If a session exists and `is_admin()` returns true →
+  ///      AdminPlaceholderScreen.
+  Future<void> _navigateToAdmin() async {
+    try {
+      if (!SupabaseClientConfig.isInitialized) {
+        await SupabaseClientConfig.initialize();
+      } else {
+        await SupabaseClientConfig.ready;
+      }
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        AppRouter.slideRoute(const AdminLoginScreen()),
+        (route) => false,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+
+    final hasSession = AuthService.currentSession != null;
+    if (!hasSession) {
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        AppRouter.slideRoute(
+          AdminLoginScreen(
+            onAdminAuthenticated: () async {
+              AppNavigator.instance.key.currentState?.pushAndRemoveUntil(
+                AppRouter.slideRoute(const AdminPlaceholderScreen()),
+                (route) => false,
+              );
+            },
+          ),
+        ),
+        (route) => false,
+      );
+      return;
+    }
+
+    // A session exists. Check server-side admin authorization.
+    final authorized = await _checkIsAdmin();
+    if (!mounted) return;
+
+    if (authorized) {
+      Navigator.of(context).pushAndRemoveUntil(
+        AppRouter.slideRoute(const AdminPlaceholderScreen()),
+        (route) => false,
+      );
+    } else {
+      Navigator.of(context).pushAndRemoveUntil(
+        AppRouter.slideRoute(const AdminAccessDeniedScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  static Future<bool> _checkIsAdmin() async {
+    try {
+      final result = await SupabaseClientConfig.client.rpc('is_admin');
+      return result == true;
+    } catch (_) {
       return false;
     }
   }
