@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../core/supabase/auth_service.dart';
 import '../plans/plan_details_data.dart';
 import '../plans/plan_details_screen.dart';
@@ -62,7 +64,7 @@ class _InvitationDetailsScreenState extends State<InvitationDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Invitation accepted'),
-          backgroundColor: Color(0xFF47D7A5),
+          backgroundColor: Color(0xFF1F9D6B),
         ),
       );
       Navigator.of(context).pop(true);
@@ -71,7 +73,7 @@ class _InvitationDetailsScreenState extends State<InvitationDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.message),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
     } catch (_) {
@@ -79,7 +81,7 @@ class _InvitationDetailsScreenState extends State<InvitationDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to accept invitation. Please try again.'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
     } finally {
@@ -95,7 +97,7 @@ class _InvitationDetailsScreenState extends State<InvitationDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Invitation declined'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
       Navigator.of(context).pop(true);
@@ -104,7 +106,7 @@ class _InvitationDetailsScreenState extends State<InvitationDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.message),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
     } catch (_) {
@@ -112,7 +114,7 @@ class _InvitationDetailsScreenState extends State<InvitationDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to decline invitation. Please try again.'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
     } finally {
@@ -139,15 +141,15 @@ class _InvitationDetailsScreenState extends State<InvitationDetailsScreen> {
         : 'Someone';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1020),
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Column(
           children: [
             _Header(onClose: () => Navigator.of(context).pop()),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+                  ? Center(
+                      child: CircularProgressIndicator(color: context.cxInk),
                     )
                   : _error != null
                       ? _ErrorState(message: _error!, onRetry: _loadPlan)
@@ -183,16 +185,17 @@ class _Header extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onClose,
-            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            icon: Icon(Icons.arrow_back_rounded, color: context.cxInk),
             tooltip: 'Back',
           ),
           const SizedBox(width: 4),
-          const Text(
+          Text(
             'Invitation',
             style: TextStyle(
               fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFFEAEEF9),
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w600,
+              color: context.cxInk,
             ),
           ),
         ],
@@ -233,9 +236,9 @@ class _PlanPreview extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
-                color: const Color(0xFF182039),
+                color: context.cxSurface,
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: .08),
+                  color: context.cxInk.withValues(alpha: .08),
                 ),
               ),
               child: Column(
@@ -258,10 +261,11 @@ class _PlanPreview extends StatelessWidget {
                       children: [
                         Text(
                           e.title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFEAEEF9),
+                            fontFamily: 'Fraunces',
+                            fontWeight: FontWeight.w600,
+                            color: context.cxInk,
                             letterSpacing: -0.3,
                           ),
                         ),
@@ -271,15 +275,15 @@ class _PlanPreview extends StatelessWidget {
                             Icon(
                               Icons.person_rounded,
                               size: 16,
-                              color: const Color(0xFF8B5CF6),
+                              color: context.cxInk,
                             ),
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
                                 'Hosted by $inviterName',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
-                                  color: Color(0xFFAEB9D6),
+                                  color: context.cxSoft,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -292,15 +296,15 @@ class _PlanPreview extends StatelessWidget {
                             Icon(
                               Icons.calendar_today_rounded,
                               size: 16,
-                              color: const Color(0xFF8B5CF6),
+                              color: context.cxInk,
                             ),
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
                                 '${e.date} · ${e.time}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
-                                  color: Color(0xFFAEB9D6),
+                                  color: context.cxSoft,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -313,15 +317,15 @@ class _PlanPreview extends StatelessWidget {
                             Icon(
                               Icons.location_on_rounded,
                               size: 16,
-                              color: const Color(0xFF8B5CF6),
+                              color: context.cxInk,
                             ),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 e.city,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
-                                  color: Color(0xFFAEB9D6),
+                                  color: context.cxSoft,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -332,10 +336,10 @@ class _PlanPreview extends StatelessWidget {
                           const SizedBox(height: 12),
                           Text(
                             e.description,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               height: 1.5,
-                              color: Color(0xFF9DB2E8),
+                              color: context.cxMuted,
                             ),
                           ),
                         ],
@@ -431,7 +435,7 @@ class _InvitationCover extends StatelessWidget {
           colors: [
             Color.lerp(accent, Colors.white, .25) ?? accent,
             accent,
-            Color.lerp(accent, const Color(0xFF0A0F1F), .55) ?? accent,
+            Color.lerp(accent, const Color(0xFFFFFFFF), .55) ?? accent,
           ],
         ),
       ),
@@ -465,8 +469,8 @@ class _ActionButtons extends StatelessWidget {
             child: OutlinedButton(
               onPressed: declining ? null : onDecline,
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFF4D8D),
-                side: const BorderSide(color: Color(0xFFFF4D8D)),
+                foregroundColor: const Color(0xFFD9485F),
+                side: const BorderSide(color: Color(0xFFD9485F)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -477,7 +481,7 @@ class _ActionButtons extends StatelessWidget {
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Color(0xFFFF4D8D),
+                        color: Color(0xFFD9485F),
                       ),
                     )
                   : const Text(
@@ -494,12 +498,12 @@ class _ActionButtons extends StatelessWidget {
         Expanded(
           child: SizedBox(
             height: 52,
-            child: FilledButton(
+child: FilledButton(
               onPressed: accepting ? null : onAccept,
               style: FilledButton.styleFrom(
                 backgroundColor: accepting
-                    ? const Color(0xFF47D7A5).withValues(alpha: .5)
-                    : const Color(0xFF47D7A5),
+                    ? context.cxAccent.withValues(alpha: .5)
+                    : context.cxAccent,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -546,18 +550,18 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.wifi_off_rounded,
               size: 48,
-              color: Color(0xFF9DB2E8),
+              color: context.cxMuted,
             ),
             const SizedBox(height: 20),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
             ),
             const SizedBox(height: 16),
@@ -593,39 +597,39 @@ class _EmptyState extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withValues(alpha: .12),
-                    Colors.white.withValues(alpha: .04),
+                    context.cxInk.withValues(alpha: .12),
+                    context.cxInk.withValues(alpha: .04),
                   ],
                 ),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: .16),
+                  color: context.cxInk.withValues(alpha: .16),
                 ),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.event_rounded,
                 size: 42,
-                color: Color(0xFF8B5CF6),
+                color: context.cxInk,
               ),
             ),
             const SizedBox(height: 22),
-            const Text(
+            Text(
               'Plan unavailable',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.2,
-                color: Color(0xFFEAEEF9),
+                color: context.cxInk,
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               'This plan may have been removed or is no longer available.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
                 height: 1.5,
-                color: Color(0xFFAEB9D6),
+                color: context.cxSoft,
               ),
             ),
           ],

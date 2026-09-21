@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../app/router/app_router.dart';
 import '../../app/theme/app_widgets.dart';
 import '../home_discovery_animations.dart';
@@ -47,10 +49,10 @@ class HelpSupportScreen extends StatelessWidget {
     ),
   ];
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Stack(
           children: [
@@ -74,12 +76,12 @@ class HelpSupportScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
                     'Find answers, learn how Conexo works, or get in touch '
                     'with our support team.',
-                    style: TextStyle(color: Color(0xFFB9C3DC)),
+                    style: TextStyle(color: context.cxSoft),
                   ),
                 ),
                 const SizedBox(height: 26),
@@ -101,12 +103,12 @@ class HelpSupportScreen extends StatelessWidget {
                               height: 40,
                               width: 40,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF22BFE0).withValues(alpha: .18),
+                                color: const Color(0xFF0E8FA8).withValues(alpha: .18),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(
                                 Icons.support_agent_rounded,
-                                color: Color(0xFF22BFE0),
+                                color: Color(0xFF0E8FA8),
                                 size: 20,
                               ),
                             ),
@@ -120,7 +122,7 @@ class HelpSupportScreen extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
-                                      color: Colors.white.withValues(alpha: .92),
+                                      color: context.cxInk.withValues(alpha: .92),
                                     ),
                                   ),
                                   const SizedBox(height: 3),
@@ -128,7 +130,7 @@ class HelpSupportScreen extends StatelessWidget {
                                     'Our support team is here for you.',
                                     style: TextStyle(
                                       fontSize: 12.5,
-                                      color: const Color(0xFFB9C3DC),
+                                      color: context.cxSoft,
                                     ),
                                   ),
                                 ],
@@ -165,12 +167,12 @@ class HelpSupportScreen extends StatelessWidget {
                               height: 40,
                               width: 40,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE36D9D).withValues(alpha: .18),
+                                color: const Color(0xFFD9485F).withValues(alpha: .18),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(
                                 Icons.shield_rounded,
-                                color: Color(0xFFE36D9D),
+                                color: Color(0xFFD9485F),
                                 size: 20,
                               ),
                             ),
@@ -184,7 +186,7 @@ class HelpSupportScreen extends StatelessWidget {
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
-                                      color: Colors.white.withValues(alpha: .92),
+                                      color: context.cxInk.withValues(alpha: .92),
                                     ),
                                   ),
                                   const SizedBox(height: 3),
@@ -193,7 +195,7 @@ class HelpSupportScreen extends StatelessWidget {
                                     'users who make you uncomfortable.',
                                     style: TextStyle(
                                       fontSize: 12.5,
-                                      color: const Color(0xFFB9C3DC),
+                                      color: context.cxSoft,
                                     ),
                                   ),
                                 ],
@@ -213,8 +215,8 @@ class HelpSupportScreen extends StatelessWidget {
                             icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                             label: const Text('Open Safety'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF8B5CF6),
-                              side: const BorderSide(color: Color(0xFF8B5CF6)),
+                              foregroundColor: context.cxInk,
+                              side: BorderSide(color: context.cxInk),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                           ),
@@ -249,21 +251,21 @@ class _FaqCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .04),
+        color: context.cxSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        border: Border.all(color: context.cxLine),
       ),
       child: ExpansionTile(
         title: Text(
           faq.question,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14.5,
             fontWeight: FontWeight.w600,
-            color: Color(0xFFEAEEF9),
+            color: context.cxInk,
           ),
         ),
-        iconColor: const Color(0xFF8B5CF6),
-        collapsedIconColor: const Color(0xFFB9C3DC),
+        iconColor: context.cxInk,
+        collapsedIconColor: context.cxSoft,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
@@ -277,7 +279,7 @@ class _FaqCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 13.5,
               height: 1.5,
-              color: const Color(0xFFB9C3DC),
+              color: context.cxSoft,
             ),
           ),
         ],

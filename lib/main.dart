@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/theme/app_theme.dart';
+import 'app/theme/theme_preferences.dart';
 import 'core/services/app_navigator.dart';
 import 'core/services/fcm_token_service.dart';
 import 'core/services/live_location_tracker.dart';
@@ -15,6 +16,7 @@ import 'features/splash/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ThemePreferences.initialize();
   runApp(const ConexoApp());
 }
 
@@ -108,12 +110,21 @@ class ConexoAppState extends State<ConexoApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Conexo',
-      theme: AppTheme.darkTheme,
-      navigatorKey: AppNavigator.instance.key,
-      home: const SplashScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemePreferences.mode,
+      builder: (_, themeMode, _) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Conexo',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeMode,
+          locale: const Locale('en'),
+          supportedLocales: const [Locale('en')],
+          navigatorKey: AppNavigator.instance.key,
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }

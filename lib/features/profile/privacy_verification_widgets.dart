@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../app/theme/app_widgets.dart';
 import 'profile_data.dart';
 
@@ -11,11 +13,8 @@ import 'profile_data.dart';
 /// to AnimatedContainer / AnimatedSwitcher / AnimatedOpacity / AnimatedScale
 /// with easeOutCubic / easeInOutCubic — no bounce or overshoot.
 
-const _kAccent = Color(0xFF8B5CF6);
-const _kAccent2 = Color(0xFF587BE2);
-const _kSoftText = Color(0xFFB9C3DC);
-const _kVerified = Color(0xFF47D7A5);
-const _kPending = Color(0xFFF0C25A);
+const _kVerified = Color(0xFF1F9D6B);
+const _kPending = Color(0xFFC98A1E);
 
 // ── SettingSectionHeader ─────────────────────────────────────────────────────
 
@@ -41,7 +40,7 @@ class SettingSectionHeader extends StatelessWidget {
         Row(
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 20, color: const Color(0xFFB7A5FF)),
+              Icon(icon, size: 20, color: context.cxInk),
               const SizedBox(width: 8),
             ],
             Expanded(
@@ -60,7 +59,7 @@ class SettingSectionHeader extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             subtitle!,
-            style: const TextStyle(fontSize: 13.5, color: _kSoftText),
+            style: TextStyle(fontSize: 13.5, color: context.cxSoft),
           ),
         ],
       ],
@@ -80,7 +79,7 @@ class GlassSettingTile extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.onTap,
-    this.iconColor = const Color(0xFFB7A5FF),
+      this.iconColor = const Color(0xFF1B1B1F),
   });
 
   final IconData icon;
@@ -129,9 +128,9 @@ class GlassSettingTile extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           subtitle!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: _kSoftText,
+                            color: context.cxSoft,
                             height: 1.35,
                           ),
                         ),
@@ -144,9 +143,9 @@ class GlassSettingTile extends StatelessWidget {
                   trailing!,
                 ] else if (onTap != null) ...[
                   const SizedBox(width: 12),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right_rounded,
-                    color: _kSoftText,
+                    color: context.cxSoft,
                   ),
                 ],
               ],
@@ -169,7 +168,7 @@ class GlassToggleTile extends StatelessWidget {
     required this.onChanged,
     super.key,
     this.subtitle,
-    this.iconColor = const Color(0xFFB7A5FF),
+      this.iconColor = const Color(0xFF1B1B1F),
   });
 
   final IconData icon;
@@ -191,7 +190,7 @@ class GlassToggleTile extends StatelessWidget {
         value: value,
         onChanged: onChanged,
         activeThumbColor: Colors.white,
-        activeTrackColor: _kAccent,
+        activeTrackColor: context.cxAccent,
       ),
     );
   }
@@ -268,19 +267,19 @@ class _PrivacyOption extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           gradient: selected
-              ? const LinearGradient(colors: [_kAccent, _kAccent2])
+              ? LinearGradient(colors: [context.cxAccent, context.cxAccent])
               : null,
-          color: selected ? null : Colors.white.withValues(alpha: .05),
+          color: selected ? null : context.cxInk.withValues(alpha: .05),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected
                 ? Colors.transparent
-                : Colors.white.withValues(alpha: .1),
+                : context.cxInk.withValues(alpha: .1),
           ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: _kAccent.withValues(alpha: .4),
+                    color: context.cxAccent.withValues(alpha: .4),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -292,7 +291,7 @@ class _PrivacyOption extends StatelessWidget {
             Icon(
               icon,
               size: 22,
-              color: selected ? Colors.white : const Color(0xFFB7A5FF),
+              color: selected ? Colors.white : context.cxInk,
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -304,7 +303,7 @@ class _PrivacyOption extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
-                      color: selected ? Colors.white : const Color(0xFFEAEEF9),
+                      color: selected ? Colors.white : context.cxInk,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -314,8 +313,8 @@ class _PrivacyOption extends StatelessWidget {
                       fontSize: 12.5,
                       height: 1.35,
                       color: selected
-                          ? Colors.white.withValues(alpha: .9)
-                          : _kSoftText,
+                          ? context.cxInk.withValues(alpha: .9)
+                          : context.cxSoft,
                     ),
                   ),
                 ],
@@ -336,10 +335,10 @@ class _PrivacyOption extends StatelessWidget {
                       key: ValueKey('on'),
                       color: Colors.white,
                     )
-                  : const Icon(
+                  : Icon(
                       Icons.radio_button_unchecked_rounded,
                       key: ValueKey('off'),
-                      color: _kSoftText,
+                      color: context.cxSoft,
                     ),
             ),
           ],
@@ -371,7 +370,7 @@ class VerificationBadge extends StatelessWidget {
           'Pending',
         ),
       VerificationStatus.notVerified => (
-          _kSoftText,
+          context.cxSoft,
           Icons.shield_outlined,
           'Not verified',
         ),
@@ -429,7 +428,7 @@ class VerificationStatusCard extends StatelessWidget {
               'while.',
         ),
       VerificationStatus.notVerified => (
-          _kAccent,
+          context.cxAccent,
           Icons.shield_outlined,
           'Get verified',
           'Verify your identity to earn a trusted badge and stand out in the '
@@ -480,9 +479,9 @@ class VerificationStatusCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             body,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
-              color: _kSoftText,
+              color: context.cxSoft,
               height: 1.45,
             ),
           ),
@@ -505,22 +504,22 @@ class ComingSoonChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: _kAccent.withValues(alpha: .16),
+        color: context.cxAccent.withValues(alpha: .16),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: _kAccent.withValues(alpha: .45)),
+        border: Border.all(color: context.cxAccent.withValues(alpha: .45)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.auto_awesome_rounded,
-              size: 13, color: Color(0xFFB7A5FF)),
+          Icon(Icons.auto_awesome_rounded,
+              size: 13, color: context.cxInk),
           const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
-              color: Color(0xFFB7A5FF),
+              color: context.cxInk,
             ),
           ),
         ],
@@ -567,11 +566,11 @@ class _PrimaryActionButtonState extends State<PrimaryActionButton> {
           height: 54,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_kAccent, _kAccent2]),
+            gradient: LinearGradient(colors: [context.cxAccent, context.cxAccent]),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: _kAccent.withValues(alpha: .5),
+                color: context.cxAccent.withValues(alpha: .5),
                 blurRadius: 22,
                 offset: const Offset(0, 9),
               ),
@@ -664,8 +663,8 @@ class ComingSoonDialog extends StatelessWidget {
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
                           colors: [
-                            _kAccent.withValues(alpha: .9),
-                            _kAccent2.withValues(alpha: .7),
+                            context.cxAccent.withValues(alpha: .9),
+                            context.cxAccent.withValues(alpha: .7),
                           ],
                         ),
                       ),
@@ -690,9 +689,9 @@ class ComingSoonDialog extends StatelessWidget {
                 const SizedBox(height: 14),
                 Text(
                   message,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: _kSoftText,
+                    color: context.cxSoft,
                     height: 1.45,
                   ),
                 ),
@@ -701,7 +700,7 @@ class ComingSoonDialog extends StatelessWidget {
                   alignment: Alignment.centerRight,
                   child: FilledButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    style: FilledButton.styleFrom(backgroundColor: _kAccent),
+                    style: FilledButton.styleFrom(backgroundColor: context.cxAccent),
                     child: const Text('Got it'),
                   ),
                 ),
@@ -744,7 +743,7 @@ class _SaveSuccessOverlayState extends State<SaveSuccessOverlay> {
     return Positioned.fill(
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFF0A0F1F).withValues(alpha: .92),
+          color: context.cxGlass.withValues(alpha: .92),
         ),
         child: Center(
           child: AnimatedOpacity(
@@ -764,11 +763,11 @@ class _SaveSuccessOverlayState extends State<SaveSuccessOverlay> {
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
-                        colors: [_kVerified, Color(0xFF22BFE0)],
+                        colors: [_kVerified, Color(0xFF0E8FA8)],
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0x8847D7A5),
+                          color: Color(0x881F9D6B),
                           blurRadius: 36,
                           spreadRadius: 3,
                         ),
@@ -807,7 +806,7 @@ class InfoNote extends StatelessWidget {
     required this.icon,
     required this.text,
     super.key,
-    this.iconColor = const Color(0xFFB7A5FF),
+      this.iconColor = const Color(0xFF1B1B1F),
   });
 
   final IconData icon;
@@ -825,9 +824,9 @@ class InfoNote extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
-                color: _kSoftText,
+                color: context.cxSoft,
                 height: 1.5,
               ),
             ),
@@ -859,7 +858,7 @@ class BenefitRow extends StatelessWidget {
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
-                colors: [_kVerified, Color(0xFF22BFE0)],
+                colors: [_kVerified, Color(0xFF0E8FA8)],
               ),
             ),
             child: const Icon(Icons.check_rounded, size: 14, color: Colors.white),
@@ -868,9 +867,9 @@ class BenefitRow extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFFEAEEF9),
+                color: context.cxInk,
                 height: 1.4,
               ),
             ),

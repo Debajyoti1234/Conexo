@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../home_discovery_animations.dart';
 import '../../core/supabase/auth_service.dart';
 import 'profile_creation_sections.dart';
@@ -184,7 +186,7 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kIsWeb ? const Color(0xFF0B1020) : Colors.transparent,
+      backgroundColor: kIsWeb ? context.cxCanvas : Colors.transparent,
       body: SafeArea(
         child: Stack(
           children: [
@@ -317,9 +319,9 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'This is how others will see you.',
-                  style: TextStyle(fontSize: 13.5, color: Color(0xFFB9C3DC)),
+                  style: TextStyle(fontSize: 13.5, color: context.cxSoft),
                 ),
                 const SizedBox(height: 14),
                 AnimatedSize(
@@ -354,15 +356,16 @@ class _ProfileCreationScreenState extends State<ProfileCreationScreen> {
                   'Create your profile',
                   style: TextStyle(
                     fontSize: 26,
-                    fontWeight: FontWeight.w800,
+                    fontFamily: 'Fraunces',
+                    fontWeight: FontWeight.w600,
                     letterSpacing: -0.5,
-                    color: kIsWeb ? Colors.white : null,
+                    color: kIsWeb ? context.cxInk : null,
                   ),
                 ),
                 SizedBox(height: 4),
                 Text(
                   'A few steps to a premium presence.',
-                  style: TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+                  style: TextStyle(fontSize: 14, color: context.cxSoft),
                 ),
               ],
             ),
@@ -422,11 +425,11 @@ class _CompletionOverlay extends StatelessWidget {
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
-                      colors: [Color(0xFF47D7A5), Color(0xFF22BFE0)],
+                      colors: [Color(0xFF1F9D6B), Color(0xFF0E8FA8)],
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Color(0x8847D7A5),
+                        color: Color(0x881F9D6B),
                         blurRadius: 40,
                         spreadRadius: 4,
                       ),
@@ -443,13 +446,14 @@ class _CompletionOverlay extends StatelessWidget {
                   'Profile complete',
                   style: TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w800,
+                    fontFamily: 'Fraunces',
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'You are ready to connect.',
-                  style: TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+                  style: TextStyle(fontSize: 14, color: context.cxSoft),
                 ),
               ],
             ),

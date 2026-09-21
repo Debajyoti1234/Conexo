@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 /// Phases of the one-tap connect flow.
 ///
 /// none → sending (heart burst) → pending → connected.
@@ -84,14 +86,14 @@ class _HeartBurstState extends State<HeartBurst>
                 width: 118,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFFFF4D8D), Color(0xFF7C3AED)],
+                    colors: [Color(0xFFD9485F), context.cxInk],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFFF4D8D)
+                      color: const Color(0xFFD9485F)
                           .withValues(alpha: _glow.value),
                       blurRadius: 46,
                       spreadRadius: 6,

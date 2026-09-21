@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
 import '../../app/theme/app_widgets.dart';
+import '../plans/plans_theme.dart';
+import '../plans/plan_details_widgets.dart';
 import '../home_discovery_animations.dart';
 import 'safety_repository.dart';
 
@@ -31,27 +34,65 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
     });
   }
 
-  Future<void> _unblock(BlockedUser user) async {
+Future<void> _unblock(BlockedUser user) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF141B2E),
-        title: const Text('Unblock User', style: TextStyle(color: Color(0xFFEAEEF9))),
-        content: Text(
-          'Unblock ${user.blockedUserName}?',
-          style: const TextStyle(color: Color(0xFFB9C3DC)),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: context.cxSurface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: context.cxLine),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Unblock User',
+                style: plansDisplay(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: context.cxInk,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Unblock ${user.blockedUserName}?',
+                style: plansBody(
+                  color: context.cxSoft,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      style: TextButton.styleFrom(
+                        foregroundColor: context.cxSoft,
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: context.cxAccent,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Unblock'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8B5CF6)),
-            child: const Text('Unblock'),
-          ),
-        ],
       ),
     );
 
@@ -75,10 +116,10 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Stack(
           children: [
@@ -87,26 +128,28 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
               children: [
                 Row(
                   children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
+                    CircleGlassButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () => Navigator.of(context).maybePop(),
+                      semanticLabel: 'Back',
                     ),
                     const SizedBox(width: 4),
                     Text(
                       'Blocked Users',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: plansDisplay(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: context.cxInk,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 22),
                 if (_loading)
-                  const Center(
+                  Center(
                     child: Padding(
                       padding: EdgeInsets.all(32),
-                      child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+                      child: CircularProgressIndicator(color: context.cxInk),
                     ),
                   )
                 else if (_blocked.isEmpty)
@@ -118,23 +161,23 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
                           Icon(
                             Icons.shield_outlined,
                             size: 56,
-                            color: const Color(0xFF8B5CF6).withValues(alpha: .35),
+                            color: context.cxInk.withValues(alpha: .35),
                           ),
                           const SizedBox(height: 18),
                           Text(
                             "You're not blocking anyone.",
-                            style: TextStyle(
+                            style: plansBody(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFFB9C3DC),
+                              color: context.cxSoft,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'Blocked users will appear here.',
-                            style: TextStyle(
+                            style: plansBody(
                               fontSize: 13,
-                              color: const Color(0xFFB9C3DC).withValues(alpha: .7),
+                              color: context.cxSoft.withValues(alpha: .7),
                             ),
                           ),
                         ],
@@ -174,9 +217,9 @@ class _BlockedUserTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .04),
+        color: context.cxGlass,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        border: Border.all(color: context.cxLine),
       ),
       child: Row(
         children: [
@@ -191,18 +234,18 @@ class _BlockedUserTile extends StatelessWidget {
               children: [
                 Text(
                   user.blockedUserName,
-                  style: const TextStyle(
+                  style: plansBody(
                     fontSize: 15.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFFEAEEF9),
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   'Blocked',
-                  style: TextStyle(
+                  style: plansBody(
                     fontSize: 12.5,
-                    color: const Color(0xFFE36D9D).withValues(alpha: .9),
+                    color: context.cxDanger.withValues(alpha: .9),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -212,11 +255,14 @@ class _BlockedUserTile extends StatelessWidget {
           TextButton(
             onPressed: onUnblock,
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8B5CF6),
+              foregroundColor: context.cxAccent,
             ),
-            child: const Text(
+            child: Text(
               'Unblock',
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: plansBody(
+                fontWeight: FontWeight.w700,
+                color: context.cxAccent,
+              ),
             ),
           ),
         ],
@@ -240,7 +286,7 @@ class _BlockedUserAvatar extends StatelessWidget {
       return CircleAvatar(
         radius: 22,
         backgroundImage: NetworkImage(avatarUrl!),
-        backgroundColor: const Color(0xFF8B5CF6),
+        backgroundColor: context.cxAccent,
       );
     }
     return UserAvatar(name: name, size: 44);

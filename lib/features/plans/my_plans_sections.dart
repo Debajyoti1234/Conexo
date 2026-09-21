@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../home_discovery_animations.dart';
 import 'create_plan_data.dart';
 import 'my_plans_data.dart';
@@ -38,28 +40,28 @@ class InsightsRow extends StatelessWidget {
             value: '${insights.plansHosted}',
             label: 'Plans hosted',
             icon: Icons.campaign_rounded,
-            accent: const Color(0xFF8B5CF6),
+            accent: context.cxInk,
           ),
           const SizedBox(width: 12),
           InsightCard(
             value: '${insights.plansJoined}',
             label: 'Plans joined',
             icon: Icons.event_available_rounded,
-            accent: const Color(0xFF22BFE0),
+            accent: const Color(0xFF0E8FA8),
           ),
           const SizedBox(width: 12),
           InsightCard(
             value: '${insights.totalParticipants}',
             label: 'Participants',
             icon: Icons.groups_rounded,
-            accent: const Color(0xFF47D7A5),
+            accent: const Color(0xFF1F9D6B),
           ),
           const SizedBox(width: 12),
           InsightCard(
             value: '${insights.newConnections}',
             label: 'New connections',
             icon: Icons.favorite_rounded,
-            accent: const Color(0xFFE36D9D),
+            accent: const Color(0xFFD9485F),
           ),
         ],
       ),
@@ -435,10 +437,10 @@ String statusLabelFor(Experience e) {
 Color statusColorFor(Experience e) {
   switch (statusLabelFor(e)) {
     case 'Active':
-      return const Color(0xFF47D7A5);
+      return const Color(0xFF1F9D6B);
     case 'Past':
-      return const Color(0xFF9DB2E8);
+      return Color(0xFF8A8A94);
     default:
-      return const Color(0xFF8B5CF6);
+      return Color(0xFF1B1B1F);
   }
 }

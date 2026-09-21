@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../home_discovery_animations.dart';
 import 'plans_cards.dart';
 import 'plans_data.dart';
+import 'plans_theme.dart';
 import 'plans_widgets.dart';
 
 /// Cinematic hero for the single featured "Tonight's Highlight" experience.
@@ -26,14 +29,9 @@ class FeaturedHero extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: e.accent.withValues(alpha: .3),
-                blurRadius: 34,
-                offset: const Offset(0, 16),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: .4),
+                color: Colors.black.withValues(alpha: .14),
                 blurRadius: 30,
-                offset: const Offset(0, 18),
+                offset: const Offset(0, 14),
               ),
             ],
           ),
@@ -47,7 +45,7 @@ class FeaturedHero extends StatelessWidget {
                   child: PlanCover(asset: e.coverAsset, accent: e.accent),
                 ),
 
-              Positioned(
+Positioned(
                 top: 16,
                 left: 16,
                 child: Container(
@@ -56,18 +54,16 @@ class FeaturedHero extends StatelessWidget {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: .34),
+                    color: context.cxGlass,
                     borderRadius: BorderRadius.circular(30),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: .18),
-                    ),
+                    border: Border.all(color: context.cxLine),
                   ),
-                  child: const Text(
-                    '✨ Tonight\'s Highlight',
-                    style: TextStyle(
+                  child: Text(
+                    'Tonight\'s highlight',
+                    style: plansBody(
                       fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      color: context.cxInk,
                     ),
                   ),
                 ),
@@ -75,7 +71,18 @@ class FeaturedHero extends StatelessWidget {
               Positioned(
                 top: 16,
                 right: 16,
-                child: VisibilityBadge(isPublic: e.isPublic),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    MoodBadge(
+                      emoji: e.moodEmoji,
+                      mood: e.mood,
+                      accent: e.accent,
+                    ),
+                    const SizedBox(width: 8),
+                    VisibilityBadge(isPublic: e.isPublic),
+                  ],
+                ),
               ),
               Positioned(
                 left: 20,
@@ -88,27 +95,21 @@ class FeaturedHero extends StatelessWidget {
                       e.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
+                      style: plansDisplay(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w500,
                         letterSpacing: -0.6,
                         color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        MoodBadge(
-                          emoji: e.moodEmoji,
-                          mood: e.mood,
-                          accent: e.accent,
-                        ),
-                        InfoChip(emoji: '📅', label: e.date),
-                        InfoChip(emoji: '⏰', label: e.time),
-                        InfoChip(emoji: '📍', label: e.distance),
-                        InfoChip(emoji: '👥', label: '${e.goingCount} Going'),
+                    PlanMetaLine(
+                      fontSize: 13,
+                      items: [
+                        (Icons.calendar_today_outlined, e.date),
+                        (Icons.schedule_outlined, e.time),
+                        (Icons.place_outlined, e.distance),
+                        (Icons.people_outline, '${e.goingCount} going'),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -126,9 +127,9 @@ class FeaturedHero extends StatelessWidget {
                             'Hosted by ${e.host}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: plansBody(
                               fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w500,
                               color: Colors.white,
                             ),
                           ),
@@ -152,11 +153,11 @@ class FeaturedHero extends StatelessWidget {
 
 /// The "All" pseudo-category prepended to the strip. A `null` selection in
 /// [PlansFilterState] represents All; this entry drives its visual card.
-const PlanCategory allCategory = PlanCategory(
+PlanCategory allCategory = PlanCategory(
   'All',
   '✨',
-  Icons.auto_awesome_mosaic_rounded,
-  Color(0xFF8B5CF6),
+  Icons.grid_view_outlined,
+  Colors.transparent, // Theme-aware via CategoryCard; not used directly
 );
 
 /// Horizontal strip of premium glass category cards. Fully controlled: "All"
@@ -176,13 +177,13 @@ class CategoryStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = <PlanCategory>[allCategory, ...planCategories];
     return SizedBox(
-      height: 108,
+      height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: items.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 12),
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, i) => CategoryCard(
           category: items[i],
           selected: i == selectedIndex,
@@ -224,14 +225,15 @@ class ExperienceRail extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
+Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
           child: Text(
             title,
-            style: const TextStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
+            style: plansDisplay(
+              fontSize: 24,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.4,
+              color: context.cxInk,
             ),
           ),
         ),

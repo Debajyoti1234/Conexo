@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 import '../app/theme/app_widgets.dart';
 
 class SectionHeader extends StatelessWidget {
@@ -56,15 +58,15 @@ class HostCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     '${plan.distance} away',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFFB9C3DC),
+                      color: context.cxSoft,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.more_horiz_rounded, color: Color(0xFFB9C3DC)),
+            Icon(Icons.more_horiz_rounded, color: context.cxSoft),
           ],
         ),
         const SizedBox(height: 18),
@@ -79,7 +81,7 @@ class HostCard extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           plan.description,
-          style: const TextStyle(color: Color(0xFFB9C3DC), height: 1.4),
+          style: TextStyle(color: context.cxSoft, height: 1.4),
         ),
         const SizedBox(height: 16),
         Row(
@@ -87,7 +89,7 @@ class HostCard extends StatelessWidget {
             const Icon(
               Icons.schedule_rounded,
               size: 16,
-              color: Color(0xFF77DFF1),
+              color: Color(0xFF0E8FA8),
             ),
             const SizedBox(width: 6),
             Expanded(
@@ -102,12 +104,12 @@ class HostCard extends StatelessWidget {
             const Icon(
               Icons.people_outline_rounded,
               size: 16,
-              color: Color(0xFFFF8BAE),
+              color: Color(0xFFD9485F),
             ),
             const SizedBox(width: 6),
             Text(
               '${plan.members} joined',
-              style: const TextStyle(fontSize: 13, color: Color(0xFFB9C3DC)),
+              style: TextStyle(fontSize: 13, color: context.cxSoft),
             ),
           ],
         ),
@@ -122,7 +124,7 @@ class HostCard extends StatelessWidget {
                 ? const LinearGradient(
                     colors: [Color(0xFF2F7B69), Color(0xFF238F86)],
                   )
-                : LinearGradient(colors: [plan.color, const Color(0xFF587BE2)]),
+                : LinearGradient(colors: [plan.color, context.cxInk]),
           ),
           child: Material(
             color: Colors.transparent,
@@ -135,7 +137,10 @@ class HostCard extends StatelessWidget {
                   child: Text(
                     joined ? "You're In" : 'Join Plan',
                     key: ValueKey<bool>(joined),
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -175,7 +180,7 @@ const nearbyPlans = [
     distance: '0.8 km',
     members: 3,
     time: 'Today - 6:30 PM',
-    color: Color(0xFFE36D9D),
+    color: Color(0xFFD9485F),
   ),
   PlanPreview(
     host: 'Arjun Mehta',
@@ -185,7 +190,7 @@ const nearbyPlans = [
     distance: '1.4 km',
     members: 5,
     time: 'Today - 8:00 PM',
-    color: Color(0xFF22BFE0),
+    color: Color(0xFF0E8FA8),
   ),
   PlanPreview(
     host: 'Nora Ali',
@@ -195,6 +200,6 @@ const nearbyPlans = [
     distance: '2.1 km',
     members: 4,
     time: 'Tomorrow - 7:30 PM',
-    color: Color(0xFFF09A65),
+    color: Color(0xFFD07A3A),
   ),
 ];

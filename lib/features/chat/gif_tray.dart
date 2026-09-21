@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'gif_service.dart';
 
 /// Inline GIF tray that renders directly above the composer.
@@ -125,9 +127,9 @@ class _GifTrayState extends State<GifTray> {
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 6, 12, 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF141B2E),
+        color: context.cxSurface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .08)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -137,7 +139,7 @@ class _GifTrayState extends State<GifTray> {
             width: 36,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .18),
+              color: context.cxInk.withValues(alpha: .18),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -176,7 +178,7 @@ class _GifTrayState extends State<GifTray> {
         itemCount: rowCount * colCount,
         itemBuilder: (_, _) => Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .04),
+            color: context.cxInk.withValues(alpha: .04),
             borderRadius: BorderRadius.circular(8),
           ),
         ),
@@ -194,22 +196,22 @@ class _GifTrayState extends State<GifTray> {
             Icon(
               Icons.broken_image_rounded,
               size: 32,
-              color: Colors.white.withValues(alpha: .3),
+              color: context.cxInk.withValues(alpha: .3),
             ),
             const SizedBox(height: 8),
             Text(
               _error ?? 'Something went wrong',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white.withValues(alpha: .5),
+                color: context.cxInk.withValues(alpha: .5),
               ),
             ),
             const SizedBox(height: 12),
             TextButton(
               onPressed: _loading ? null : _onRetry,
-              child: const Text(
+              child: Text(
                 'Retry',
-                style: TextStyle(color: Color(0xFF8B5CF6)),
+                style: TextStyle(color: context.cxInk),
               ),
             ),
           ],
@@ -260,12 +262,12 @@ class _GifTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
-        splashColor: Colors.white.withValues(alpha: .10),
+        splashColor: context.cxInk.withValues(alpha: .10),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .04),
+            color: context.cxInk.withValues(alpha: .04),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white.withValues(alpha: .06)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .06)),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),

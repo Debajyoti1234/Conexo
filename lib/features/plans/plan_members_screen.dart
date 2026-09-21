@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../app/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/auth_service.dart';
@@ -84,11 +86,11 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF141B2E),
-        title: const Text('Remove Member', style: TextStyle(color: Color(0xFFEAEEF9))),
+        backgroundColor: context.cxSurface,
+        title: Text('Remove Member', style: TextStyle(color: context.cxInk)),
         content: Text(
           'Remove ${member.displayName?.trim().isNotEmpty ?? false ? member.displayName!.trim() : 'this member'} from the plan?',
-          style: const TextStyle(color: Color(0xFFB9C3DC)),
+          style: TextStyle(color: context.cxSoft),
         ),
         actions: [
           TextButton(
@@ -97,7 +99,7 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF4D8D)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD9485F)),
             child: const Text('Remove'),
           ),
         ],
@@ -122,7 +124,7 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
         SnackBar(
           content: Text(e.message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
     }
@@ -137,7 +139,7 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile not available'),
-            backgroundColor: Color(0xFFFF4D8D),
+            backgroundColor: Color(0xFFD9485F),
           ),
         );
         return;
@@ -151,25 +153,25 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1020),
+      backgroundColor: context.cxCanvas,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1020).withValues(alpha: .92),
+        backgroundColor: context.cxCanvas.withValues(alpha: .92),
         title: Text(
           _planTitle ?? 'Members',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
-            color: Colors.white,
+            color: context.cxInk,
           ),
         ),
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          icon: Icon(Icons.arrow_back_rounded, color: context.cxInk),
         ),
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+          ? Center(
+              child: CircularProgressIndicator(color: context.cxInk),
             )
           : _error != null
               ? Center(
@@ -178,7 +180,7 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.wifi_off_rounded, size: 40, color: Color(0xFFFF4D8D)),
+                        const Icon(Icons.wifi_off_rounded, size: 40, color: Color(0xFFD9485F)),
                         const SizedBox(height: 16),
                         Text(
                           'Something went wrong',
@@ -188,7 +190,7 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
                         Text(
                           _error!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 13.5, color: Color(0xFFB9C3DC)),
+                          style: TextStyle(fontSize: 13.5, color: context.cxSoft),
                         ),
                       ],
                     ),
@@ -198,7 +200,7 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
                   ? Center(
                       child: Text(
                         'No members yet',
-                        style: const TextStyle(fontSize: 15, color: Color(0xFF9DB2E8)),
+                        style: TextStyle(fontSize: 15, color: context.cxMuted),
                       ),
                     )
                   : ListView.builder(
@@ -215,15 +217,15 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: .04),
+                              color: context.cxInk.withValues(alpha: .04),
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white.withValues(alpha: .06)),
+                              border: Border.all(color: context.cxInk.withValues(alpha: .06)),
                             ),
                             child: ListTile(
                               contentPadding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
                               leading: ParticipantAvatar(
                                 asset: member.photoUrl ?? '',
-                                accent: const Color(0xFF8B5CF6),
+                                accent: context.cxInk,
                                 label: member.displayName?.trim().isNotEmpty ?? false
                                     ? member.displayName!.trim()
                                     : '?',
@@ -245,10 +247,10 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
                                     : isMe
                                         ? 'You'
                                         : 'Member',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFF9DB2E8),
+                                  color: context.cxMuted,
                                 ),
                               ),
                               trailing: canRemove
@@ -256,14 +258,14 @@ class _PlanMembersScreenState extends State<PlanMembersScreen> {
                                       onPressed: () => _removeMember(member),
                                       icon: const Icon(
                                         Icons.close_rounded,
-                                        color: Color(0xFFFF6B6B),
+                                        color: Color(0xFFD9485F),
                                       ),
                                       tooltip: 'Remove',
                                     )
                                   : isHost
                                       ? Icon(
                                           Icons.star_rounded,
-                                          color: const Color(0xFFFFC24D),
+                                          color: const Color(0xFFC98A1E),
                                           size: 20,
                                         )
                                       : null,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../home_discovery_animations.dart';
 import 'chat_models.dart';
 import 'chat_widgets.dart';
@@ -33,17 +35,18 @@ class ConnectionsHeader extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 30,
-              fontWeight: FontWeight.w800,
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w600,
               letterSpacing: -0.6,
-              color: Colors.white,
+              color: context.cxInk,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+            style: TextStyle(fontSize: 14, color: context.cxSoft),
           ),
         ],
       ),
@@ -101,9 +104,9 @@ class PinnedConversationsSection extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .045),
+                color: context.cxInk.withValues(alpha: .045),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.white.withValues(alpha: .08)),
+                border: Border.all(color: context.cxInk.withValues(alpha: .08)),
               ),
               child: Column(
                 children: [

@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../app/theme/app_theme.dart';
+
 /// Shared design kit for the premium 3-angle identity-verification flow.
 ///
 /// Centralizes the Conexo luxury-dark tokens and the reusable premium
@@ -41,30 +43,6 @@ Route<T> verifyFadeSlideRoute<T>(Widget page) {
   );
 }
 
-class VerifyColors {
-  const VerifyColors._();
-
-  static const bgTop = Color(0xFF0C1226);
-  static const bgBottom = Color(0xFF080B18);
-  static const glass = Color(0xFF141C31);
-  static const glassRaised = Color(0xFF182039);
-
-  static const accent = Color(0xFF8B5CF6);
-  static const accent2 = Color(0xFF587BE2);
-  static const accentSoft = Color(0xFFB7A5FF);
-  static const glyph = Color(0xFFC9BCFF);
-
-  static const verified = Color(0xFF47D7A5);
-  static const verified2 = Color(0xFF22BFE0);
-  static const warn = Color(0xFFFFC24D);
-
-  static const text = Color(0xFFEAEEF9);
-  static const soft = Color(0xFFB9C3DC);
-  static const muted = Color(0xFF8A96B8);
-
-  static Color line = Colors.white.withValues(alpha: .09);
-}
-
 /// Local SVG asset paths (bundled under assets/verification/).
 class VerifyAsset {
   const VerifyAsset._();
@@ -93,20 +71,21 @@ class VerifyGlyph extends StatelessWidget {
     this.asset, {
     super.key,
     this.size = 24,
-    this.color = VerifyColors.glyph,
-  });
+    Color? color,
+  }) : color = color;
 
   final String asset;
   final double size;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = color ?? context.cxAccentSoft;
     return SvgPicture.asset(
       asset,
       width: size,
       height: size,
-      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+      colorFilter: ColorFilter.mode(effectiveColor, BlendMode.srcIn),
     );
   }
 }
@@ -118,20 +97,21 @@ class VerifyBackground extends StatelessWidget {
   const VerifyBackground({
     required this.child,
     super.key,
-    this.glow = VerifyColors.accent,
+    this.glow,
   });
 
   final Widget child;
-  final Color glow;
+  final Color? glow;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveGlow = glow ?? context.cxAccent;
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [VerifyColors.bgTop, VerifyColors.bgBottom],
+          colors: [context.cxCanvas, context.cxCanvas],
         ),
       ),
       child: Stack(
@@ -146,8 +126,8 @@ class VerifyBackground extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
                     colors: [
-                      glow.withValues(alpha: .20),
-                      glow.withValues(alpha: 0),
+                      effectiveGlow.withValues(alpha: .20),
+                      effectiveGlow.withValues(alpha: 0),
                     ],
                   ),
                 ),
@@ -202,9 +182,9 @@ class VerifyGlass extends StatelessWidget {
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
-              color: VerifyColors.glass.withValues(alpha: .55),
+              color: context.cxGlass.withValues(alpha: .55),
               borderRadius: BorderRadius.circular(radius),
-              border: Border.all(color: borderColor ?? VerifyColors.line),
+              border: Border.all(color: borderColor ?? context.cxLine),
             ),
             child: child,
           ),
@@ -221,19 +201,21 @@ class VerifyGlowBadge extends StatelessWidget {
     required this.child,
     super.key,
     this.size = 56,
-    this.colors = const [VerifyColors.accent, VerifyColors.accent2],
-    this.glowColor = VerifyColors.accent,
+    this.colors,
+    this.glowColor,
     this.glowStrength = .45,
   });
 
   final Widget child;
   final double size;
-  final List<Color> colors;
-  final Color glowColor;
+  final List<Color>? colors;
+  final Color? glowColor;
   final double glowStrength;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveColors = colors ?? [context.cxAccent, context.cxAccent];
+    final effectiveGlowColor = glowColor ?? context.cxAccent;
     return Container(
       height: size,
       width: size,
@@ -243,11 +225,11 @@ class VerifyGlowBadge extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: colors,
+          colors: effectiveColors,
         ),
         boxShadow: [
           BoxShadow(
-            color: glowColor.withValues(alpha: glowStrength),
+            color: effectiveGlowColor.withValues(alpha: glowStrength),
             blurRadius: size * .5,
             spreadRadius: 1,
           ),
@@ -302,14 +284,14 @@ class _VerifyCtaState extends State<VerifyCta> {
             height: 56,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [VerifyColors.accent, VerifyColors.accent2],
+              gradient: LinearGradient(
+                colors: [context.cxAccent, context.cxAccent],
               ),
               borderRadius: BorderRadius.circular(16),
               boxShadow: active
                   ? [
                       BoxShadow(
-                        color: VerifyColors.accent.withValues(alpha: .5),
+                        color: context.cxAccent.withValues(alpha: .5),
                         blurRadius: 24,
                         offset: const Offset(0, 10),
                       ),
@@ -361,7 +343,7 @@ class VerifyTextLink extends StatelessWidget {
     return TextButton(
       onPressed: onTap,
       style: TextButton.styleFrom(
-        foregroundColor: VerifyColors.accentSoft,
+        foregroundColor: context.cxAccentSoft,
         textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
       ),
       child: Text(label),
@@ -390,10 +372,10 @@ class VerifyTopBar extends StatelessWidget {
     Widget iconButton(IconData icon, VoidCallback onTap, String tip) {
       return IconButton(
         onPressed: onTap,
-        icon: Icon(icon, color: VerifyColors.text),
+        icon: Icon(icon, color: context.cxInk),
         tooltip: tip,
         style: IconButton.styleFrom(
-          backgroundColor: Colors.white.withValues(alpha: .06),
+          backgroundColor: context.cxInk.withValues(alpha: .06),
         ),
       );
     }
@@ -432,17 +414,17 @@ class VerifyStepPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
-        color: VerifyColors.accent.withValues(alpha: .16),
+        color: context.cxAccent.withValues(alpha: .16),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: VerifyColors.accent.withValues(alpha: .45)),
+        border: Border.all(color: context.cxAccent.withValues(alpha: .45)),
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.6,
-          color: VerifyColors.accentSoft,
+          color: context.cxAccentSoft,
         ),
       ),
     );
@@ -477,7 +459,7 @@ class VerifyInstructionCard extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: VerifyColors.accent.withValues(alpha: .14),
+              color: context.cxAccent.withValues(alpha: .14),
             ),
             child: VerifyGlyph(asset, size: 22),
           ),
@@ -488,19 +470,19 @@ class VerifyInstructionCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: VerifyColors.text,
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   body,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     height: 1.4,
-                    color: VerifyColors.soft,
+                    color: context.cxSoft,
                   ),
                 ),
               ],
@@ -529,15 +511,15 @@ class VerifyIndicatorChip extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        VerifyGlyph(asset, size: 22, color: VerifyColors.accentSoft),
+        VerifyGlyph(asset, size: 22, color: context.cxAccentSoft),
         const SizedBox(height: 6),
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
             height: 1.25,
-            color: VerifyColors.soft,
+            color: context.cxSoft,
           ),
         ),
       ],

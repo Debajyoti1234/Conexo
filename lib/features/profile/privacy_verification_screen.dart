@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
+import '../../app/theme/app_theme.dart';
 import '../../core/supabase/auth_service.dart';
 import 'face_verification_client.dart';
 import 'privacy_verification_sections.dart';
@@ -278,8 +279,11 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final light = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
-      backgroundColor: kIsWeb ? Colors.black : Colors.transparent,
+      backgroundColor: kIsWeb
+          ? (light ? AppPalette.canvas : Colors.black)
+          : Colors.transparent,
       body: SafeArea(
         child: Stack(
           children: [
@@ -311,8 +315,8 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+      return Center(
+        child: CircularProgressIndicator(color: context.cxInk),
       );
     }
     if (_notFound) {
@@ -359,22 +363,23 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
             tooltip: 'Back',
           ),
           const SizedBox(width: 4),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Privacy & Verification',
                   style: TextStyle(
                     fontSize: 24,
-                    fontWeight: FontWeight.w800,
+                    fontFamily: 'Fraunces',
+                    fontWeight: FontWeight.w600,
                     letterSpacing: -0.5,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   'Control your visibility and trust.',
-                  style: TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+                  style: TextStyle(fontSize: 14, color: context.cxSoft),
                 ),
               ],
             ),
@@ -408,6 +413,11 @@ class _SavePrivacyButtonState extends State<_SavePrivacyButton> {
   @override
   Widget build(BuildContext context) {
     final active = widget.enabled && !widget.loading;
+    final light = context.isLightTheme;
+    final ctaColors = light
+        ? const [Color(0xFF1B1B1F), Color(0xFF1B1B1F)]
+        : const [Color(0xFF8B5CF6), Color(0xFF7659DF)];
+    final glow = light ? context.cxInk : const Color(0xFF8B5CF6);
     return GestureDetector(
       onTapDown: active ? (_) => setState(() => _pressed = true) : null,
       onTapUp: active ? (_) => setState(() => _pressed = false) : null,
@@ -424,14 +434,12 @@ class _SavePrivacyButtonState extends State<_SavePrivacyButton> {
             height: 56,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
-              ),
+              gradient: LinearGradient(colors: ctaColors),
               borderRadius: BorderRadius.circular(16),
               boxShadow: active
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: .5),
+                        color: glow.withValues(alpha: .5),
                         blurRadius: 24,
                         offset: const Offset(0, 10),
                       ),
@@ -478,10 +486,10 @@ class _EmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.privacy_tip_outlined,
                 size: 56,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
               const SizedBox(height: 16),
               const Text(
@@ -489,16 +497,16 @@ class _EmptyState extends StatelessWidget {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Create your profile first to manage privacy and verification.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+                style: TextStyle(fontSize: 14, color: context.cxSoft),
               ),
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: onBack,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF8B5CF6),
+                  backgroundColor: context.cxAccent,
                 ),
                 child: const Text('Go back'),
               ),

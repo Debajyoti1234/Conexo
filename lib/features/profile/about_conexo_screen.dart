@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../app/theme/app_theme.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../app/theme/app_widgets.dart';
@@ -35,10 +37,10 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Stack(
           children: [
@@ -62,7 +64,7 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                   ],
                 ),
                 const SizedBox(height: 28),
-                Center(
+Center(
                   child: EntranceFade(
                     child: Column(
                       children: [
@@ -70,12 +72,13 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                           height: 80,
                           width: 80,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8B5CF6).withValues(alpha: .18),
+                            color: context.cxGlass,
                             borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: context.cxLine),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.people_alt_rounded,
-                            color: Color(0xFFB7A5FF),
+                            color: context.cxAccent,
                             size: 40,
                           ),
                         ),
@@ -84,8 +87,9 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                           'Conexo',
                           style: TextStyle(
                             fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white.withValues(alpha: .95),
+                            fontFamily: 'Fraunces',
+                            fontWeight: FontWeight.w600,
+                            color: context.cxInk.withValues(alpha: .95),
                             letterSpacing: 0.3,
                           ),
                         ),
@@ -97,7 +101,7 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             height: 1.5,
-                            color: const Color(0xFFB9C3DC),
+                            color: context.cxSoft,
                           ),
                         ),
                       ],
@@ -115,7 +119,7 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Colors.white.withValues(alpha: .92),
+                          color: context.cxInk.withValues(alpha: .92),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -126,7 +130,7 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           height: 1.55,
-                          color: const Color(0xFFB9C3DC),
+                          color: context.cxSoft,
                         ),
                       ),
                     ],
@@ -143,7 +147,7 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Colors.white.withValues(alpha: .92),
+                          color: context.cxInk.withValues(alpha: .92),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -155,7 +159,7 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           height: 1.55,
-                          color: const Color(0xFFB9C3DC),
+                          color: context.cxSoft,
                         ),
                       ),
                     ],
@@ -167,7 +171,7 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white.withValues(alpha: .92),
+                    color: context.cxInk.withValues(alpha: .92),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -183,7 +187,7 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: Colors.white.withValues(alpha: .7),
+                      color: context.cxInk.withValues(alpha: .7),
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -194,7 +198,7 @@ class _AboutConexoScreenState extends State<AboutConexoScreen> {
                     _loadingVersion ? 'Loading...' : 'Version $_version',
                     style: TextStyle(
                       fontSize: 12.5,
-                      color: const Color(0xFFB9C3DC).withValues(alpha: .7),
+                      color: context.cxSoft.withValues(alpha: .7),
                     ),
                   ),
                 ),
@@ -253,9 +257,9 @@ class _PrincipleCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .04),
+        color: context.cxSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        border: Border.all(color: context.cxLine),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,10 +268,11 @@ class _PrincipleCard extends StatelessWidget {
             height: 36,
             width: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF8B5CF6).withValues(alpha: .16),
+              color: context.cxGlass,
               borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: context.cxLine),
             ),
-            child: Icon(principle.icon, color: const Color(0xFF8B5CF6), size: 18),
+            child: Icon(principle.icon, color: context.cxInk, size: 18),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -276,10 +281,10 @@ class _PrincipleCard extends StatelessWidget {
               children: [
                 Text(
                   principle.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFFEAEEF9),
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -288,7 +293,7 @@ class _PrincipleCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13.5,
                     height: 1.45,
-                    color: const Color(0xFFB9C3DC),
+                    color: context.cxSoft,
                   ),
                 ),
               ],

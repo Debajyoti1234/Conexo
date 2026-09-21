@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
 import '../../features/home_connection_dashboard_cards.dart';
 import '../../features/profile/connections_view_model.dart';
 import '../../features/profile/profile_navigation_mapper.dart';
@@ -84,7 +85,7 @@ class _RequestsPageState extends State<RequestsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: const Color(0xFFFF4D8D),
+        backgroundColor: const Color(0xFFD9485F),
       ),
     );
   }
@@ -107,7 +108,7 @@ class _RequestsPageState extends State<RequestsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1020),
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Column(
           children: [
@@ -117,18 +118,19 @@ class _RequestsPageState extends State<RequestsPage> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_rounded,
-                        color: Colors.white),
+                    icon: Icon(Icons.arrow_back_rounded,
+                        color: context.cxInk),
                     tooltip: 'Back',
                   ),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Connection Requests',
                       style: TextStyle(
                         fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFEAEEF9),
+                        fontFamily: 'Fraunces',
+                        fontWeight: FontWeight.w600,
+                        color: context.cxInk,
                         letterSpacing: -0.4,
                       ),
                     ),
@@ -138,8 +140,8 @@ class _RequestsPageState extends State<RequestsPage> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+                  ? Center(
+                      child: CircularProgressIndicator(color: context.cxAccent),
                     )
                   : _error != null
                       ? _ErrorState(message: _error!, onRetry: _load)
@@ -150,7 +152,7 @@ class _RequestsPageState extends State<RequestsPage> {
                                   'No new requests. You\'re all caught up.',
                             )
                            : RefreshIndicator(
-                               color: const Color(0xFF8B5CF6),
+                               color: context.cxAccent,
                                onRefresh: _load,
                                child: ListView(
                                  padding:
@@ -234,9 +236,9 @@ class _RequestRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF141C31).withValues(alpha: .55),
+        color: context.cxSurface.withValues(alpha: .55),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .08)),
       ),
       child: Column(
         children: [
@@ -249,7 +251,7 @@ class _RequestRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(28),
                   child: PortraitAvatar(
                     name: request.otherUserName,
-                    color: request.otherUserColor ?? const Color(0xFFFF4D8D),
+                    color: request.otherUserColor ?? const Color(0xFFD9485F),
                     portrait: request.otherUserPortrait ?? '',
                     size: 52,
                   ),
@@ -275,10 +277,10 @@ class _RequestRow extends StatelessWidget {
                           request.otherUserBio ?? '',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12.5,
                             height: 1.35,
-                            color: Color(0xFFB9C3DC),
+                            color: context.cxSoft,
                           ),
                         ),
                       ],
@@ -335,10 +337,10 @@ class _ErrorState extends StatelessWidget {
             width: 58,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFF4D8D).withValues(alpha: .12),
+              color: const Color(0xFFD9485F).withValues(alpha: .12),
             ),
             child: const Icon(Icons.wifi_off_rounded,
-                size: 27, color: Color(0xFFFF4D8D)),
+                size: 27, color: Color(0xFFD9485F)),
           ),
           const SizedBox(height: 14),
           Text(
@@ -352,9 +354,9 @@ class _ErrorState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
-              color: Color(0xFFB9C3DC),
+              color: context.cxSoft,
             ),
           ),
           const SizedBox(height: 18),
@@ -387,19 +389,19 @@ class _EmptyState extends StatelessWidget {
               width: 58,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF7C3AED).withValues(alpha: .14),
+                color: context.cxAccent.withValues(alpha: .14),
               ),
-              child: Icon(icon, size: 27, color: const Color(0xFFB7A5FF)),
+              child: Icon(icon, size: 27, color: context.cxAccentSoft),
             ),
             const SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
                 height: 1.45,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
             ),
           ],

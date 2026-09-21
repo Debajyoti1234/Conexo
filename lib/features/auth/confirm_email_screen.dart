@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../app/router/app_router.dart';
 import '../../features/auth_components.dart';
 import '../../features/login_screen.dart';
@@ -34,8 +36,8 @@ class ConfirmEmailScreen extends StatelessWidget {
                 Text(
                   email,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFFB7A5FF),
+                  style: TextStyle(
+                    color: context.cxInk,
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
                   ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' hide ConnectionState;
 
+import '../../../app/theme/app_theme.dart';
 import 'home_discovery_data.dart';
 
 class GlassContainer extends StatelessWidget {
@@ -14,9 +15,9 @@ class GlassContainer extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: padding,
     decoration: BoxDecoration(
-      color: const Color(0xFF1A2238).withValues(alpha: .82),
+      color: context.cxSurface.withValues(alpha: .82),
       borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: Colors.white.withValues(alpha: .1)),
+      border: Border.all(color: context.cxLine),
     ),
     child: child,
   );
@@ -47,7 +48,7 @@ class DiscoverySectionHeader extends StatelessWidget {
       ),
       Text(
         subtitle,
-        style: const TextStyle(color: Color(0xFF9EABC9), fontSize: 13),
+        style: TextStyle(color: context.cxMuted, fontSize: 13),
       ),
     ],
   );
@@ -81,12 +82,13 @@ class PersonDiscoveryCard extends StatelessWidget {
                 '${person.name}, ${person.age}',
                 style: const TextStyle(
                   fontSize: 25,
-                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Fraunces',
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
                 '📍 ${person.distance}',
-                style: const TextStyle(color: Color(0xFFB9C3DC)),
+                style: TextStyle(color: context.cxMuted),
               ),
               const SizedBox(height: 14),
               Wrap(
@@ -99,7 +101,7 @@ class PersonDiscoveryCard extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 person.introduction,
-                style: const TextStyle(color: Color(0xFFDCE3F4)),
+                style: TextStyle(color: context.cxSoft),
               ),
               const SizedBox(height: 20),
               ConnectionButton(
@@ -122,7 +124,7 @@ class _Portrait extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     height: 230,
     decoration: BoxDecoration(
-      gradient: LinearGradient(colors: [person.color, const Color(0xFF11182C)]),
+      gradient: LinearGradient(colors: [person.color, context.cxInk]),
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
     ),
     child: Center(
@@ -131,7 +133,12 @@ class _Portrait extends StatelessWidget {
         backgroundColor: Colors.white24,
         child: Text(
           person.name[0],
-          style: const TextStyle(fontSize: 46, fontWeight: FontWeight.w800),
+          style: const TextStyle(
+            fontSize: 46,
+            fontFamily: 'Fraunces',
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
         ),
       ),
     ),

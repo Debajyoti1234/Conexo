@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 import 'home_discovery_animations.dart';
 
 /// Premium skeleton shown briefly while a profile is being revealed.
@@ -48,10 +50,10 @@ class ProfileSkeleton extends StatelessWidget {
                 filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF141C31).withValues(alpha: .82),
+                    color: context.cxSurface.withValues(alpha: .82),
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
                     border: Border(
-                      top: BorderSide(color: Colors.white.withValues(alpha: .1)),
+                      top: BorderSide(color: context.cxInk.withValues(alpha: .1)),
                     ),
                   ),
                   padding: const EdgeInsets.fromLTRB(24, 18, 24, 120),
@@ -79,12 +81,12 @@ class _SkeletonHero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          const DecoratedBox(
+          DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF28324F), Color(0xFF1A2238)],
+                colors: [context.cxLine, context.cxSurface],
                 stops: [0.0, 1.0],
               ),
             ),
@@ -96,7 +98,7 @@ class _SkeletonHero extends StatelessWidget {
               width: 196,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF2A3352),
+                color: context.cxLine,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: .25),
@@ -184,7 +186,7 @@ class _SkeletonCircle extends StatelessWidget {
         height: size,
         width: size,
         decoration: BoxDecoration(
-          color: const Color(0xFF232C47),
+          color: context.cxSurface,
           shape: BoxShape.circle,
         ),
       ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-const _kAccent = Color(0xFF8B5CF6);
-const _kSoftText = Color(0xFFB9C3DC);
-const _kVerified = Color(0xFF47D7A5);
+import '../../app/theme/app_theme.dart';
+
+const _kVerified = Color(0xFF1F9D6B);
 
 Future<void> showVerificationLoadingDialog(BuildContext context) {
   return showGeneralDialog<void>(
@@ -43,19 +43,19 @@ class _VerificationLoadingDialog extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
-              color: const Color(0xFF182039).withValues(alpha: .92),
+              color: context.cxSurface.withValues(alpha: .92),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withValues(alpha: .09)),
+              border: Border.all(color: context.cxInk.withValues(alpha: .09)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(
+                SizedBox(
                   height: 36,
                   width: 36,
                   child: CircularProgressIndicator(
                     strokeWidth: 3,
-                    color: _kAccent,
+                    color: context.cxAccent,
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -69,7 +69,7 @@ class _VerificationLoadingDialog extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   'This usually takes a few seconds.',
-                  style: const TextStyle(fontSize: 13, color: _kSoftText),
+                  style: TextStyle(fontSize: 13, color: context.cxSoft),
                 ),
               ],
             ),
@@ -124,9 +124,9 @@ class _VerificationErrorDialog extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF182039).withValues(alpha: .92),
+              color: context.cxSurface.withValues(alpha: .92),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withValues(alpha: .09)),
+              border: Border.all(color: context.cxInk.withValues(alpha: .09)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -139,12 +139,12 @@ class _VerificationErrorDialog extends StatelessWidget {
                       width: 36,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: const Color(0xFFFF8BAE).withValues(alpha: .18),
+                        color: const Color(0xFFD9485F).withValues(alpha: .18),
                       ),
                       child: const Icon(
                         Icons.close_rounded,
                         size: 20,
-                        color: Color(0xFFFF8BAE),
+                        color: Color(0xFFD9485F),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -162,14 +162,14 @@ class _VerificationErrorDialog extends StatelessWidget {
                 const SizedBox(height: 14),
                 Text(
                   message,
-                  style: const TextStyle(fontSize: 14, color: _kSoftText),
+                  style: TextStyle(fontSize: 14, color: context.cxSoft),
                 ),
                 const SizedBox(height: 18),
                 Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    style: FilledButton.styleFrom(backgroundColor: _kAccent),
+                    style: FilledButton.styleFrom(backgroundColor: context.cxAccent),
                     child: const Text('Got it'),
                   ),
                 ),
@@ -221,9 +221,9 @@ class _VerificationSuccessDialog extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF182039).withValues(alpha: .92),
+              color: context.cxSurface.withValues(alpha: .92),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withValues(alpha: .09)),
+              border: Border.all(color: context.cxInk.withValues(alpha: .09)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -234,7 +234,7 @@ class _VerificationSuccessDialog extends StatelessWidget {
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
-                      colors: [_kVerified, Color(0xFF22BFE0)],
+                      colors: [_kVerified, Color(0xFF0E8FA8)],
                     ),
                   ),
                   child: const Icon(
@@ -254,7 +254,7 @@ class _VerificationSuccessDialog extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   'Your verified badge is now visible to others.',
-                  style: const TextStyle(fontSize: 13, color: _kSoftText),
+                  style: TextStyle(fontSize: 13, color: context.cxSoft),
                 ),
                 const SizedBox(height: 18),
                 Align(

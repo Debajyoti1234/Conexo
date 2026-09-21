@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'plans_data.dart';
+import 'plans_theme.dart';
 import 'plans_widgets.dart';
 
 /// The premium experience card. One reusable component renders four
@@ -83,19 +86,14 @@ BoxDecoration _cardShell(Color accent, {bool hovered = false}) => BoxDecoration(
   borderRadius: BorderRadius.circular(24),
   boxShadow: [
     BoxShadow(
-      color: Colors.black.withValues(alpha: hovered ? .48 : .38),
-      blurRadius: hovered ? 34 : 26,
-      offset: Offset(0, hovered ? 20 : 14),
-    ),
-    BoxShadow(
-      color: accent.withValues(alpha: hovered ? .28 : .18),
-      blurRadius: hovered ? 38 : 30,
-      offset: const Offset(0, 6),
+      color: Colors.black.withValues(alpha: hovered ? .18 : .10),
+      blurRadius: hovered ? 30 : 22,
+      offset: Offset(0, hovered ? 14 : 10),
     ),
   ],
 );
 
-/// A faint white overlay that brightens the glass on hover. Sits above the
+/// A faint overlay that brightens the glass on hover. Sits above the
 /// cover but ignores pointers so taps still pass through.
 class _HoverGlow extends StatelessWidget {
   const _HoverGlow({required this.hovered});
@@ -111,7 +109,7 @@ class _HoverGlow extends StatelessWidget {
           curve: Curves.easeOutCubic,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .06),
+              color: context.cxInk.withValues(alpha: .04),
             ),
           ),
         ),
@@ -123,9 +121,10 @@ class _HoverGlow extends StatelessWidget {
 
 /// Host row: avatar + "Title" + host name.
 class _HostLine extends StatelessWidget {
-  const _HostLine({required this.e, this.compact = false});
+  const _HostLine({required this.e, this.compact = false, this.onLight = false});
   final Experience e;
   final bool compact;
+  final bool onLight;
 
   @override
   Widget build(BuildContext context) {
@@ -143,10 +142,12 @@ class _HostLine extends StatelessWidget {
             'Hosted by ${e.host}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
+            style: plansBody(
               fontSize: compact ? 11.5 : 12.5,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFFCBD4EC),
+              fontWeight: FontWeight.w500,
+              color: onLight
+                  ? context.cxSoft
+                  : Colors.white.withValues(alpha: .92),
             ),
           ),
         ),
@@ -155,59 +156,64 @@ class _HostLine extends StatelessWidget {
   }
 }
 
-/// The compact premium info chips (Wrap so they never overflow).
+/// The compact info line: outlined icons + text, inline, no boxes. Shows the
+/// same facts the old chips did (date, time, distance, going, spots left).
 class _InfoChips extends StatelessWidget {
-  const _InfoChips({required this.e, this.max});
+  const _InfoChips({
+    required this.e,
+    this.max,
+    this.skip = 0,
+    this.onLight = false,
+  });
   final Experience e;
   final int? max;
 
+  /// Number of leading facts to omit (lets a card split facts over two lines).
+  final int skip;
+  final bool onLight;
+
   @override
   Widget build(BuildContext context) {
-    final chips = <Widget>[
-      InfoChip(emoji: '📅', label: e.date),
-      InfoChip(emoji: '⏰', label: e.time),
-      InfoChip(emoji: '📍', label: e.distance),
-      InfoChip(emoji: '👥', label: '${e.goingCount} Going'),
-      InfoChip(emoji: '🎟', label: '${e.spotsLeft} Spots Left'),
+    final items = <(IconData, String)>[
+      (Icons.calendar_today_outlined, e.date),
+      (Icons.schedule_outlined, e.time),
+      (Icons.place_outlined, e.distance),
+      (Icons.people_outline, '${e.goingCount} going'),
+      (Icons.confirmation_number_outlined, '${e.spotsLeft} spots left'),
     ];
-    final shown = max == null ? chips : chips.take(max!).toList();
-    return Wrap(spacing: 7, runSpacing: 7, children: shown);
+    final limited = max == null ? items : items.take(max!).toList();
+    final shown = limited.skip(skip).toList();
+    if (shown.isEmpty) return const SizedBox.shrink();
+    return PlanMetaLine(items: shown, onLight: onLight, fontSize: 12);
   }
 }
 
 class _TitleRow extends StatelessWidget {
-  const _TitleRow({required this.e, this.fontSize = 19});
+  const _TitleRow({required this.e, this.fontSize = 19, this.onLight = false});
   final Experience e;
   final double fontSize;
+  final bool onLight;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Text(
-            e.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        MoodBadge(emoji: e.moodEmoji, mood: e.mood, accent: e.accent),
-      ],
+    return Text(
+      e.title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: plansDisplay(
+        fontSize: fontSize + 4,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.4,
+        color: onLight ? context.cxInk : Colors.white,
+      ),
     );
   }
 }
 
 class _FooterRow extends StatelessWidget {
-  const _FooterRow({required this.e});
+  const _FooterRow({required this.e, this.onLight = false});
   final Experience e;
+  final bool onLight;
 
   @override
   Widget build(BuildContext context) {
@@ -215,7 +221,7 @@ class _FooterRow extends StatelessWidget {
       children: [
         ParticipantStack(portraits: e.participants, accent: e.accent),
         const Spacer(),
-        const ViewPill(),
+        ViewPill(onLight: onLight),
       ],
     );
   }
@@ -241,6 +247,26 @@ class _ImmersiveCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               PlanCover(asset: e.coverAsset, accent: e.accent),
+              // Extra bottom scrim so serif titles and meta stay legible on
+              // busy, bright photos.
+              const Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0x00000000),
+                          Color(0x99000000),
+                          Color(0xE6000000),
+                        ],
+                        stops: [0.38, 0.72, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               _HoverGlow(hovered: hovered),
               Positioned(
                 top: 14,
@@ -248,10 +274,18 @@ class _ImmersiveCard extends StatelessWidget {
                 child: VisibilityBadge(isPublic: e.isPublic),
               ),
               Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-
+                top: 14,
+                right: 14,
+                child: MoodBadge(
+                  emoji: e.moodEmoji,
+                  mood: e.mood,
+                  accent: e.accent,
+                ),
+              ),
+              Positioned(
+                left: 18,
+                right: 18,
+                bottom: 18,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -259,14 +293,20 @@ class _ImmersiveCard extends StatelessWidget {
                       text: e.highlight,
                       isEditorsPick: e.isEditorsPick,
                     ),
-                    const SizedBox(height: 8),
-                    _TitleRow(e: e),
-                    const SizedBox(height: 8),
-                    _HostLine(e: e),
-                    const SizedBox(height: 12),
-                    _InfoChips(e: e),
+                    const SizedBox(height: 6),
+                    _TitleRow(e: e, fontSize: 22),
+                    const SizedBox(height: 10),
+                    _InfoChips(e: e, max: 3),
+                    const SizedBox(height: 6),
+                    _InfoChips(e: e, max: 5, skip: 3),
                     const SizedBox(height: 14),
-                    _FooterRow(e: e),
+                    Row(
+                      children: [
+                        Expanded(child: _HostLine(e: e)),
+                        const SizedBox(width: 10),
+                        const ViewPill(),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -290,7 +330,8 @@ class _StackedCard extends StatelessWidget {
     final e = experience;
     return Container(
       decoration: _cardShell(e.accent, hovered: hovered).copyWith(
-        color: const Color(0xFF141B31),
+        color: context.cxCanvas,
+        border: Border.all(color: context.cxLine),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -330,23 +371,24 @@ class _StackedCard extends StatelessWidget {
                     e.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                    style: plansDisplay(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w500,
                       letterSpacing: -0.3,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  _HostLine(e: e),
+                  _HostLine(e: e, onLight: true),
                   const SizedBox(height: 8),
                   HighlightLine(
                     text: e.highlight,
                     isEditorsPick: e.isEditorsPick,
+                    onLight: true,
                   ),
                   const SizedBox(height: 12),
-                  _InfoChips(e: e, max: 4),
+                  _InfoChips(e: e, max: 4, onLight: true),
                   const SizedBox(height: 14),
-                  _FooterRow(e: e),
+                  _FooterRow(e: e, onLight: true),
                 ],
               ),
             ),
@@ -408,12 +450,12 @@ class _FloatingCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                color: const Color(0xFF161E36).withValues(alpha: .96),
+                color: context.cxCanvas,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withValues(alpha: .12)),
+                border: Border.all(color: context.cxLine),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: .4),
+                    color: Colors.black.withValues(alpha: .12),
                     blurRadius: 22,
                     offset: const Offset(0, 10),
                   ),
@@ -422,18 +464,19 @@ class _FloatingCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _TitleRow(e: e, fontSize: 18),
+                  _TitleRow(e: e, fontSize: 18, onLight: true),
                   const SizedBox(height: 8),
-                  _HostLine(e: e),
+                  _HostLine(e: e, onLight: true),
                   const SizedBox(height: 8),
                   HighlightLine(
                     text: e.highlight,
                     isEditorsPick: e.isEditorsPick,
+                    onLight: true,
                   ),
                   const SizedBox(height: 12),
-                  _InfoChips(e: e, max: 4),
+                  _InfoChips(e: e, max: 4, onLight: true),
                   const SizedBox(height: 14),
-                  _FooterRow(e: e),
+                  _FooterRow(e: e, onLight: true),
                 ],
               ),
             ),
@@ -456,7 +499,8 @@ class _CompactCard extends StatelessWidget {
     final e = experience;
     return Container(
       decoration: _cardShell(e.accent, hovered: hovered).copyWith(
-        color: const Color(0xFF141B31),
+        color: context.cxCanvas,
+        border: Border.all(color: context.cxLine),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
@@ -492,9 +536,9 @@ class _CompactCard extends StatelessWidget {
                       e.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w800,
+                      style: plansDisplay(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
                         color: Colors.white,
                       ),
                     ),
@@ -507,9 +551,9 @@ class _CompactCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HostLine(e: e, compact: true),
+                  _HostLine(e: e, compact: true, onLight: true),
                   const SizedBox(height: 10),
-                  _InfoChips(e: e, max: 4),
+                  _InfoChips(e: e, max: 4, onLight: true),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -519,7 +563,7 @@ class _CompactCard extends StatelessWidget {
                         size: 22,
                       ),
                       const Spacer(),
-                      const ViewPill(),
+                      const ViewPill(onLight: true),
                     ],
                   ),
                 ],

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 
 /// Pure-Flutter shimmer that sweeps a soft highlight across [child].
 ///
@@ -52,9 +54,9 @@ class _ShimmerState extends State<Shimmer>
             begin: Alignment(-1.2 + slide, 0),
             end: Alignment(-0.2 + slide, 0),
             colors: const [
-              Color(0xFF232C47),
+              Color(0xFFF5F4F2),
               Color(0xFF3A4A72),
-              Color(0xFF232C47),
+              Color(0xFFF5F4F2),
             ],
             stops: const [0.0, 0.5, 1.0],
           ).createShader(bounds),
@@ -73,7 +75,7 @@ class SkeletonBlock extends StatelessWidget {
     super.key,
     this.width,
     this.radius = 14,
-    this.color = const Color(0xFF232C47),
+      this.color = const Color(0xFFF5F4F2),
   });
 
   final double height;
@@ -99,7 +101,7 @@ class SkeletonCircle extends StatelessWidget {
   const SkeletonCircle({
     required this.size,
     super.key,
-    this.color = const Color(0xFF232C47),
+      this.color = const Color(0xFFF5F4F2),
   });
 
   final double size;
@@ -121,7 +123,7 @@ class SkeletonLine extends StatelessWidget {
     required this.width,
     super.key,
     this.height = 12,
-    this.color = const Color(0xFF232C47),
+      this.color = const Color(0xFFF5F4F2),
   });
 
   final double width;

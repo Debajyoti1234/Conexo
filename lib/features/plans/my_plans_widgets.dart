@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../home_discovery_animations.dart';
 import 'my_plans_data.dart';
 
@@ -10,10 +12,6 @@ import 'my_plans_data.dart';
 /// AnimatedSwitcher / AnimatedScale / Fade with easeOutCubic / easeInOutCubic
 /// — no bounce, elastic, or overshoot. Local assets and resolved remote URLs.
 
-const _kAccent = Color(0xFF8B5CF6);
-const _kSecondary = Color(0xFF587BE2);
-const _kSoftText = Color(0xFFB9C3DC);
-const _kGlassPanel = Color(0xFF141B31);
 
 // ── Tabs ────────────────────────────────────────────────────────────────
 
@@ -112,17 +110,17 @@ class _TabChipState extends State<_TabChip> {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             gradient: selected
-                ? const LinearGradient(colors: [_kAccent, _kSecondary])
+                ? LinearGradient(colors: [context.cxAccent, context.cxAccent])
                 : null,
-            color: selected ? null : Colors.white.withValues(alpha: .06),
+            color: selected ? null : context.cxInk.withValues(alpha: .06),
             borderRadius: BorderRadius.circular(15),
             border: selected
                 ? null
-                : Border.all(color: Colors.white.withValues(alpha: .12)),
+                : Border.all(color: context.cxInk.withValues(alpha: .12)),
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: _kAccent.withValues(alpha: .45),
+                      color: context.cxAccent.withValues(alpha: .45),
                       blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
@@ -135,7 +133,7 @@ class _TabChipState extends State<_TabChip> {
               Icon(
                 widget.tab.icon,
                 size: 16,
-                color: selected ? Colors.white : const Color(0xFF9DB2E8),
+                color: selected ? Colors.white : context.cxMuted,
               ),
               const SizedBox(width: 7),
               Text(
@@ -143,7 +141,7 @@ class _TabChipState extends State<_TabChip> {
                 style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w800,
-                  color: selected ? Colors.white : const Color(0xFFCBD4EC),
+                  color: selected ? Colors.white : context.cxSoft,
                 ),
               ),
             ],
@@ -177,9 +175,9 @@ class InsightCard extends StatelessWidget {
       width: 150,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _kGlassPanel.withValues(alpha: .9),
+        color: context.cxGlass.withValues(alpha: .9),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .1)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .3),
@@ -209,20 +207,21 @@ class InsightCard extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 24,
-              fontWeight: FontWeight.w800,
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w600,
               letterSpacing: -0.4,
-              color: Colors.white,
+              color: context.cxInk,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: _kSoftText,
+              color: context.cxSoft,
             ),
           ),
         ],
@@ -260,11 +259,11 @@ class StatusBadge extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
               letterSpacing: .2,
-              color: Colors.white,
+              color: context.cxInk,
             ),
           ),
         ],
@@ -354,7 +353,7 @@ class _ActionButtonState extends State<_ActionButton> {
   @override
   Widget build(BuildContext context) {
     final color =
-        widget.danger ? const Color(0xFFE36D9D) : const Color(0xFFB7A5FF);
+        widget.danger ? const Color(0xFFD9485F) : context.cxInk;
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
@@ -368,12 +367,12 @@ class _ActionButtonState extends State<_ActionButton> {
           height: 42,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .06),
+            color: context.cxInk.withValues(alpha: .06),
             borderRadius: BorderRadius.circular(13),
             border: Border.all(
               color: widget.danger
                   ? color.withValues(alpha: .35)
-                  : Colors.white.withValues(alpha: .12),
+                  : context.cxInk.withValues(alpha: .12),
             ),
           ),
           child: Row(
@@ -424,9 +423,9 @@ class DraftCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _kGlassPanel.withValues(alpha: .9),
+        color: context.cxGlass.withValues(alpha: .9),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .1)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .3),
@@ -452,14 +451,14 @@ class DraftCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    const StatusBadge(label: 'Draft', color: Color(0xFFF09A65)),
+                    const StatusBadge(label: 'Draft', color: Color(0xFFD07A3A)),
                     const Spacer(),
                     GestureDetector(
                       onTap: onDelete,
                       child: Icon(
                         Icons.delete_outline_rounded,
                         size: 19,
-                        color: Colors.white.withValues(alpha: .55),
+                        color: context.cxInk.withValues(alpha: .55),
                       ),
                     ),
                   ],
@@ -480,7 +479,7 @@ class DraftCard extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: _kSoftText),
+                  style: TextStyle(fontSize: 12, color: context.cxSoft),
                 ),
               ],
             ),
@@ -504,14 +503,14 @@ class DraftCard extends StatelessWidget {
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
           return Container(
-            color: _kGlassPanel,
+            color: context.cxGlass,
             child: Center(
               child: SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white.withValues(alpha: .7),
+                  color: context.cxInk.withValues(alpha: .7),
                   value: progress.expectedTotalBytes != null
                       ? progress.cumulativeBytesLoaded /
                           progress.expectedTotalBytes!
@@ -544,12 +543,12 @@ class DraftCard extends StatelessWidget {
     return _coverFallback();
   }
 
-  Widget _coverFallback() => const DecoratedBox(
+  Widget _coverFallback() => DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [_kAccent, _kSecondary],
+            colors: [Color(0xFF1B1B1F), Color(0xFF1B1B1F)],
           ),
         ),
         child: Center(
@@ -583,11 +582,11 @@ class _ResumeButtonState extends State<_ResumeButton> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [_kAccent, _kSecondary]),
+            gradient: LinearGradient(colors: [context.cxAccent, context.cxAccent]),
             borderRadius: BorderRadius.circular(13),
             boxShadow: [
               BoxShadow(
-                color: _kAccent.withValues(alpha: .45),
+                color: context.cxAccent.withValues(alpha: .45),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -634,10 +633,10 @@ class MyPlansEmptyState extends StatelessWidget {
               height: 84,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: .06),
-                border: Border.all(color: Colors.white.withValues(alpha: .12)),
+                color: context.cxInk.withValues(alpha: .06),
+                border: Border.all(color: context.cxInk.withValues(alpha: .12)),
               ),
-              child: Icon(icon, size: 36, color: const Color(0xFF9DB2E8)),
+              child: Icon(icon, size: 36, color: context.cxMuted),
             ),
             const SizedBox(height: 20),
             Text(
@@ -648,7 +647,7 @@ class MyPlansEmptyState extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13.5, color: _kSoftText),
+              style: TextStyle(fontSize: 13.5, color: context.cxSoft),
             ),
           ],
         ),
@@ -672,9 +671,9 @@ class _GlassDialog extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: const Color(0xFF161E36).withValues(alpha: .98),
+          color: context.cxSurface.withValues(alpha: .98),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withValues(alpha: .12)),
+          border: Border.all(color: context.cxInk.withValues(alpha: .12)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: .5),
@@ -702,9 +701,9 @@ class _DialogGhost extends StatelessWidget {
         height: 46,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .06),
+          color: context.cxInk.withValues(alpha: .06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: .14)),
+          border: Border.all(color: context.cxInk.withValues(alpha: .14)),
         ),
         child: Text(
           label,
@@ -728,9 +727,9 @@ Future<void> showSharePlanDialog(BuildContext context, String title) {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.ios_share_rounded, size: 20, color: Color(0xFFB7A5FF)),
+              Icon(Icons.ios_share_rounded, size: 20, color: context.cxInk),
               SizedBox(width: 10),
               Text(
                 'Share Plan',
@@ -741,7 +740,7 @@ Future<void> showSharePlanDialog(BuildContext context, String title) {
           const SizedBox(height: 16),
           Text(
             'Invite people to "$title".',
-            style: const TextStyle(fontSize: 13.5, color: _kSoftText),
+            style: TextStyle(fontSize: 13.5, color: context.cxSoft),
           ),
           const SizedBox(height: 16),
           const _ShareOptionRow(),
@@ -777,18 +776,18 @@ class _ShareOptionRow extends StatelessWidget {
                   Container(
                     height: 54,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .06),
+                      color: context.cxInk.withValues(alpha: .06),
                       borderRadius: BorderRadius.circular(15),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: .12),
+                        color: context.cxInk.withValues(alpha: .12),
                       ),
                     ),
-                    child: Icon(o.$1, color: const Color(0xFFB7A5FF)),
+                    child: Icon(o.$1, color: context.cxInk),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     o.$2,
-                    style: const TextStyle(fontSize: 11.5, color: _kSoftText),
+                    style: TextStyle(fontSize: 11.5, color: context.cxSoft),
                   ),
                 ],
               ),
@@ -821,10 +820,10 @@ Future<bool> showConfirmDialog(
           const SizedBox(height: 12),
           Text(
             message,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
               height: 1.5,
-              color: _kSoftText,
+              color: context.cxSoft,
             ),
           ),
           const SizedBox(height: 22),
@@ -846,10 +845,10 @@ Future<bool> showConfirmDialog(
                     decoration: BoxDecoration(
                       gradient: danger
                           ? const LinearGradient(
-                              colors: [Color(0xFFE36D9D), Color(0xFFC2477A)],
+                              colors: [Color(0xFFD9485F), Color(0xFFC2477A)],
                             )
-                          : const LinearGradient(
-                              colors: [_kAccent, _kSecondary],
+                          : LinearGradient(
+                              colors: [context.cxAccent, context.cxAccent],
                             ),
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -944,13 +943,13 @@ class _FilterChip extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected
-              ? _kAccent.withValues(alpha: .22)
-              : Colors.white.withValues(alpha: .05),
+              ? context.cxAccent.withValues(alpha: .22)
+              : context.cxInk.withValues(alpha: .05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
-                ? _kAccent.withValues(alpha: .5)
-                : Colors.white.withValues(alpha: .1),
+                ? context.cxAccent.withValues(alpha: .5)
+                : context.cxInk.withValues(alpha: .1),
           ),
         ),
         child: Text(
@@ -958,7 +957,7 @@ class _FilterChip extends StatelessWidget {
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w700,
-            color: selected ? Colors.white : const Color(0xFFCBD4EC),
+            color: selected ? Colors.white : context.cxSoft,
           ),
         ),
       ),

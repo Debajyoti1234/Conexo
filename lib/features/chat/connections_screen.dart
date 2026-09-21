@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../../app/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -500,7 +502,7 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.error ?? 'Failed to open conversation'),
-            backgroundColor: const Color(0xFFFF4D8D),
+            backgroundColor: const Color(0xFFD9485F),
           ),
         );
         return;
@@ -661,21 +663,10 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
     final bottomNavPadding = 68.0 + 24.0 + 16.0;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Stack(
           children: [
-            Positioned.fill(
-              child: Image.asset(
-                'assets/images/plans/chat.PNG',
-                fit: BoxFit.cover,
-              ),
-            ),
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withValues(alpha: .35),
-              ),
-            ),
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 860),
@@ -718,14 +709,14 @@ class _ConnectionsInboxScreenState extends State<ConnectionsInboxScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Container(
                         height: 1,
-                        color: Colors.white.withValues(alpha: .06),
+                        color: context.cxInk.withValues(alpha: .06),
                       ),
                     ),
                     const SizedBox(height: 18),
                     Expanded(
                       child: RefreshIndicator(
                         onRefresh: _refresh,
-                        color: const Color(0xFF8B5CF6),
+                        color: context.cxInk,
                         strokeWidth: 2.2,
                         displacement: 8,
                         child: ListView(
@@ -829,9 +820,9 @@ class _ConversationActionsSheet extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF161C30),
+            color: context.cxSurface,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.white.withValues(alpha: .08)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .08)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: .35),
@@ -848,7 +839,7 @@ class _ConversationActionsSheet extends StatelessWidget {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .18),
+                  color: context.cxInk.withValues(alpha: .18),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -856,7 +847,7 @@ class _ConversationActionsSheet extends StatelessWidget {
                 onTap: onTogglePin,
                 leading: Icon(
                   isPinned ? Icons.push_pin_outlined : Icons.push_pin_rounded,
-                  color: const Color(0xFFB7A5FF),
+                  color: context.cxInk,
                   size: 22,
                 ),
                 title: Text(

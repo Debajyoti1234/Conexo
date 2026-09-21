@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../home_discovery_animations.dart';
 import 'create_plan_data.dart';
 import 'plans_cards.dart';
@@ -47,9 +49,9 @@ class LivePlanPreview extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'This is exactly how your plan will appear to nearby people.',
-            style: TextStyle(fontSize: 13, color: Color(0xFFB9C3DC)),
+            style: TextStyle(fontSize: 13, color: context.cxSoft),
           ),
           const SizedBox(height: 14),
           AnimatedSwitcher(
@@ -110,23 +112,23 @@ class _LiveBadgeState extends State<_LiveBadge>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF47D7A5).withValues(alpha: .18),
+          color: const Color(0xFF1F9D6B).withValues(alpha: .18),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: const Color(0xFF47D7A5).withValues(alpha: .5),
+            color: const Color(0xFF1F9D6B).withValues(alpha: .5),
           ),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.circle, size: 6, color: Color(0xFF47D7A5)),
+            Icon(Icons.circle, size: 6, color: Color(0xFF1F9D6B)),
             SizedBox(width: 5),
             Text(
               'LIVE',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF7BE8C2),
+                color: Color(0xFF1F9D6B),
                 letterSpacing: .6,
               ),
             ),

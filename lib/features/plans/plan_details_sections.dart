@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../home_discovery_animations.dart';
 import 'plan_details_data.dart';
 import 'plan_details_widgets.dart';
 import 'plans_data.dart';
 import 'plans_sections.dart';
+import 'plans_theme.dart';
 import 'plans_widgets.dart';
 
 
@@ -49,8 +52,8 @@ class PlanHeader extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0x00000000), Color(0x000B1020), Color(0xF20B1020)],
-                stops: [0.4, 0.7, 1.0],
+                colors: [Color(0x00000000), Color(0x66000000), Color(0xD9000000)],
+                stops: [0.45, 0.75, 1.0],
               ),
             ),
           ),
@@ -62,13 +65,13 @@ class PlanHeader extends StatelessWidget {
             child: Row(
               children: [
                 CircleGlassButton(
-                  icon: Icons.arrow_back_rounded,
+                  icon: Icons.arrow_back,
                   onTap: onBack,
                   semanticLabel: 'Back',
                 ),
                 const Spacer(),
                 CircleGlassButton(
-                  icon: Icons.ios_share_rounded,
+                  icon: Icons.ios_share,
                   onTap: onShare,
                   semanticLabel: 'Share',
                 ),
@@ -93,34 +96,32 @@ class PlanHeader extends StatelessWidget {
                     const SizedBox(width: 8),
                     VisibilityBadge(isPublic: e.isPublic),
                     const Spacer(),
-                    if (e.isEditorsPick)
+if (e.isEditorsPick)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFC24D).withValues(alpha: .18),
+                          color: context.cxGlass,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: const Color(0xFFFFC24D).withValues(alpha: .5),
-                          ),
+                          border: Border.all(color: context.cxLine),
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.star_rounded,
+                              Icons.star_outline_rounded,
                               size: 13,
-                              color: Color(0xFFFFC24D),
+                              color: context.cxAccent,
                             ),
-                            SizedBox(width: 4),
+                            const SizedBox(width: 4),
                             Text(
-                              'Editor\'s Pick',
-                              style: TextStyle(
+                              'Editor\'s pick',
+                              style: plansBody(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFFFFD98A),
+                                fontWeight: FontWeight.w600,
+                                color: context.cxAccent,
                               ),
                             ),
                           ],
@@ -146,26 +147,27 @@ class PlanHeader extends StatelessWidget {
                             'Hosted by ${e.host}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: plansBody(
                               fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Row(
                             children: [
-                              const Icon(
-                                Icons.place_rounded,
+                              Icon(
+                                Icons.place_outlined,
                                 size: 13,
-                                color: Color(0xFF9DB2E8),
+                                color: Colors.white.withValues(alpha: .85),
                               ),
                               const SizedBox(width: 3),
                               Text(
-                                '${e.city} • ${e.distance}',
-                                style: const TextStyle(
+                                '${e.city} · ${e.distance}',
+                                style: plansBody(
                                   fontSize: 12.5,
-                                  color: Color(0xFFB9C3DC),
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.white.withValues(alpha: .85),
                                 ),
                               ),
                             ],
@@ -198,74 +200,80 @@ class PlanInfoSection extends StatelessWidget {
       children: [
         Text(
           e.title,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
+          style: plansDisplay(
+            fontSize: 34,
+            fontWeight: FontWeight.w500,
+            letterSpacing: -0.7,
             height: 1.1,
           ),
         ),
         const SizedBox(height: 6),
         // Subtle authenticity line derived from existing data.
         Text(
-          'Hosted by ${e.host} • Created ${host.createdLabel}',
-          style: const TextStyle(fontSize: 12.5, color: Color(0xFF9DB2E8)),
+          'Hosted by ${e.host} · Created ${host.createdLabel}',
+          style: plansBody(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w400,
+            color: context.cxMuted,
+          ),
         ),
         const SizedBox(height: 14),
-        if (e.description.isNotEmpty)
-          Text(
-            e.description,
-            style: const TextStyle(
-              fontSize: 14.5,
-              height: 1.5,
-              color: Color(0xFFC7D0E6),
-            ),
-          )
-        else
-          Text(
-            _describe(e),
-            style: const TextStyle(
-              fontSize: 14.5,
-              height: 1.5,
-              color: Color(0xFFC7D0E6),
-            ),
+        Text(
+          e.description.isNotEmpty ? e.description : _describe(e),
+          style: plansBody(
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            height: 1.55,
+            color: context.cxSoft,
           ),
+        ),
         const SizedBox(height: 18),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            DetailChip(
-              icon: Icons.calendar_today_rounded,
-              label: 'Date',
-              value: e.date,
-            ),
-            DetailChip(
-              icon: Icons.schedule_rounded,
-              label: 'Time',
-              value: e.time,
-            ),
-            DetailChip(
-              icon: Icons.place_rounded,
-              label: 'Location',
-              value: e.city,
-            ),
-            DetailChip(
-              icon: Icons.near_me_rounded,
-              label: 'Distance',
-              value: e.distance,
-            ),
-            DetailChip(
-              icon: Icons.event_seat_rounded,
-              label: 'Spots left',
-              value: '${e.spotsLeft}',
-            ),
-            DetailChip(
-              icon: Icons.groups_rounded,
-              label: 'Going',
-              value: '${e.goingCount}',
-            ),
-          ],
+        // A tidy two-column grid: every chip shares the same width so the
+        // block reads as one table instead of a jagged wrap.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const gap = 10.0;
+            final w = (constraints.maxWidth - gap) / 2;
+            final chips = <Widget>[
+              DetailChip(
+                icon: Icons.calendar_today_outlined,
+                label: 'Date',
+                value: e.date,
+              ),
+              DetailChip(
+                icon: Icons.schedule_outlined,
+                label: 'Time',
+                value: e.time,
+              ),
+              DetailChip(
+                icon: Icons.place_outlined,
+                label: 'Location',
+                value: e.city,
+              ),
+              DetailChip(
+                icon: Icons.near_me_outlined,
+                label: 'Distance',
+                value: e.distance,
+              ),
+              DetailChip(
+                icon: Icons.event_seat_outlined,
+                label: 'Spots left',
+                value: '${e.spotsLeft}',
+              ),
+              DetailChip(
+                icon: Icons.groups_outlined,
+                label: 'Going',
+                value: '${e.goingCount}',
+              ),
+            ];
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final c in chips) SizedBox(width: w, child: c),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -340,19 +348,18 @@ class HostSection extends StatelessWidget {
                             e.host,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
+                            style: plansDisplay(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
                         if (host.isVerified) ...[
                           const SizedBox(width: 6),
-                          const Icon(
-                            Icons.verified_rounded,
+                          Icon(
+                            Icons.verified_outlined,
                             size: 16,
-                            color: Color(0xFF6C8EF5),
+                            color: context.cxAccent,
                           ),
                         ],
                       ],
@@ -360,17 +367,18 @@ class HostSection extends StatelessWidget {
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.star_rounded,
+                        Icon(
+                          Icons.star_outline_rounded,
                           size: 14,
-                          color: Color(0xFFFFC24D),
+                          color: context.cxSoft,
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          '${host.rating}  •  ${host.plansHosted} plans hosted',
-                          style: const TextStyle(
+                          '${host.rating}  ·  ${host.plansHosted} plans hosted',
+                          style: plansBody(
                             fontSize: 12.5,
-                            color: Color(0xFFB9C3DC),
+                            fontWeight: FontWeight.w400,
+                            color: context.cxSoft,
                           ),
                         ),
                       ],
@@ -411,17 +419,17 @@ class _ViewProfileButton extends StatelessWidget {
       child: OutlinedButton.icon(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          side: BorderSide(color: Colors.white.withValues(alpha: .18)),
+          foregroundColor: context.cxInk,
+          side: BorderSide(color: context.cxInk, width: 1.2),
           padding: const EdgeInsets.symmetric(vertical: 13),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(30),
           ),
         ),
-        icon: const Icon(Icons.person_outline_rounded, size: 18),
-        label: const Text(
-          'View Profile',
-          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+        icon: const Icon(Icons.person_outline, size: 18),
+        label: Text(
+          'View profile',
+          style: plansBody(fontSize: 13.5, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -465,9 +473,10 @@ class ParticipantsSection extends StatelessWidget {
         if (shown.isEmpty)
           Text(
             'No one has joined yet.',
-            style: TextStyle(
+            style: plansBody(
               fontSize: 13.5,
-              color: Colors.white.withValues(alpha: .6),
+              fontWeight: FontWeight.w400,
+              color: context.cxMuted,
             ),
           )
         else
@@ -535,22 +544,25 @@ class OwnPlanManagementCard extends StatelessWidget {
                 label: 'You',
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'You\'re hosting this plan',
-                      style: TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                      style: plansDisplay(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       'Manage your plan',
-                      style: TextStyle(fontSize: 12.5, color: Color(0xFF9DB2E8)),
+                      style: plansBody(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w400,
+                        color: context.cxMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -564,7 +576,7 @@ class OwnPlanManagementCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _ManageAction(
-                  icon: Icons.edit_rounded,
+                  icon: Icons.edit_outlined,
                   label: 'Edit',
                   onTap: onEdit,
                 ),
@@ -572,7 +584,7 @@ class OwnPlanManagementCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _ManageAction(
-                  icon: Icons.ios_share_rounded,
+                  icon: Icons.ios_share_outlined,
                   label: 'Share',
                   onTap: onShare,
                 ),
@@ -591,8 +603,8 @@ class OwnPlanManagementCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: _ManageAction(
-              icon: Icons.person_add_rounded,
-              label: 'Invite People',
+              icon: Icons.person_add_outlined,
+              label: 'Invite people',
               onTap: onInvite,
             ),
           ),
@@ -624,21 +636,20 @@ class _ManageAction extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 13),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .06),
+            color: context.cxSurface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: .12)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 20, color: const Color(0xFFC7D0E6)),
+              Icon(icon, size: 20, color: context.cxInk),
               const SizedBox(height: 6),
               Text(
                 label,
-                style: const TextStyle(
+                style: plansBody(
                   fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFFC7D0E6),
+                  fontWeight: FontWeight.w600,
+                  color: context.cxInk,
                 ),
               ),
             ],
@@ -688,7 +699,7 @@ class SimilarNearbySection extends StatelessWidget {
     final items = similarNearby(experience);
     if (items.isEmpty) return const SizedBox.shrink();
     return ExperienceRail(
-      title: '📍 Similar Nearby',
+      title: 'Similar nearby',
       items: items,
       variant: CardVariant.compact,
       height: 300,
@@ -722,10 +733,10 @@ class LocationSection extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.place_rounded,
+              Icon(
+                Icons.place_outlined,
                 size: 16,
-                color: Color(0xFF9DB2E8),
+                color: context.cxInk,
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -734,20 +745,20 @@ class LocationSection extends StatelessWidget {
                   children: [
                     Text(
                       e.city,
-                      style: const TextStyle(
+                      style: plansBody(
                         fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFC7D0E6),
+                        fontWeight: FontWeight.w600,
+                        color: context.cxInk,
                       ),
                     ),
                     if (hasAddress) ...[
                       const SizedBox(height: 2),
                       Text(
                         e.locationAddress.trim(),
-                        style: const TextStyle(
+                        style: plansBody(
                           fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF9DB2E8),
+                          fontWeight: FontWeight.w400,
+                          color: context.cxSoft,
                         ),
                       ),
                     ],
@@ -777,24 +788,24 @@ class SafetySection extends StatelessWidget {
           const SectionTitle(title: 'Safety'),
           const SizedBox(height: 6),
           SafetyRow(
-            icon: e.isPublic ? Icons.public_rounded : Icons.lock_rounded,
+            icon: e.isPublic ? Icons.public_outlined : Icons.lock_outline_rounded,
             label: 'Visibility',
             trailingText: e.isPublic ? 'Public' : 'Private',
           ),
           const PanelDivider(),
           const SafetyRow(
-            icon: Icons.verified_user_rounded,
+            icon: Icons.verified_user_outlined,
             label: 'Community Guidelines',
           ),
           const PanelDivider(),
           const SafetyRow(
-            icon: Icons.flag_rounded,
+            icon: Icons.flag_outlined,
             label: 'Report Plan',
             comingSoon: true,
           ),
           const PanelDivider(),
           const SafetyRow(
-            icon: Icons.emergency_share_rounded,
+            icon: Icons.emergency_share_outlined,
             label: 'Emergency features',
             comingSoon: true,
           ),

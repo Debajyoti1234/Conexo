@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 /// A clean full-screen image viewer with pinch-to-zoom support.
 class ImageViewerScreen extends StatefulWidget {
   const ImageViewerScreen({
@@ -77,10 +79,10 @@ class _ImageViewerScreenState extends State<ImageViewerScreen> {
             height: double.infinity,
             loadingBuilder: (context, child, progress) {
               if (progress == null) return child;
-              return const Center(
+              return Center(
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(context.cxInk),
                 ),
               );
             },

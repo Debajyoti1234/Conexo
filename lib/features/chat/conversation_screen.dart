@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+
+import '../../app/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -129,12 +131,12 @@ class _ConversationScreenState extends State<ConversationScreen>
           ),
         ),
       );
-    }).catchError((_) {
+}).catchError((_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to load image'),
-          backgroundColor: Color(0xFFFF4D8D),
+        SnackBar(
+          content: const Text('Failed to load image'),
+          backgroundColor: context.cxDanger,
         ),
       );
     });
@@ -747,7 +749,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.error ?? 'Failed to send message'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
       return;
@@ -772,7 +774,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.error ?? 'Failed to attach image'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
       return;
@@ -800,7 +802,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.error ?? 'Failed to send image'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
       return;
@@ -842,7 +844,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.error ?? 'Failed to send voice'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
       return;
@@ -906,7 +908,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(uploadResult.error ?? 'Failed to upload GIF'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
       return;
@@ -940,7 +942,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.error ?? 'Failed to send GIF'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
       return;
@@ -974,14 +976,14 @@ class _ConversationScreenState extends State<ConversationScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF141B2E),
-        title: const Text(
+        backgroundColor: context.cxSurface,
+        title: Text(
           'Delete message?',
-          style: TextStyle(color: Color(0xFFEAEEF9)),
+          style: TextStyle(color: context.cxInk),
         ),
-        content: const Text(
+        content: Text(
           'This message will be removed from the conversation.',
-          style: TextStyle(color: Color(0xFFB9C3DC)),
+          style: TextStyle(color: context.cxSoft),
         ),
         actions: [
           TextButton(
@@ -991,7 +993,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFF4D8D),
+              backgroundColor: const Color(0xFFD9485F),
             ),
             child: const Text('Delete'),
           ),
@@ -1007,7 +1009,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.error ?? 'Failed to delete message'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -1195,7 +1197,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Profile not available'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
       return;
@@ -1218,7 +1220,7 @@ class _ConversationScreenState extends State<ConversationScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Could not open plan details'),
-            backgroundColor: Color(0xFFFF4D8D),
+            backgroundColor: Color(0xFFD9485F),
           ),
         );
       } on AuthFailure catch (e) {
@@ -1226,7 +1228,7 @@ class _ConversationScreenState extends State<ConversationScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.message),
-            backgroundColor: const Color(0xFFFF4D8D),
+            backgroundColor: const Color(0xFFD9485F),
           ),
         );
       }
@@ -1237,11 +1239,11 @@ class _ConversationScreenState extends State<ConversationScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF141B2E),
-        title: const Text('Block User', style: TextStyle(color: Color(0xFFEAEEF9))),
+        backgroundColor: context.cxSurface,
+        title: Text('Block User', style: TextStyle(color: context.cxInk)),
         content: Text(
           'Block ${widget.conversation.name}? You will no longer see each other in People or chat.',
-          style: const TextStyle(color: Color(0xFFB9C3DC)),
+          style: TextStyle(color: context.cxSoft),
         ),
         actions: [
           TextButton(
@@ -1250,7 +1252,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8B5CF6)),
+            style: FilledButton.styleFrom(backgroundColor: context.cxAccent),
             child: const Text('Block'),
           ),
         ],
@@ -1288,11 +1290,11 @@ class _ConversationScreenState extends State<ConversationScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF141B2E),
-        title: const Text('Unblock User', style: TextStyle(color: Color(0xFFEAEEF9))),
+        backgroundColor: context.cxSurface,
+        title: Text('Unblock User', style: TextStyle(color: context.cxInk)),
         content: Text(
           'Unblock ${widget.conversation.name}?',
-          style: const TextStyle(color: Color(0xFFB9C3DC)),
+          style: TextStyle(color: context.cxSoft),
         ),
         actions: [
           TextButton(
@@ -1301,7 +1303,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8B5CF6)),
+            style: FilledButton.styleFrom(backgroundColor: context.cxAccent),
             child: const Text('Unblock'),
           ),
         ],
@@ -1366,12 +1368,12 @@ class _ConversationScreenState extends State<ConversationScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF141C31),
-        title: const Text('Remove connection?',
-            style: TextStyle(color: Colors.white)),
+        backgroundColor: context.cxSurface,
+        title: Text('Remove connection?',
+            style: TextStyle(color: context.cxInk)),
         content: Text(
           'Remove this person from your connections? You can connect again later if you both choose to.',
-          style: const TextStyle(color: Color(0xFFB9C3DC)),
+          style: TextStyle(color: context.cxSoft),
         ),
         actions: [
           TextButton(
@@ -1381,7 +1383,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child:
-                const Text('Remove', style: TextStyle(color: Color(0xFFE36D9D))),
+                const Text('Remove', style: TextStyle(color: Color(0xFFD9485F))),
           ),
         ],
       ),
@@ -1395,7 +1397,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Connection not found'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
       return;
@@ -1408,7 +1410,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Connection removed'),
-          backgroundColor: Color(0xFF47D7A5),
+          backgroundColor: Color(0xFF1F9D6B),
         ),
       );
       await Future.delayed(const Duration(milliseconds: 300));
@@ -1418,7 +1420,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(removeResult.error ?? 'Failed to remove connection'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
     }
@@ -1428,12 +1430,12 @@ class _ConversationScreenState extends State<ConversationScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF141C31),
-        title: const Text('Leave this plan?',
-            style: TextStyle(color: Colors.white)),
+        backgroundColor: context.cxSurface,
+        title: Text('Leave this plan?',
+            style: TextStyle(color: context.cxInk)),
         content: Text(
           'You\'ll leave this plan and its group chat. You can rejoin later if the plan allows it.',
-          style: const TextStyle(color: Color(0xFFB9C3DC)),
+          style: TextStyle(color: context.cxSoft),
         ),
         actions: [
           TextButton(
@@ -1443,7 +1445,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child:
-                const Text('Leave', style: TextStyle(color: Color(0xFFE36D9D))),
+                const Text('Leave', style: TextStyle(color: Color(0xFFD9485F))),
           ),
         ],
       ),
@@ -1457,7 +1459,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.message),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
       return;
@@ -1466,7 +1468,7 @@ class _ConversationScreenState extends State<ConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to leave plan. Please try again.'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
       return;
@@ -1476,7 +1478,7 @@ class _ConversationScreenState extends State<ConversationScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('You left the plan'),
-        backgroundColor: Color(0xFF47D7A5),
+        backgroundColor: Color(0xFF1F9D6B),
       ),
     );
     await Future.delayed(const Duration(milliseconds: 300));
@@ -1498,7 +1500,7 @@ class _ConversationScreenState extends State<ConversationScreen>
         if (entry.value.name.isNotEmpty) entry.key: entry.value.name,
     };
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: context.cxCanvas,
       resizeToAvoidBottomInset: false,
       appBar: ConversationAppBar(
         conversation: c,
@@ -1508,9 +1510,12 @@ class _ConversationScreenState extends State<ConversationScreen>
         onAvatarTap:
             canOpenProfile ? () => _openUserProfile(c.otherUserId!) : null,
       ),
-      body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _ChatWallpaper()),
+          _loading
+          ? Center(
+              child: CircularProgressIndicator(color: context.cxInk),
             )
           : _chatRevoked
               ? const _RevokedChatState()
@@ -1548,7 +1553,7 @@ class _ConversationScreenState extends State<ConversationScreen>
                                              content: Text(
                                                result.error ?? 'Failed to update like',
                                              ),
-                                             backgroundColor: const Color(0xFFFF4D8D),
+                                             backgroundColor: const Color(0xFFD9485F),
                                            ),
                                          );
                                        }
@@ -1631,6 +1636,8 @@ class _ConversationScreenState extends State<ConversationScreen>
                           ),
                         ],
                       ),
+        ],
+      ),
     );
   }
 
@@ -1809,7 +1816,7 @@ class _DateSeparator extends StatelessWidget {
         children: [
           Expanded(
             child: Divider(
-              color: Colors.white.withValues(alpha: .08),
+              color: context.cxInk.withValues(alpha: .08),
               thickness: 1,
               height: 1,
             ),
@@ -1818,17 +1825,17 @@ class _DateSeparator extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF9DB2E8),
+                color: context.cxMuted,
                 letterSpacing: 0.6,
               ),
             ),
           ),
           Expanded(
             child: Divider(
-              color: Colors.white.withValues(alpha: .08),
+              color: context.cxInk.withValues(alpha: .08),
               thickness: 1,
               height: 1,
             ),
@@ -2124,12 +2131,12 @@ class _ErrorState extends StatelessWidget {
             width: 58,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFF4D8D).withValues(alpha: .12),
+              color: const Color(0xFFD9485F).withValues(alpha: .12),
             ),
             child: const Icon(
               Icons.wifi_off_rounded,
               size: 27,
-              color: Color(0xFFFF4D8D),
+              color: Color(0xFFD9485F),
             ),
           ),
           const SizedBox(height: 14),
@@ -2144,9 +2151,9 @@ class _ErrorState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
-              color: Color(0xFFB9C3DC),
+              color: context.cxSoft,
             ),
           ),
           const SizedBox(height: 18),
@@ -2157,6 +2164,45 @@ class _ErrorState extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Subtle wallpaper behind the timeline. Theme-aware:
+/// - Light: uses the existing decorative wallpaper asset
+/// - Dark: uses a dark navy/blue-black base with subtle texture,
+///   matching the original Conexo Dark atmosphere (low contrast,
+///   no bright areas, comfortable behind message bubbles)
+class _ChatWallpaper extends StatelessWidget {
+  const _ChatWallpaper();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return IgnorePointer(
+      child: isDark
+          ? DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    context.cxCanvas,
+                    Color.lerp(context.cxCanvas, context.cxSurface, 0.15)!,
+                    context.cxCanvas,
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+              ),
+            )
+          : Opacity(
+              opacity: .9,
+              child: Image.asset(
+                'assets/images/chat/wallpaper.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.bottomCenter,
+              ),
+            ),
     );
   }
 }
@@ -2179,9 +2225,9 @@ class _BlockedComposerBanner extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(10, 8, 10, 10),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         decoration: BoxDecoration(
-          color: const Color(0xFFE36D9D).withValues(alpha: .10),
+          color: const Color(0xFFD9485F).withValues(alpha: .10),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE36D9D).withValues(alpha: .30)),
+          border: Border.all(color: const Color(0xFFD9485F).withValues(alpha: .30)),
         ),
         child: Row(
           children: [
@@ -2190,12 +2236,12 @@ class _BlockedComposerBanner extends StatelessWidget {
               width: 40,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFE36D9D).withValues(alpha: .16),
+                color: const Color(0xFFD9485F).withValues(alpha: .16),
               ),
               child: const Icon(
                 Icons.block_rounded,
                 size: 20,
-                color: Color(0xFFE36D9D),
+                color: Color(0xFFD9485F),
               ),
             ),
             const SizedBox(width: 12),
@@ -2206,18 +2252,18 @@ class _BlockedComposerBanner extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFFEAEEF9),
+                      color: context.cxInk,
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
-                      color: Color(0xFFB9C3DC),
+                      color: context.cxSoft,
                     ),
                   ),
                 ],
@@ -2247,9 +2293,9 @@ class _ReplyPreview extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(10, 4, 10, 0),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF8B5CF6).withValues(alpha: .12),
+        color: context.cxInk.withValues(alpha: .12),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: .25)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .25)),
       ),
       child: Row(
         children: [
@@ -2257,7 +2303,7 @@ class _ReplyPreview extends StatelessWidget {
             width: 3,
             height: 32,
             decoration: BoxDecoration(
-              color: const Color(0xFF8B5CF6),
+              color: context.cxInk,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -2269,10 +2315,10 @@ class _ReplyPreview extends StatelessWidget {
               children: [
                 Text(
                   'Replying to $senderLabel',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFFB7A5FF),
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -2280,10 +2326,10 @@ class _ReplyPreview extends StatelessWidget {
                   preview,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFFB9C3DC),
+                    color: context.cxSoft,
                   ),
                 ),
               ],
@@ -2291,7 +2337,7 @@ class _ReplyPreview extends StatelessWidget {
           ),
           IconButton(
             onPressed: onCancel,
-            icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFFB9C3DC)),
+            icon: Icon(Icons.close_rounded, size: 18, color: context.cxSoft),
             visualDensity: VisualDensity.compact,
           ),
         ],
@@ -2316,19 +2362,19 @@ class _DisabledComposerPlaceholder extends StatelessWidget {
             margin: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .04),
+              color: context.cxInk.withValues(alpha: .04),
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.white.withValues(alpha: .08)),
+              border: Border.all(color: context.cxInk.withValues(alpha: .08)),
             ),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Message',
                     style: TextStyle(
                       fontSize: 14.5,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF9DB2E8),
+                      color: context.cxMuted,
                     ),
                   ),
                 ),
@@ -2336,10 +2382,10 @@ class _DisabledComposerPlaceholder extends StatelessWidget {
                 Container(
                   width: 48,
                   height: 48,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
-                      colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
+                      colors: [context.cxAccent, context.cxAccent],
                     ),
                   ),
                   child: const Icon(
@@ -2372,12 +2418,12 @@ class _RevokedChatState extends StatelessWidget {
               width: 58,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFF09A65).withValues(alpha: .12),
+                color: const Color(0xFFD07A3A).withValues(alpha: .12),
               ),
               child: const Icon(
                 Icons.lock_outline_rounded,
                 size: 27,
-                color: Color(0xFFF09A65),
+                color: Color(0xFFD07A3A),
               ),
             ),
             const SizedBox(height: 14),
@@ -2390,12 +2436,12 @@ class _RevokedChatState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'This chat will become available again if the host restores the plan.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13.5,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
             ),
           ],
@@ -2420,9 +2466,9 @@ class _MessageActionSheet extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF141B2E),
+          color: context.cxSurface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          border: Border.all(color: context.cxInk.withValues(alpha: .08)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: .35),
@@ -2439,7 +2485,7 @@ class _MessageActionSheet extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .16),
+                color: context.cxInk.withValues(alpha: .16),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -2479,7 +2525,7 @@ class _SheetAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color =
-        isDestructive ? const Color(0xFFFF6B6B) : const Color(0xFFEAEEF9);
+        isDestructive ? const Color(0xFFD9485F) : context.cxInk;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -2496,7 +2542,7 @@ class _SheetAction extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: isDestructive ? const Color(0xFFFF6B6B) : Colors.white,
+                  color: isDestructive ? const Color(0xFFD9485F) : Colors.white,
                 ),
               ),
             ],

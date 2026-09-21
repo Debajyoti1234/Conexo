@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 import '../app/router/app_router.dart';
 import 'login_screen.dart';
 
@@ -82,7 +84,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           return Stack(
             fit: StackFit.expand,
             children: [
-              const ColoredBox(color: Color(0xFF090B14)),
+              ColoredBox(color: context.cxCanvas),
               RepaintBoundary(
                 child: CustomPaint(
                   painter: _OnboardingBackgroundPainter(
@@ -100,7 +102,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         child: TextButton(
                           onPressed: _skip,
                           style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFFD4DAED),
+                            foregroundColor: context.cxInk,
                           ),
                           child: const Text('Skip'),
                         ),
@@ -198,7 +200,7 @@ class _OnboardingPage extends StatelessWidget {
                     data.title,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Colors.white,
+                      color: context.cxInk,
                       fontSize: 32,
                       height: 1.12,
                       fontWeight: FontWeight.w800,
@@ -209,8 +211,8 @@ class _OnboardingPage extends StatelessWidget {
                   Text(
                     data.subtitle,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFFB8C1DA),
+                    style: TextStyle(
+                      color: context.cxSoft,
                       fontSize: 16,
                       height: 1.55,
                     ),
@@ -249,8 +251,8 @@ class _PremiumIllustration extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF7C3AED).withValues(alpha: .34),
-                    const Color(0xFF7C3AED).withValues(alpha: 0),
+                    context.cxInk.withValues(alpha: .34),
+                    context.cxInk.withValues(alpha: 0),
                   ],
                 ),
               ),
@@ -277,26 +279,26 @@ class _PeopleIllustration extends StatelessWidget {
       const Positioned(
         top: 42,
         left: 62,
-        child: _Portrait(name: 'M', color: Color(0xFFE879A9)),
+        child: _Portrait(name: 'M', color: Color(0xFFD9485F)),
       ),
       const Positioned(
         top: 64,
         right: 60,
-        child: _Portrait(name: 'J', color: Color(0xFF22D3EE)),
+        child: _Portrait(name: 'J', color: Color(0xFF0E8FA8)),
       ),
       Positioned(
         bottom: 2,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           decoration: BoxDecoration(
-            color: const Color(0xFF1C2440).withValues(alpha: .92),
+            color: context.cxSurface.withValues(alpha: .92),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: .14)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .14)),
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.favorite_rounded, size: 16, color: Color(0xFFFF719E)),
+              Icon(Icons.favorite_rounded, size: 16, color: Color(0xFFD9485F)),
               SizedBox(width: 7),
               Text(
                 'A shared spark',
@@ -321,17 +323,17 @@ class _CityIllustration extends StatelessWidget {
       Positioned(
         bottom: 48,
         left: 65,
-        child: _Building(height: 66, width: 31, color: const Color(0xFF7856CF)),
+        child: _Building(height: 66, width: 31, color: context.cxInk),
       ),
       Positioned(
         bottom: 48,
         left: 103,
-        child: _Building(height: 92, width: 42, color: const Color(0xFF278EAA)),
+        child: _Building(height: 92, width: 42, color: const Color(0xFF0E8FA8)),
       ),
       Positioned(
         bottom: 48,
         right: 63,
-        child: _Building(height: 54, width: 30, color: const Color(0xFFD16391)),
+        child: _Building(height: 54, width: 30, color: const Color(0xFFD9485F)),
       ),
       const Positioned(top: 4, right: 38, child: _EventPill()),
       const Positioned(bottom: 23, child: _ConnectionLine()),
@@ -347,19 +349,19 @@ class _ConnectionsIllustration extends StatelessWidget {
     alignment: Alignment.center,
     children: [
       const _GlassPanel(width: 208, height: 142),
-      const Positioned(
+      Positioned(
         top: 38,
         left: 63,
-        child: _Portrait(name: 'A', color: Color(0xFF8B5CF6)),
+        child: _Portrait(name: 'A', color: context.cxInk),
       ),
       const Positioned(
         top: 43,
         right: 60,
-        child: _Portrait(name: 'S', color: Color(0xFFF472A8)),
+        child: _Portrait(name: 'S', color: Color(0xFFD9485F)),
       ),
       const Positioned(
         bottom: 32,
-        child: _Portrait(name: 'K', color: Color(0xFF22D3EE)),
+        child: _Portrait(name: 'K', color: Color(0xFF0E8FA8)),
       ),
       const Positioned(top: 82, child: _ConnectionLine()),
     ],
@@ -380,11 +382,11 @@ class _GlassPanel extends StatelessWidget {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Colors.white.withValues(alpha: .14),
-          Colors.white.withValues(alpha: .035),
+          context.cxInk.withValues(alpha: .14),
+          context.cxInk.withValues(alpha: .035),
         ],
       ),
-      border: Border.all(color: Colors.white.withValues(alpha: .16)),
+      border: Border.all(color: context.cxInk.withValues(alpha: .16)),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withValues(alpha: .22),
@@ -406,8 +408,8 @@ class _Portrait extends StatelessWidget {
     width: 62,
     decoration: BoxDecoration(
       shape: BoxShape.circle,
-      gradient: LinearGradient(colors: [color, const Color(0xFF171D35)]),
-      border: Border.all(color: Colors.white.withValues(alpha: .5), width: 2),
+      gradient: LinearGradient(colors: [color, context.cxSurface]),
+      border: Border.all(color: context.cxInk.withValues(alpha: .5), width: 2),
       boxShadow: [
         BoxShadow(color: color.withValues(alpha: .35), blurRadius: 18),
       ],
@@ -415,7 +417,7 @@ class _Portrait extends StatelessWidget {
     child: Center(
       child: Text(
         name,
-        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+        style: const TextStyle(fontSize: 22, fontFamily: 'Fraunces', fontWeight: FontWeight.w600),
       ),
     ),
   );
@@ -437,7 +439,7 @@ class _Building extends StatelessWidget {
     decoration: BoxDecoration(
       color: color.withValues(alpha: .75),
       borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-      border: Border.all(color: Colors.white.withValues(alpha: .18)),
+      border: Border.all(color: context.cxInk.withValues(alpha: .18)),
     ),
   );
 }
@@ -448,14 +450,14 @@ class _EventPill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
     decoration: BoxDecoration(
-      color: const Color(0xFF1B243E),
+      color: context.cxSurface,
       borderRadius: BorderRadius.circular(13),
-      border: Border.all(color: const Color(0xFF5AE1F5).withValues(alpha: .45)),
+      border: Border.all(color: const Color(0xFF0E8FA8).withValues(alpha: .45)),
     ),
     child: const Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.location_on_rounded, size: 14, color: Color(0xFF6AE5F6)),
+        Icon(Icons.location_on_rounded, size: 14, color: Color(0xFF0E8FA8)),
         SizedBox(width: 4),
         Text(
           'Tonight',
@@ -473,7 +475,7 @@ class _ConnectionLine extends StatelessWidget {
     height: 2,
     width: 78,
     decoration: const BoxDecoration(
-      gradient: LinearGradient(colors: [Color(0xFF22D3EE), Color(0xFFFC6B9D)]),
+      gradient: LinearGradient(colors: [Color(0xFF0E8FA8), Color(0xFFD9485F)]),
     ),
   );
 }
@@ -499,11 +501,11 @@ class _PremiumPageIndicator extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: index == currentIndex
-              ? const LinearGradient(
-                  colors: [Color(0xFF8B5CF6), Color(0xFF22D3EE)],
+              ? LinearGradient(
+                  colors: [context.cxAccent, context.cxAccent],
                 )
               : null,
-          color: index == currentIndex ? null : const Color(0xFF53607D),
+          color: index == currentIndex ? null : context.cxLine,
         ),
       ),
     ),
@@ -519,13 +521,11 @@ class _OnboardingButton extends StatelessWidget {
     height: 58,
     width: double.infinity,
     decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(18),
-      gradient: const LinearGradient(
-        colors: [Color(0xFF8051E6), Color(0xFF248FBC)],
-      ),
+      borderRadius: BorderRadius.circular(30),
+      color: context.cxInk,
       boxShadow: [
         BoxShadow(
-          color: const Color(0xFF7C3AED).withValues(alpha: .22),
+          color: context.cxAccent.withValues(alpha: .22),
           blurRadius: 22,
           offset: const Offset(0, 10),
         ),
@@ -544,8 +544,9 @@ class _OnboardingButton extends StatelessWidget {
               key: ValueKey(label),
               style: const TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 letterSpacing: .1,
+                color: Colors.white,
               ),
             ),
           ),
@@ -575,7 +576,7 @@ class _OnboardingBackgroundPainter extends CustomPainter {
       canvas,
       Offset(size.width * (.12 + math.sin(time * .4) * .04), size.height * .18),
       size.width * .58,
-      const Color(0xFF7C3AED).withValues(alpha: .19),
+      Color(0xFF1B1B1F).withValues(alpha: .19),
     );
     _blob(
       canvas,
@@ -584,15 +585,15 @@ class _OnboardingBackgroundPainter extends CustomPainter {
         size.height * (.68 + math.cos(time * .33) * .05),
       ),
       size.width * .62,
-      const Color(0xFF22D3EE).withValues(alpha: .11),
+      const Color(0xFF0E8FA8).withValues(alpha: .11),
     );
     _blob(
       canvas,
       Offset(size.width * (.5 + math.sin(time * .24) * .05), size.height * .98),
       size.width * .43,
-      const Color(0xFFFF4D8D).withValues(alpha: .08),
+      const Color(0xFFD9485F).withValues(alpha: .08),
     );
-    final paint = Paint()..color = Colors.white.withValues(alpha: .065);
+    final paint = Paint()..color = Color(0xFF1B1B1F).withValues(alpha: .065);
     for (var index = 0; index < _particles.length; index++) {
       final item = _particles[index];
       canvas.drawCircle(

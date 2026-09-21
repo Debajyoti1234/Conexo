@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../app/theme/app_widgets.dart';
 import '../home_discovery_animations.dart';
 import 'notification_models.dart';
@@ -9,28 +11,26 @@ import 'notification_models.dart';
 /// Reuses the existing Conexo design language: [GlassCard], the [Shimmer] /
 /// [SkeletonLine] skeleton primitives, violet accents, and easeOutCubic motion.
 
-const Color _kAccent = Color(0xFF8B5CF6);
-const Color _kAccentSoft = Color(0xFFB7A5FF);
 
 /// The accent tint used for a notification's leading icon by [NotificationKind].
-Color _kindColor(NotificationKind kind) {
+Color _kindColor(BuildContext context, NotificationKind kind) {
   switch (kind) {
     case NotificationKind.join:
-      return const Color(0xFF47D7A5);
+      return context.cxSuccess;
     case NotificationKind.request:
-      return _kAccentSoft;
+      return context.cxInk;
     case NotificationKind.requestAccepted:
-      return const Color(0xFF47D7A5);
+      return context.cxSuccess;
     case NotificationKind.planInvitation:
-      return const Color(0xFFFF6B8A);
+      return context.cxDanger;
     case NotificationKind.joinRequest:
-      return const Color(0xFFFFB86B);
+      return context.cxAccentSoft;
     case NotificationKind.plan:
-      return const Color(0xFFFFB86B);
+      return context.cxAccentSoft;
     case NotificationKind.message:
-      return const Color(0xFF6EA8FE);
+      return context.cxAccent;
     case NotificationKind.system:
-      return _kAccentSoft;
+      return context.cxInk;
   }
 }
 
@@ -105,7 +105,7 @@ class _BellGlyph extends StatelessWidget {
             boxShadow: hasUnread
                 ? [
                     BoxShadow(
-                      color: _kAccent.withValues(alpha: .45),
+                      color: context.cxAccent.withValues(alpha: .45),
                       blurRadius: 16,
                       spreadRadius: 1,
                     ),
@@ -118,7 +118,7 @@ class _BellGlyph extends StatelessWidget {
             color: Colors.white,
           ),
         ),
-        if (hasUnread)
+if (hasUnread)
           Positioned(
             right: 1,
             top: 1,
@@ -126,11 +126,11 @@ class _BellGlyph extends StatelessWidget {
               width: 7,
               height: 7,
               decoration: BoxDecoration(
-                color: const Color(0xFFFF6B8A),
+                color: context.cxDanger,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFFF6B8A).withValues(alpha: .7),
+                    color: context.cxDanger.withValues(alpha: .7),
                     blurRadius: 6,
                     spreadRadius: 1,
                   ),
@@ -240,9 +240,9 @@ class LiveNotificationToast extends StatelessWidget {
 
   final AppNotification notification;
 
-  @override
+@override
   Widget build(BuildContext context) {
-    final tint = _kindColor(notification.kind);
+    final tint = _kindColor(context, notification.kind);
     return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
@@ -258,10 +258,10 @@ class LiveNotificationToast extends StatelessWidget {
                   notification.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFFEAEEF9),
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -269,9 +269,9 @@ class LiveNotificationToast extends StatelessWidget {
                   notification.subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFFAEB9D6),
+                    color: context.cxSoft,
                   ),
                 ),
               ],
@@ -317,9 +317,9 @@ class NotificationCard extends StatelessWidget {
   final VoidCallback onTap;
 
 
-  @override
+@override
   Widget build(BuildContext context) {
-    final tint = _kindColor(notification.kind);
+    final tint = _kindColor(context, notification.kind);
     return RepaintBoundary(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -341,20 +341,20 @@ class NotificationCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           notification.title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFFEAEEF9),
+                            color: context.cxInk,
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         notificationTimeLabel(notification.timestamp),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF8A96B4),
+                          color: context.cxMuted,
                         ),
                       ),
                       if (notification.unread) ...[
@@ -362,8 +362,8 @@ class NotificationCard extends StatelessWidget {
                         Container(
                           width: 8,
                           height: 8,
-                          decoration: const BoxDecoration(
-                            color: _kAccent,
+                          decoration: BoxDecoration(
+                            color: context.cxInk,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -373,10 +373,10 @@ class NotificationCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     notification.subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       height: 1.4,
-                      color: Color(0xFFAEB9D6),
+                      color: context.cxSoft,
                     ),
                   ),
                 ],
@@ -403,11 +403,11 @@ class NotificationSectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 6, 4, 10),
       child: Text(
         label.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.0,
-          color: Color(0xFF8A96B4),
+          color: context.cxMuted,
         ),
       ),
     );
@@ -453,9 +453,9 @@ class _SkeletonCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF182039).withValues(alpha: .78),
+        color: context.cxSurface.withValues(alpha: .78),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: .06)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .06)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,39 +504,39 @@ class NotificationEmptyState extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.white.withValues(alpha: .12),
-                        Colors.white.withValues(alpha: .04),
+                        context.cxInk.withValues(alpha: .12),
+                        context.cxInk.withValues(alpha: .04),
                       ],
                     ),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: .16),
+                      color: context.cxInk.withValues(alpha: .16),
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.notifications_none_rounded,
                     size: 42,
-                    color: _kAccentSoft,
+                    color: context.cxAccentSoft,
                   ),
                 ),
                 const SizedBox(height: 22),
-                const Text(
+                Text(
                   'You’re all caught up',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.2,
-                    color: Color(0xFFEAEEF9),
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'New activity from your plans and connections will appear here.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
                     height: 1.5,
-                    color: Color(0xFFAEB9D6),
+                    color: context.cxSoft,
                   ),
                 ),
               ],

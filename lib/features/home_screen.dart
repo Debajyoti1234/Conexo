@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 import '../../core/services/notification_permission.dart';
 import '../../core/services/push_notification_service.dart';
 import '../../core/supabase/auth_service.dart';
@@ -72,9 +74,10 @@ class _DiscoveryPreparationStateState extends State<_DiscoveryPreparationState>
                   'Conexo',
                   style: TextStyle(
                     fontSize: 30,
-                    fontWeight: FontWeight.w900,
+                    fontFamily: 'Fraunces',
+                    fontWeight: FontWeight.w600,
                     letterSpacing: -0.6,
-                    color: Colors.white.withValues(alpha: .92),
+                    color: context.cxInk.withValues(alpha: .92),
                     shadows: [
                       Shadow(
                         color: Colors.black.withValues(alpha: .55),
@@ -126,7 +129,7 @@ class _PrepLine extends StatelessWidget {
           fontSize: 17,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.15,
-          color: Colors.white.withValues(alpha: .68),
+          color: context.cxInk.withValues(alpha: .68),
           height: 1.45,
         ),
       ),
@@ -401,13 +404,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final safeIndex = hasProfiles ? _index.clamp(0, profiles.length - 1) : 0;
     final profile = hasProfiles ? profiles[safeIndex] : null;
     final media = MediaQuery.of(context);
-    final screenHeight = media.size.height;
-    final controlsTop = screenHeight * 0.76;
+    // Dock: 68px + 24px margin (see FloatingNavDock). Controls float just
+    // above it so they never overlap the identity card.
+    final controlsBottom = media.padding.bottom + 68 + 24 + 18;
 
     return Stack(
       children: [
         Positioned.fill(
-          child: Container(color: Colors.black),
+          child: Container(color: context.cxCanvas),
         ),
         Positioned.fill(
           child: AnimatedSwitcher(
@@ -465,11 +469,13 @@ class _HomeScreenState extends State<HomeScreen> {
           Positioned(
             left: 0,
             right: 0,
-            top: controlsTop,
+            bottom: controlsBottom,
             child: DiscoveryControls(
               connection: _connections[profile.id],
               connecting: _connecting[profile.id] ?? false,
               onConnect: () => _sendRequest(profile.id),
+              // Cross button = same skip as the photo swipe.
+              onSkip: () => _move(1),
             ),
           ),
         Positioned(
@@ -535,24 +541,24 @@ class _NotificationPermissionBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF182039).withValues(alpha: .88),
+        color: context.cxSurface.withValues(alpha: .88),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: .10)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .10)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.notifications_rounded, size: 18, color: Color(0xFFB7A5FF)),
+          Icon(Icons.notifications_rounded, size: 18, color: context.cxInk),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Text(
               'Enable notifications to stay connected.',
-              style: TextStyle(fontSize: 13, color: Color(0xFFDDE3F4)),
+              style: TextStyle(fontSize: 13, color: context.cxInk),
             ),
           ),
           TextButton(
             onPressed: onEnable,
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF8B5CF6),
+              foregroundColor: context.cxInk,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             ),
             child: const Text(
@@ -668,10 +674,10 @@ class _FilterPreferencesSheetState extends State<_FilterPreferencesSheet> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 14, 24, 34),
         decoration: BoxDecoration(
-          color: const Color(0xFF172039).withValues(alpha: .97),
+          color: context.cxGlass.withValues(alpha: .97),
           borderRadius:
               const BorderRadius.vertical(top: Radius.circular(32)),
-          border: Border.all(color: Colors.white.withValues(alpha: .12)),
+          border: Border.all(color: context.cxInk.withValues(alpha: .12)),
         ),
         child: SafeArea(
           top: false,
@@ -683,20 +689,20 @@ class _FilterPreferencesSheetState extends State<_FilterPreferencesSheet> {
                 child: SizedBox(width: 38, child: Divider(thickness: 3)),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Discovery filters',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFFEAEEF9),
+                  color: context.cxInk,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Adjust who appears in your discovery feed.',
                 style: TextStyle(
                   fontSize: 13.5,
-                  color: Color(0xFFB9C3DC),
+                  color: context.cxSoft,
                   height: 1.4,
                 ),
               ),
@@ -739,12 +745,12 @@ class _FilterPreferencesSheetState extends State<_FilterPreferencesSheet> {
                 ),
               ),
               const SizedBox(height: 22),
-              const Text(
+              Text(
                 'Advanced settings',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFFAEB9D6),
+                  color: context.cxSoft,
                 ),
               ),
               const SizedBox(height: 14),
@@ -787,7 +793,7 @@ class _FilterPreferencesSheetState extends State<_FilterPreferencesSheet> {
 const _valueStyle = TextStyle(
   fontSize: 13.5,
   fontWeight: FontWeight.w700,
-  color: Color(0xFFB7A5FF),
+  color: Color(0xFF1B1B1F),
 );
 
 class _FilterCard extends StatelessWidget {
@@ -808,24 +814,24 @@ class _FilterCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .04),
+        color: context.cxInk.withValues(alpha: .04),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: const Color(0xFFB7A5FF)),
+              Icon(icon, size: 20, color: context.cxInk),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFFEAEEF9),
+                    color: context.cxInk,
                   ),
                 ),
               ),
@@ -865,7 +871,7 @@ class _DistanceSlider extends StatelessWidget {
               '5 km',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.white.withValues(alpha: .5),
+                color: context.cxInk.withValues(alpha: .5),
               ),
             ),
             const Spacer(),
@@ -873,7 +879,7 @@ class _DistanceSlider extends StatelessWidget {
               '100 km',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.white.withValues(alpha: .5),
+                color: context.cxInk.withValues(alpha: .5),
               ),
             ),
           ],
@@ -884,8 +890,8 @@ class _DistanceSlider extends StatelessWidget {
           min: 5,
           max: 100,
           divisions: 19,
-          activeColor: const Color(0xFF8B5CF6),
-          inactiveColor: Colors.white.withValues(alpha: .10),
+          activeColor: context.cxAccent,
+          inactiveColor: context.cxInk.withValues(alpha: .10),
           onChanged: onDistanceDrag,
           onChangeEnd: (v) => onDistanceChanged(v.round()),
         ),
@@ -910,9 +916,9 @@ class _DistanceSlider extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           'Current: ${distance == null ? "Any" : "$distance km"}',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: Color(0xFFB9C3DC),
+            color: context.cxSoft,
           ),
         ),
       ],
@@ -942,13 +948,13 @@ class _PresetChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF8B5CF6).withValues(alpha: .22)
-              : Colors.white.withValues(alpha: .05),
+              ? context.cxInk.withValues(alpha: .22)
+              : context.cxInk.withValues(alpha: .05),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
             color: selected
-                ? const Color(0xFF8B5CF6).withValues(alpha: .55)
-                : Colors.white.withValues(alpha: .10),
+                ? context.cxInk.withValues(alpha: .55)
+                : context.cxInk.withValues(alpha: .10),
           ),
         ),
         child: Text(
@@ -957,8 +963,8 @@ class _PresetChip extends StatelessWidget {
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: selected
-                ? const Color(0xFFEAEEF9)
-                : const Color(0xFFB9C3DC),
+                ? context.cxInk
+                : context.cxSoft,
           ),
         ),
       ),
@@ -1000,8 +1006,8 @@ class _AgeRangeControls extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 16),
-            const Icon(Icons.arrow_forward_rounded,
-                color: Color(0xFFB9C3DC)),
+            Icon(Icons.arrow_forward_rounded,
+                color: context.cxSoft),
             const SizedBox(width: 16),
             Expanded(
               child: _AgeDropdown(
@@ -1023,7 +1029,7 @@ class _AgeRangeControls extends StatelessWidget {
               'Minimum age cannot exceed maximum age.',
               style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFFE36D9D),
+                color: Color(0xFFD9485F),
               ),
             ),
           ),
@@ -1052,30 +1058,30 @@ class _AgeDropdown extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: Color(0xFFB9C3DC),
+            color: context.cxSoft,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .05),
+            color: context.cxInk.withValues(alpha: .05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withValues(alpha: .08),
+              color: context.cxInk.withValues(alpha: .08),
             ),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: value,
               isExpanded: true,
-              dropdownColor: const Color(0xFF141B2E),
-              style: const TextStyle(
+              dropdownColor: context.cxSurface,
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFFEAEEF9),
+                color: context.cxInk,
               ),
               items: [
                 for (final age in items)
@@ -1217,13 +1223,13 @@ class _FilterChip<T> extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF8B5CF6).withValues(alpha: .22)
-              : Colors.white.withValues(alpha: .05),
+              ? context.cxInk.withValues(alpha: .22)
+              : context.cxInk.withValues(alpha: .05),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
             color: selected
-                ? const Color(0xFF8B5CF6).withValues(alpha: .55)
-                : Colors.white.withValues(alpha: .10),
+                ? context.cxInk.withValues(alpha: .55)
+                : context.cxInk.withValues(alpha: .10),
           ),
         ),
         child: Text(
@@ -1232,8 +1238,8 @@ class _FilterChip<T> extends StatelessWidget {
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: selected
-                ? const Color(0xFFEAEEF9)
-                : const Color(0xFFB9C3DC),
+                ? context.cxInk
+                : context.cxSoft,
           ),
         ),
       ),
@@ -1261,8 +1267,8 @@ class _SharedInterestsToggle extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: value
-                  ? const Color(0xFFEAEEF9)
-                  : const Color(0xFFB9C3DC),
+                  ? context.cxInk
+                  : context.cxSoft,
             ),
           ),
         ),
@@ -1270,10 +1276,10 @@ class _SharedInterestsToggle extends StatelessWidget {
         Switch.adaptive(
           value: value,
           onChanged: onChanged,
-          activeThumbColor: const Color(0xFF8B5CF6),
-          activeTrackColor: const Color(0xFF8B5CF6).withValues(alpha: .4),
-          inactiveThumbColor: Colors.white.withValues(alpha: .4),
-          inactiveTrackColor: Colors.white.withValues(alpha: .10),
+          activeThumbColor: context.cxAccent,
+          activeTrackColor: context.cxInk.withValues(alpha: .4),
+          inactiveThumbColor: context.cxInk.withValues(alpha: .4),
+          inactiveTrackColor: context.cxInk.withValues(alpha: .10),
         ),
       ],
     );
@@ -1298,14 +1304,14 @@ class _FilterResetButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
+              colors: [context.cxAccent, context.cxAccent],
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF7C3AED).withValues(alpha: .4),
+                color: context.cxAccent.withValues(alpha: .4),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -1356,7 +1362,7 @@ class _DiscoveryHeaderPill extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: .24),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: .12)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .12)),
           ),
           child: Row(
             children: [
@@ -1403,9 +1409,9 @@ class _FloatingFilterButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .10),
+            color: context.cxInk.withValues(alpha: .10),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: .16)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .16)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1422,7 +1428,7 @@ class _FloatingFilterButton extends StatelessWidget {
               Icon(
                 Icons.tune_rounded,
                 size: 15,
-                color: Colors.white.withValues(alpha: .92),
+                color: context.cxInk.withValues(alpha: .92),
               ),
             ],
           ),
@@ -1462,39 +1468,39 @@ class _DiscoveryEmptyState extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.white.withValues(alpha: .12),
-                        Colors.white.withValues(alpha: .04),
+                        context.cxInk.withValues(alpha: .12),
+                        context.cxInk.withValues(alpha: .04),
                       ],
                     ),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: .16),
+                      color: context.cxInk.withValues(alpha: .16),
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.travel_explore_rounded,
                     size: 42,
-                    color: Color(0xFFB7A5FF),
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 22),
-                const Text(
+                Text(
                   'No one matches your filters nearby',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.2,
-                    color: Color(0xFFEAEEF9),
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Try adjusting your filters to see more people.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
                     height: 1.5,
-                    color: Color(0xFFAEB9D6),
+                    color: context.cxSoft,
                   ),
                 ),
                 const SizedBox(height: 22),
@@ -1524,14 +1530,14 @@ class _EmptyStateResetButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
+              colors: [context.cxAccent, context.cxAccent],
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF7C3AED).withValues(alpha: .4),
+                color: context.cxAccent.withValues(alpha: .4),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -1585,39 +1591,39 @@ class _DiscoveryErrorState extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.white.withValues(alpha: .12),
-                        Colors.white.withValues(alpha: .04),
+                        context.cxInk.withValues(alpha: .12),
+                        context.cxInk.withValues(alpha: .04),
                       ],
                     ),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: .16),
+                      color: context.cxInk.withValues(alpha: .16),
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.wifi_off_rounded,
                     size: 42,
-                    color: Color(0xFFB7A5FF),
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 22),
                 Text(
                   'Unable to load nearby people',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.2,
-                    color: Color(0xFFEAEEF9),
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Check your connection and try again.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
                     height: 1.5,
-                    color: Color(0xFFAEB9D6),
+                    color: context.cxSoft,
                   ),
                 ),
                 const SizedBox(height: 22),
@@ -1647,14 +1653,14 @@ class _ErrorStateRetryButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF7C3AED), Color(0xFF2563EB)],
+              colors: [context.cxAccent, context.cxAccent],
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF7C3AED).withValues(alpha: .4),
+                color: context.cxAccent.withValues(alpha: .4),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),

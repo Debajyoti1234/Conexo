@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
 import '../../app/theme/app_widgets.dart';
+import '../plans/plans_theme.dart';
+import '../plans/plan_details_widgets.dart';
 import '../home_discovery_animations.dart';
 
 class SafetyTipsScreen extends StatelessWidget {
@@ -49,10 +52,10 @@ class SafetyTipsScreen extends StatelessWidget {
     ),
   ];
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Stack(
           children: [
@@ -61,24 +64,28 @@ class SafetyTipsScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
+                    CircleGlassButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () => Navigator.of(context).maybePop(),
+                      semanticLabel: 'Back',
                     ),
                     const SizedBox(width: 4),
                     Text(
                       'Safety on Conexo',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: plansDisplay(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: context.cxInk,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 22),
-                const Text(
+                Text(
                   'Simple guidelines to help you connect safely and confidently.',
-                  style: TextStyle(color: Color(0xFFB9C3DC)),
+                  style: plansBody(
+                    color: context.cxSoft,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 ..._tips.map(
@@ -90,10 +97,13 @@ class SafetyTipsScreen extends StatelessWidget {
                 Center(
                   child: TextButton.icon(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                    label: const Text('Back to Safety'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF8B5CF6),
+                    icon: Icon(Icons.arrow_back_rounded, size: 18, color: context.cxAccent),
+                    label: Text(
+                      'Back to Safety',
+                      style: plansBody(
+                        fontWeight: FontWeight.w700,
+                        color: context.cxAccent,
+                      ),
                     ),
                   ),
                 ),
@@ -136,10 +146,10 @@ class _SafetyTipCard extends StatelessWidget {
               height: 40,
               width: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF8B5CF6).withValues(alpha: .18),
+                color: context.cxAccent.withValues(alpha: .18),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(tip.icon, color: const Color(0xFF8B5CF6), size: 20),
+              child: Icon(tip.icon, color: context.cxAccent, size: 20),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -148,19 +158,19 @@ class _SafetyTipCard extends StatelessWidget {
                 children: [
                   Text(
                     tip.title,
-                    style: const TextStyle(
+                    style: plansBody(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFFEAEEF9),
+                      color: context.cxInk,
                     ),
                   ),
                   const SizedBox(height: 5),
                   Text(
                     tip.body,
-                    style: TextStyle(
+                    style: plansBody(
                       fontSize: 13.5,
                       height: 1.4,
-                      color: const Color(0xFFB9C3DC),
+                      color: context.cxSoft,
                     ),
                   ),
                 ],

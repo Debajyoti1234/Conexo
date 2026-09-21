@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../core/supabase/auth_service.dart';
 import '../home_discovery_animations.dart';
 import 'create_plan_data.dart';
@@ -226,7 +228,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1A1F2E),
+        backgroundColor: context.cxSurface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
         ),
@@ -246,21 +248,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         _handleBack();
       },
       child: Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: context.cxCanvas,
         body: SafeArea(
           child: Stack(
             children: [
-              Positioned.fill(
-                child: Image.asset(
-                  'assets/images/plans/myplan.PNG',
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Positioned.fill(
-                child: Container(
-                  color: Colors.black.withValues(alpha: .35),
-                ),
-              ),
               _buildForm(stage),
               Positioned(
                 left: 20,
@@ -375,9 +366,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         child: Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: const Color(0xFF161E36).withValues(alpha: .98),
+            color: context.cxSurface.withValues(alpha: .98),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: .12)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .12)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: .5),
@@ -397,10 +388,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               const SizedBox(height: 12),
               Text(
                 message,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13.5,
                   height: 1.5,
-                  color: Color(0xFFB9C3DC),
+                  color: context.cxSoft,
                 ),
               ),
               const SizedBox(height: 22),
@@ -411,8 +402,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                   height: 48,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
+                    gradient: LinearGradient(
+                      colors: [context.cxAccent, context.cxAccent],
                     ),
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -434,12 +425,12 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                   height: 48,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .06),
+                    color: context.cxInk.withValues(alpha: .06),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: secondaryDanger
-                          ? const Color(0xFFE36D9D).withValues(alpha: .5)
-                          : Colors.white.withValues(alpha: .14),
+                          ? const Color(0xFFD9485F).withValues(alpha: .5)
+                          : context.cxInk.withValues(alpha: .14),
                     ),
                   ),
                   child: Text(
@@ -448,7 +439,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                       fontSize: 14.5,
                       fontWeight: FontWeight.w800,
                       color: secondaryDanger
-                          ? const Color(0xFFE36D9D)
+                          ? const Color(0xFFD9485F)
                           : Colors.white,
                     ),
                   ),
@@ -583,7 +574,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
             isEditing ? 'Edit Plan' : 'Create Plan',
             style: const TextStyle(
               fontSize: 30,
-              fontWeight: FontWeight.w800,
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w600,
               letterSpacing: -0.6,
             ),
           ),
@@ -592,7 +584,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
             isEditing
                 ? 'Update your plan details.'
                 : 'Create a plan. Meet nearby people. Make memories.',
-            style: const TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+            style: TextStyle(fontSize: 14, color: context.cxSoft),
           ),
         ],
       ),
@@ -611,10 +603,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .07),
+                    color: context.cxInk.withValues(alpha: .07),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: .12),
+                      color: context.cxInk.withValues(alpha: .12),
                     ),
                   ),
                   child: Column(
@@ -622,10 +614,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.drafts_rounded,
                             size: 18,
-                            color: Color(0xFFB7A5FF),
+                            color: context.cxInk,
                           ),
                           const SizedBox(width: 8),
                           const Expanded(
@@ -680,15 +672,15 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           gradient: primary
-              ? const LinearGradient(
-                  colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
+              ? LinearGradient(
+                  colors: [context.cxAccent, context.cxAccent],
                 )
               : null,
-          color: primary ? null : Colors.white.withValues(alpha: .06),
+          color: primary ? null : context.cxInk.withValues(alpha: .06),
           borderRadius: BorderRadius.circular(12),
           border: primary
               ? null
-              : Border.all(color: Colors.white.withValues(alpha: .14)),
+              : Border.all(color: context.cxInk.withValues(alpha: .14)),
         ),
         child: Text(
           label,

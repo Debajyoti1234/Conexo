@@ -1,5 +1,27 @@
 import 'package:flutter/material.dart';
 
+import 'app_theme.dart';
+
+/// Light-mode values come from the Friend visual language; dark-mode values
+/// preserve the existing Conexo dark system. Shared widgets resolve by the
+/// active [Brightness] so Light matches Friend and Dark is unchanged.
+bool _isLight(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.light;
+
+// Dark-only literals that are not part of [DarkPalette] but must stay exact.
+const Color _darkAccentSoft = Color(0xFFB7A5FF);
+const Color _darkSubtitle = Color(0xFFAFB8D4);
+const Color _darkChipSelected = Color(0xFF7659DF);
+const Color _darkChipSurface = Color(0xFF171F35);
+const Color _darkChipBorder = Color(0xFF2C3650);
+const Color _darkChipLabel = Color(0xFFDDE3F4);
+const Color _darkCardSurface = Color(0xFF182039);
+const Color _darkPlanBorder = Color(0xFF28324B);
+const Color _darkMetaText = Color(0xFFAEB9D6);
+const Color _darkOnline = Color(0xFF47D7A5);
+
+const Color _lightOnline = Color(0xFF1F9D6B);
+
 class ConexoButton extends StatelessWidget {
   const ConexoButton({
     required this.label,
@@ -12,31 +34,38 @@ class ConexoButton extends StatelessWidget {
   final bool isLoading;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 56,
-    width: double.infinity,
-    child: FilledButton(
-      onPressed: isLoading ? null : onPressed,
-      style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFF8B5CF6),
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      child: isLoading
-          ? const SizedBox(
-              height: 22,
-              width: 22,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white,
+  Widget build(BuildContext context) {
+    final background =
+        _isLight(context) ? AppPalette.ink : DarkPalette.primary;
+    return SizedBox(
+      height: 56,
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: isLoading ? null : onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: background,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        child: isLoading
+            ? const SizedBox(
+                height: 22,
+                width: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            )
-          : Text(
-              label,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class ConexoTextField extends StatefulWidget {
@@ -102,34 +131,40 @@ class AuthHeader extends StatelessWidget {
   final String subtitle;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Container(
-        height: 52,
-        width: 52,
-        decoration: BoxDecoration(
-          color: const Color(0xFF8B5CF6).withValues(alpha: .18),
-          borderRadius: BorderRadius.circular(16),
+  Widget build(BuildContext context) {
+    final light = _isLight(context);
+    final iconColor = light ? AppPalette.ink : _darkAccentSoft;
+    final badgeColor = light ? AppPalette.ink : DarkPalette.primary;
+    final subtitleColor = light ? AppPalette.inkSoft : _darkSubtitle;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          height: 52,
+          width: 52,
+          decoration: BoxDecoration(
+            color: badgeColor.withValues(alpha: .18),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(Icons.people_alt_rounded, color: iconColor),
         ),
-        child: const Icon(Icons.people_alt_rounded, color: Color(0xFFB7A5FF)),
-      ),
-      const SizedBox(height: 28),
-      Text(
-        title,
-        style: Theme.of(
-          context,
-        ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
-      ),
-      const SizedBox(height: 10),
-      Text(
-        subtitle,
-        style: Theme.of(
-          context,
-        ).textTheme.bodyLarge?.copyWith(color: const Color(0xFFAFB8D4)),
-      ),
-    ],
-  );
+        const SizedBox(height: 28),
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          subtitle,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyLarge?.copyWith(color: subtitleColor),
+        ),
+      ],
+    );
+  }
 }
 
 class UserAvatar extends StatelessWidget {
@@ -138,45 +173,56 @@ class UserAvatar extends StatelessWidget {
     super.key,
     this.size = 44,
     this.online = false,
-    this.color = const Color(0xFF8B5CF6),
+    this.color,
   });
   final String name;
   final double size;
   final bool online;
-  final Color color;
+
+  /// When null, the avatar resolves to the Friend ink (light) or the Conexo
+  /// violet (dark) so the default reads correctly in both themes.
+  final Color? color;
 
   @override
-  Widget build(BuildContext context) => Stack(
-    clipBehavior: Clip.none,
-    children: [
-      CircleAvatar(
-        radius: size / 2,
-        backgroundColor: color,
-        child: Text(
-          name.substring(0, 1).toUpperCase(),
-          style: TextStyle(
-            fontSize: size * .36,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-          ),
-        ),
-      ),
-      if (online)
-        Positioned(
-          right: -1,
-          bottom: -1,
-          child: Container(
-            height: size * .27,
-            width: size * .27,
-            decoration: BoxDecoration(
-              color: const Color(0xFF47D7A5),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF0B1020), width: 2),
+  Widget build(BuildContext context) {
+    final light = _isLight(context);
+    final background =
+        color ??
+        (light ? AppPalette.ink : DarkPalette.primary);
+    final onlineColor = light ? _lightOnline : _darkOnline;
+    final ringColor = light ? AppPalette.canvas : DarkPalette.scaffold;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        CircleAvatar(
+          radius: size / 2,
+          backgroundColor: background,
+          child: Text(
+            name.substring(0, 1).toUpperCase(),
+            style: TextStyle(
+              fontSize: size * .36,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
             ),
           ),
         ),
-    ],
-  );
+        if (online)
+          Positioned(
+            right: -1,
+            bottom: -1,
+            child: Container(
+              height: size * .27,
+              width: size * .27,
+              decoration: BoxDecoration(
+                color: onlineColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: ringColor, width: 2),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 class CategoryChip extends StatelessWidget {
@@ -192,25 +238,33 @@ class CategoryChip extends StatelessWidget {
   final bool selected;
   final VoidCallback? onTap;
   @override
-  Widget build(BuildContext context) => ChoiceChip(
-    label: Text(label),
-    avatar: Icon(
-      icon,
-      size: 17,
-      color: selected ? Colors.white : const Color(0xFFB7A5FF),
-    ),
-    selected: selected,
-    onSelected: (_) => onTap?.call(),
-    selectedColor: const Color(0xFF7659DF),
-    backgroundColor: const Color(0xFF171F35),
-    side: BorderSide(
-      color: selected ? Colors.transparent : const Color(0xFF2C3650),
-    ),
-    labelStyle: TextStyle(
-      color: selected ? Colors.white : const Color(0xFFDDE3F4),
-      fontWeight: FontWeight.w600,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final light = _isLight(context);
+    final unselectedIcon = light ? AppPalette.ink : _darkAccentSoft;
+    final selectedColor = light ? AppPalette.ink : _darkChipSelected;
+    final backgroundColor = light ? AppPalette.surface : _darkChipSurface;
+    final borderColor = light ? AppPalette.line : _darkChipBorder;
+    final labelColor = light ? AppPalette.ink : _darkChipLabel;
+    return ChoiceChip(
+      label: Text(label),
+      avatar: Icon(
+        icon,
+        size: 17,
+        color: selected ? Colors.white : unselectedIcon,
+      ),
+      selected: selected,
+      onSelected: (_) => onTap?.call(),
+      selectedColor: selectedColor,
+      backgroundColor: backgroundColor,
+      side: BorderSide(
+        color: selected ? Colors.transparent : borderColor,
+      ),
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : labelColor,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
 }
 
 class PlanSearchBar extends StatelessWidget {
@@ -244,132 +298,137 @@ class PlanCard extends StatelessWidget {
     required this.location,
     super.key,
     this.compact = false,
-    this.color = const Color(0xFF7659DF),
+    this.color,
   });
   final String title;
   final String category;
   final String date;
   final String location;
   final bool compact;
-  final Color color;
+
+  /// When null, resolves to Friend ink (light) or Conexo violet (dark).
+  final Color? color;
+
   @override
-  Widget build(BuildContext context) => Container(
-    width: compact ? 210 : null,
-    decoration: BoxDecoration(
-      color: const Color(0xFF171F35),
-      borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: const Color(0xFF28324B)),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: compact ? 122 : 142,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [color, color.withValues(alpha: .5)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+  Widget build(BuildContext context) {
+    final light = _isLight(context);
+    final accent = color ?? (light ? AppPalette.ink : _darkChipSelected);
+    final surface = light ? AppPalette.surface : _darkChipSurface;
+    final border = light ? AppPalette.line : _darkPlanBorder;
+    final meta = light ? AppPalette.inkSoft : _darkMetaText;
+    final categoryIcon = light ? AppPalette.ink : Colors.white;
+    return Container(
+      width: compact ? 210 : null,
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: compact ? 122 : 142,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [accent, accent.withValues(alpha: .5)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: 14,
+                  top: 14,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: .22),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      category,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 20,
+                  bottom: 16,
+                  child: Icon(
+                    _categoryIcon(category),
+                    size: 44,
+                    color: categoryIcon.withValues(alpha: .9),
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Stack(
-            children: [
-              Positioned(
-                right: 14,
-                top: 14,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: .22),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    category,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 14,
+                      color: meta,
                     ),
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 20,
-                bottom: 16,
-                child: Icon(
-                  _categoryIcon(category),
-                  size: 44,
-                  color: Colors.white.withValues(alpha: .9),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 14,
-                    color: Color(0xFFAEB9D6),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      date,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFFAEB9D6),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        date,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: meta),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.location_on_outlined,
-                    size: 14,
-                    color: Color(0xFFAEB9D6),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      location,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFFAEB9D6),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 14,
+                      color: meta,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        location,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: meta),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class GlassCard extends StatelessWidget {
@@ -380,16 +439,22 @@ class GlassCard extends StatelessWidget {
   });
   final Widget child;
   final EdgeInsetsGeometry padding;
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: padding,
-    decoration: BoxDecoration(
-      color: const Color(0xFF182039).withValues(alpha: .78),
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: Colors.white.withValues(alpha: .09)),
-    ),
-    child: child,
-  );
+  Widget build(BuildContext context) {
+    final light = _isLight(context);
+    final surface = light ? AppPalette.surface : _darkCardSurface;
+    final border = light ? AppPalette.ink : Colors.white;
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: surface.withValues(alpha: .78),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: border.withValues(alpha: .09)),
+      ),
+      child: child,
+    );
+  }
 }
 
 class InterestChip extends StatelessWidget {
@@ -426,25 +491,31 @@ class ProfileStatCard extends StatelessWidget {
   const ProfileStatCard({required this.value, required this.label, super.key});
   final String value;
   final String label;
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-    decoration: BoxDecoration(
-      color: const Color(0xFF171F35),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Color(0xFFAEB9D6)),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final light = _isLight(context);
+    final surface = light ? AppPalette.surface : _darkChipSurface;
+    final labelColor = light ? AppPalette.inkSoft : _darkMetaText;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+      decoration: BoxDecoration(
+        color: surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: labelColor),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import '../../app/theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/services/image_normalizer.dart';
@@ -132,7 +134,7 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0F1F),
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Stack(
           children: [
@@ -148,16 +150,17 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
                           'Verify your identity',
                           style: TextStyle(
                             fontSize: 24,
-                            fontWeight: FontWeight.w800,
+                            fontFamily: 'Fraunces',
+                            fontWeight: FontWeight.w600,
                             letterSpacing: -0.5,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Take a clear selfie to match your profile photo.',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Color(0xFFB9C3DC),
+                            color: context.cxSoft,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -169,9 +172,9 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
                         const SizedBox(height: 24),
                         Text(
                           'Position your face inside the oval',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
-                            color: Color(0xFFB9C3DC),
+                            color: context.cxSoft,
                           ),
                         ),
                         if (_permissionError != null) ...[
@@ -179,29 +182,29 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF182039).withValues(
+                              color: context.cxSurface.withValues(
                                 alpha: .92,
                               ),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: .09),
+                                color: context.cxInk.withValues(alpha: .09),
                               ),
                             ),
                             child: Column(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.camera_alt_outlined,
                                   size: 28,
-                                  color: Color(0xFFB9C3DC),
+                                  color: context.cxSoft,
                                 ),
                                 const SizedBox(height: 10),
                                 Text(
                                   _permissionError == 'permanentlyDenied'
                                       ? 'Camera permission was permanently denied.'
                                       : 'Camera permission is required to take a selfie.',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
-                                    color: Color(0xFFB9C3DC),
+                                    color: context.cxSoft,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -209,7 +212,7 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
                                 FilledButton(
                                   onPressed: _openSettings,
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF8B5CF6),
+                                    backgroundColor: context.cxAccent,
                                   ),
                                   child: const Text('Open Settings'),
                                 ),
@@ -229,8 +232,8 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
                         child: _SelfieActionButton(
                           label: 'Cancel',
                           onTap: () => Navigator.of(context).pop(null),
-                          backgroundColor: Colors.white.withValues(alpha: .08),
-                          foregroundColor: const Color(0xFFEAEEF9),
+                          backgroundColor: context.cxInk.withValues(alpha: .08),
+                          foregroundColor: context.cxInk,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -238,7 +241,7 @@ class _SelfieCaptureScreenState extends State<SelfieCaptureScreen> {
                         child: _SelfieActionButton(
                           label: _capturing ? 'Capturing...' : 'Take Selfie',
                           onTap: _permissionError == null ? _capture : null,
-                          backgroundColor: const Color(0xFF8B5CF6),
+                          backgroundColor: context.cxAccent,
                           foregroundColor: Colors.white,
                         ),
                       ),
@@ -296,7 +299,7 @@ class _SelfieActionButton extends StatelessWidget {
             color: backgroundColor,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withValues(alpha: .1),
+              color: context.cxInk.withValues(alpha: .1),
             ),
           ),
           child: Text(
@@ -318,7 +321,7 @@ class _FaceOvalPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: .12)
+      ..color = Color(0xFF1B1B1F).withValues(alpha: .12)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawOval(
@@ -327,7 +330,7 @@ class _FaceOvalPainter extends CustomPainter {
     );
 
     final glowPaint = Paint()
-      ..color = const Color(0xFF8B5CF6).withValues(alpha: .18)
+      ..color = Color(0xFF1B1B1F).withValues(alpha: .18)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
     canvas.drawOval(
       Rect.fromCenter(center: center, width: size.width * 0.7, height: size.height * 0.85),

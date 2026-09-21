@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
 import '../../app/router/app_router.dart';
 import '../../core/services/fcm_token_service.dart';
 import '../../core/supabase/auth_service.dart';
@@ -18,6 +19,7 @@ import 'profile_strength_screen.dart';
 import 'public_profile_sections.dart';
 import 'safety_screen.dart';
 import 'session_aware_profile_repository.dart';
+import 'theme_settings_screen.dart';
 
 /// The premium **My Profile** screen — the default destination of the Profile
 /// tab once a profile exists.
@@ -139,6 +141,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     );
   }
 
+  void _openTheme() {
+    Navigator.of(context).push(
+      premiumThemeSettingsRoute(),
+    );
+  }
+
   void _logout() async {
     try {
       // Remove this device's token association WHILE the session is still
@@ -182,6 +190,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         _openHelpAndSupport();
       case _ProfileMenuAction.about:
         _openAbout();
+      case _ProfileMenuAction.theme:
+        _openTheme();
       case _ProfileMenuAction.logout:
         _logout();
     }
@@ -190,22 +200,22 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
+      return Scaffold(
+        backgroundColor: context.cxCanvas,
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+          child: CircularProgressIndicator(color: context.cxInk),
         ),
       );
     }
 
     final profile = _profile;
     if (profile == null) {
-      return const Scaffold(
-        backgroundColor: Colors.black,
+      return Scaffold(
+        backgroundColor: context.cxCanvas,
         body: Center(
           child: Text(
             'No profile found',
-            style: TextStyle(color: Color(0xFFB9C3DC)),
+            style: TextStyle(color: context.cxSoft),
           ),
         ),
       );
@@ -214,7 +224,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     final data = mapUserProfileToPublicProfile(profile);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: context.cxCanvas,
       body: Stack(
         children: [
           ListView(
@@ -288,6 +298,7 @@ class _OverflowMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final light = Theme.of(context).brightness == Brightness.light;
     return Positioned(
       top: MediaQuery.of(context).padding.top + 10,
       right: 14,
@@ -295,7 +306,7 @@ class _OverflowMenuButton extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.black.withValues(alpha: .38),
-          border: Border.all(color: Colors.white.withValues(alpha: .16)),
+          border: Border.all(color: context.cxInk.withValues(alpha: .16)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: .35),
@@ -310,33 +321,39 @@ class _OverflowMenuButton extends StatelessWidget {
           child: PopupMenuButton<_ProfileMenuAction>(
             tooltip: 'More',
             icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
-            color: const Color(0xFF141B2E),
-            elevation: 12,
-            shadowColor: Colors.black.withValues(alpha: .5),
+            color: light ? context.cxSurface : const Color(0xFF171F35),
+            elevation: light ? 8 : 12,
+            shadowColor: Colors.black.withValues(alpha: light ? .16 : .5),
             padding: EdgeInsets.zero,
             position: PopupMenuPosition.under,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(color: Colors.white.withValues(alpha: .08)),
+              borderRadius: BorderRadius.circular(light ? 16 : 18),
+              side: BorderSide(
+                color: light
+                    ? context.cxInk.withValues(alpha: .08)
+                    : Colors.white.withValues(alpha: .08),
+              ),
             ),
             onSelected: onSelected,
             itemBuilder: (context) => [
-              _item(_ProfileMenuAction.editProfile, Icons.edit_outlined,
+              _item(context, _ProfileMenuAction.editProfile, Icons.edit_outlined,
                   'Edit Profile'),
-              _item(_ProfileMenuAction.privacy, Icons.privacy_tip_outlined,
+              _item(context, _ProfileMenuAction.privacy, Icons.privacy_tip_outlined,
                   'Privacy & Verification'),
-              _item(_ProfileMenuAction.discovery, Icons.tune_rounded,
+              _item(context, _ProfileMenuAction.discovery, Icons.tune_rounded,
                   'Discovery Preferences'),
-              _item(_ProfileMenuAction.strength, Icons.insights_rounded,
+              _item(context, _ProfileMenuAction.strength, Icons.insights_rounded,
                   'Profile Strength'),
               _item(
-                  _ProfileMenuAction.safety, Icons.shield_outlined, 'Safety'),
-              _item(_ProfileMenuAction.help, Icons.help_outline_rounded,
+                  context, _ProfileMenuAction.safety, Icons.shield_outlined, 'Safety'),
+              _item(context, _ProfileMenuAction.help, Icons.help_outline_rounded,
                   'Help & Support'),
-              _item(_ProfileMenuAction.about, Icons.info_outline_rounded,
+              _item(context, _ProfileMenuAction.about, Icons.info_outline_rounded,
                   'About Conexo'),
+              _item(context, _ProfileMenuAction.theme, Icons.brightness_6_outlined,
+                  'Theme / Appearance'),
               const PopupMenuDivider(height: 12),
-              _item(_ProfileMenuAction.logout, Icons.logout_rounded, 'Logout',
+              _item(context, _ProfileMenuAction.logout, Icons.logout_rounded, 'Logout',
                   danger: true),
             ],
           ),
@@ -346,12 +363,13 @@ class _OverflowMenuButton extends StatelessWidget {
   }
 
   PopupMenuItem<_ProfileMenuAction> _item(
+    BuildContext context,
     _ProfileMenuAction value,
     IconData icon,
     String label, {
     bool danger = false,
   }) {
-    final color = danger ? const Color(0xFFE36D9D) : const Color(0xFFEAEEF9);
+    final color = danger ? context.cxDanger : context.cxInk;
     return PopupMenuItem<_ProfileMenuAction>(
       value: value,
       height: 46,
@@ -383,6 +401,7 @@ enum _ProfileMenuAction {
   safety,
   help,
   about,
+  theme,
   logout,
 }
 

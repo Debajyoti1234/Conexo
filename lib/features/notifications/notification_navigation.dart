@@ -256,7 +256,7 @@ class NotificationNavigation {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Invitation updated'),
-          backgroundColor: Color(0xFF47D7A5),
+          backgroundColor: Color(0xFF1F9D6B),
         ),
       );
     }

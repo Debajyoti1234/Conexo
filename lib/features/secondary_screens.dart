@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
 import '../app/theme/app_widgets.dart';
 import 'chat/connections_screen.dart';
 import 'home_connection_dashboard.dart';
@@ -13,13 +14,12 @@ import 'profile/session_aware_profile_repository.dart';
 import 'social_components.dart';
 
 
-
-
 class DiscoverScreen extends StatelessWidget {
   const DiscoverScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final subtitleColor = context.cxSoft;
     return _ScreenFrame(
       child: ListView(
         padding: const EdgeInsets.all(20),
@@ -31,9 +31,9 @@ class DiscoverScreen extends StatelessWidget {
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Find small plans with people who share your rhythm.',
-            style: TextStyle(color: Color(0xFFB9C3DC)),
+            style: TextStyle(color: subtitleColor),
           ),
           const SizedBox(height: 24),
           const PlanSearchBar(),
@@ -166,9 +166,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const _ScreenFrame(
+      return _ScreenFrame(
         child: Center(
-          child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+          child: CircularProgressIndicator(color: context.cxAccent),
         ),
       );
     }
@@ -198,6 +198,9 @@ class _ProfileWelcomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = context.cxAccent;
+    final iconColor = context.cxAccentSoft;
+    final bodyColor = context.cxSoft;
     return GlassCard(
       padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
       child: Column(
@@ -206,13 +209,13 @@ class _ProfileWelcomeCard extends StatelessWidget {
             height: 64,
             width: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFF8B5CF6).withValues(alpha: .16),
+              color: accentColor.withValues(alpha: .16),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.person_add_alt_1_rounded,
               size: 30,
-              color: Color(0xFFB7A5FF),
+              color: iconColor,
             ),
           ),
           const SizedBox(height: 20),
@@ -224,10 +227,10 @@ class _ProfileWelcomeCard extends StatelessWidget {
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Set up a premium presence so people can find and connect with you.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFFB9C3DC)),
+            style: TextStyle(color: bodyColor),
           ),
           const SizedBox(height: 22),
           ConexoButton(label: 'Create Profile', onPressed: onCreate),
@@ -308,4 +311,3 @@ class _ScreenFrame extends StatelessWidget {
     ),
   );
 }
-

@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'create_plan_screen.dart';
 import 'invite_people_screen.dart';
 import 'plan_details_data.dart';
@@ -9,6 +11,7 @@ import 'plan_details_sections.dart';
 import 'plan_join_controller.dart';
 import 'plan_repository.dart';
 import 'plans_data.dart';
+import 'plans_theme.dart';
 import 'supabase_plan_repository.dart';
 
 import '../../core/supabase/auth_service.dart';
@@ -146,7 +149,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile not available'),
-            backgroundColor: Color(0xFFFF4D8D),
+            backgroundColor: Color(0xFFD9485F),
           ),
         );
         return;
@@ -167,7 +170,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Profile not available'),
-            backgroundColor: Color(0xFFFF4D8D),
+            backgroundColor: Color(0xFFD9485F),
           ),
         );
         return;
@@ -233,8 +236,10 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
   Widget build(BuildContext context) {
     final e = _experience;
     final isHost = _isHost;
-    return Scaffold(
-      backgroundColor: const Color(0xFF0B1020),
+    return Theme(
+      data: plansLightTheme(context),
+      child: Scaffold(
+      backgroundColor: context.cxCanvas,
       extendBody: true,
       body: Stack(
         children: [
@@ -360,6 +365,7 @@ class _PlanDetailsScreenState extends State<PlanDetailsScreen> {
           ),
         ],
       ),
+      ),
     );
   }
 }
@@ -405,32 +411,32 @@ class _JoinActionBar extends StatelessWidget {
     bool enabled;
     if (controller.isLoading) {
       label = e.isPublic ? 'Joining...' : 'Requesting...';
-      icon = e.isPublic ? Icons.bolt_rounded : Icons.lock_open_rounded;
+      icon = e.isPublic ? Icons.bolt_outlined : Icons.lock_open_outlined;
       enabled = false;
     } else {
       switch (status) {
         case JoinStatus.joined:
           label = 'Joined';
-          icon = Icons.check_circle_rounded;
+          icon = Icons.check_circle_outline_rounded;
           enabled = false;
         case JoinStatus.requested:
           label = 'Pending Confirmation';
-          icon = Icons.hourglass_top_rounded;
+          icon = Icons.hourglass_empty_rounded;
           enabled = true;
           break;
         case JoinStatus.notJoined:
         case JoinStatus.cancelled:
           label = e.isPublic ? 'Join Plan' : 'Request to Join';
-          icon = e.isPublic ? Icons.bolt_rounded : Icons.lock_open_rounded;
+          icon = e.isPublic ? Icons.bolt_outlined : Icons.lock_open_outlined;
           enabled = true;
         case JoinStatus.invited:
           // Handled by the early return above.
           label = 'Accept Invitation';
-          icon = Icons.mail_rounded;
+          icon = Icons.mail_outline_rounded;
           enabled = true;
         case JoinStatus.hosting:
           label = "You're Hosting";
-          icon = Icons.star_rounded;
+          icon = Icons.star_outline_rounded;
           enabled = false;
       }
     }
@@ -439,50 +445,51 @@ class _JoinActionBar extends StatelessWidget {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF182039),
+          backgroundColor: context.cxCanvas,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          title: const Text(
+          title: Text(
             'Cancel join request?',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFFEAEEF9),
-            ),
+            style: plansDisplay(fontSize: 24, fontWeight: FontWeight.w500),
           ),
-          content: const Text(
+          content: Text(
             'Your request to join this Plan is still pending. '
             'Do you want to cancel it?',
-            style: TextStyle(
+            style: plansBody(
               fontSize: 14,
-              color: Color(0xFFB9C3DC),
+              fontWeight: FontWeight.w400,
+              color: context.cxSoft,
               height: 1.5,
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text(
-                'Keep Request',
-                style: TextStyle(
+              child: Text(
+                'Keep request',
+                style: plansBody(
                   fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF9DB2E8),
+                  fontWeight: FontWeight.w600,
+                  color: context.cxSoft,
                 ),
               ),
             ),
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(true),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFFF4D8D),
+                backgroundColor: context.cxAccent,
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
               ),
-              child: const Text(
-                'Cancel Request',
-                style: TextStyle(
+              child: Text(
+                'Cancel request',
+                style: plansBody(
                   fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -519,13 +526,13 @@ class _JoinActionBar extends StatelessWidget {
         14 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B1020).withValues(alpha: .92),
+        color: context.cxCanvas.withValues(alpha: .96),
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: .08)),
+          top: BorderSide(color: context.cxLine),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .45),
+            color: Colors.black.withValues(alpha: .08),
             blurRadius: 26,
             offset: const Offset(0, -8),
           ),
@@ -539,17 +546,18 @@ class _JoinActionBar extends StatelessWidget {
             children: [
               Text(
                 '${e.spotsLeft} spots left',
-                style: const TextStyle(
+                style: plansBody(
                   fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  color: context.cxInk,
                 ),
               ),
               Text(
                 '${e.goingCount} going',
-                style: const TextStyle(
+                style: plansBody(
                   fontSize: 11.5,
-                  color: Color(0xFF9DB2E8),
+                  fontWeight: FontWeight.w400,
+                  color: context.cxMuted,
                 ),
               ),
             ],
@@ -616,13 +624,13 @@ class _InvitedBar extends StatelessWidget {
         14 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B1020).withValues(alpha: .92),
+        color: context.cxCanvas.withValues(alpha: .96),
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: .08)),
+          top: BorderSide(color: context.cxLine),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .45),
+            color: Colors.black.withValues(alpha: .08),
             blurRadius: 26,
             offset: const Offset(0, -8),
           ),
@@ -632,12 +640,12 @@ class _InvitedBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'You are invited',
-            style: TextStyle(
+            style: plansBody(
               fontSize: 13.5,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              color: context.cxInk,
             ),
           ),
           const SizedBox(height: 10),
@@ -649,17 +657,17 @@ class _InvitedBar extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: loading ? null : onDecline,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFFF4D8D),
-                      side: const BorderSide(color: Color(0xFFFF4D8D)),
+                      foregroundColor: context.cxInk,
+                      side: BorderSide(color: context.cxInk, width: 1.2),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Decline',
-                      style: TextStyle(
+                      style: plansBody(
                         fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -672,10 +680,10 @@ class _InvitedBar extends StatelessWidget {
                   child: FilledButton(
                     onPressed: loading ? null : onAccept,
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF47D7A5),
+                      backgroundColor: context.cxAccent,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                     child: loading
@@ -687,11 +695,12 @@ class _InvitedBar extends StatelessWidget {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Accept Invitation',
-                            style: TextStyle(
+                        : Text(
+                            'Accept invitation',
+                            style: plansBody(
                               fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
                             ),
                           ),
                   ),
@@ -722,14 +731,14 @@ class _GroupChatButton extends StatelessWidget {
         width: 54,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: .14)),
+          color: context.cxSurface,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: context.cxLine),
         ),
-        child: const Icon(
-          Icons.forum_rounded,
+        child: Icon(
+          Icons.forum_outlined,
           size: 22,
-          color: Color(0xFFB7A5FF),
+          color: context.cxInk,
         ),
       ),
     );
@@ -753,9 +762,9 @@ class _HostingBar extends StatelessWidget {
         14 + MediaQuery.of(context).padding.bottom,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B1020).withValues(alpha: .92),
+        color: context.cxCanvas.withValues(alpha: .96),
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: .08)),
+          top: BorderSide(color: context.cxLine),
         ),
       ),
       child: Row(
@@ -766,17 +775,18 @@ class _HostingBar extends StatelessWidget {
             children: [
               Text(
                 '${e.spotsLeft} spots left',
-                style: const TextStyle(
+                style: plansBody(
                   fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  color: context.cxInk,
                 ),
               ),
               Text(
                 '${e.goingCount} going',
-                style: const TextStyle(
+                style: plansBody(
                   fontSize: 11.5,
-                  color: Color(0xFF9DB2E8),
+                  fontWeight: FontWeight.w400,
+                  color: context.cxMuted,
                 ),
               ),
             ],
@@ -789,25 +799,25 @@ class _HostingBar extends StatelessWidget {
               height: 54,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: .12)),
+                color: context.cxSurface,
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: context.cxLine),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   Icon(
-                    Icons.star_rounded,
+                    Icons.star_outline_rounded,
                     size: 19,
-                    color: Color(0xFFFFC24D),
+                    color: context.cxInk,
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
-                    "You're Hosting",
-                    style: TextStyle(
+                    "You're hosting",
+                    style: plansBody(
                       fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF9DB2E8),
+                      fontWeight: FontWeight.w600,
+                      color: context.cxInk,
                     ),
                   ),
                 ],
@@ -860,32 +870,21 @@ class _PrimaryJoinButtonState extends State<_PrimaryJoinButton> {
           curve: Curves.easeInOutCubic,
           height: 54,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: enabled
-                ? LinearGradient(
-                    colors: [
-                      widget.accent,
-                      Color.lerp(widget.accent, const Color(0xFF587BE2), .6) ??
-                          widget.accent,
-                    ],
-                  )
-                : null,
-            color: enabled ? null : Colors.white.withValues(alpha: .08),
-            borderRadius: BorderRadius.circular(16),
-            border: enabled
-                ? null
-                : Border.all(color: Colors.white.withValues(alpha: .12)),
+decoration: BoxDecoration(
+            color: enabled ? context.cxAccent : context.cxSurface,
+            borderRadius: BorderRadius.circular(30),
+            border: enabled ? null : Border.all(color: context.cxLine),
             boxShadow: enabled
                 ? [
                     BoxShadow(
-                      color: widget.accent.withValues(alpha: .5),
-                      blurRadius: 26,
+                      color: context.cxAccent.withValues(alpha: .45),
+                      blurRadius: 22,
                       offset: const Offset(0, 10),
                     ),
                   ]
                 : null,
           ),
-          child: AnimatedSwitcher(
+child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 260),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInOutCubic,
@@ -900,15 +899,15 @@ class _PrimaryJoinButtonState extends State<_PrimaryJoinButton> {
                 Icon(
                   widget.icon,
                   size: 19,
-                  color: enabled ? Colors.white : const Color(0xFF9DB2E8),
+                  color: enabled ? context.cxCanvas : context.cxMuted,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   widget.label,
-                  style: TextStyle(
+                  style: plansBody(
                     fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: enabled ? Colors.white : const Color(0xFF9DB2E8),
+                    fontWeight: FontWeight.w600,
+                    color: enabled ? context.cxCanvas : context.cxMuted,
                   ),
                 ),
               ],

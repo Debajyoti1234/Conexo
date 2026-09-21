@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'chat_attachment_service.dart';
 import 'chat_models.dart';
 import 'chat_widgets.dart';
@@ -14,10 +16,7 @@ import 'message_models.dart';
 /// No sending, no realtime, no persistence.
 
 // ── Palette (kept local + minimal) ──────────────────────────────────────
-const _kAccent = Color(0xFF8B5CF6);
-const _kSubtle = Color(0xFF9DB2E8);
-const _kMuted = Color(0xFFB9C3DC);
-const _kOnline = Color(0xFF47D7A5);
+const _kOnline = Color(0xFF1F9D6B);
 
 /// The premium conversation app bar: back, avatar, name + presence subtitle,
 /// and an overflow menu that emits declarative [ChatMenuAction] ids.
@@ -58,7 +57,7 @@ class ConversationAppBar extends StatelessWidget
             children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                color: Colors.white,
+                color: context.cxInk,
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
               ConversationAvatar(
@@ -72,8 +71,8 @@ class ConversationAppBar extends StatelessWidget
 
               Expanded(child: _TitleBlock(conversation: c, group: group)),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
-                color: const Color(0xFF161C30),
+                icon: Icon(Icons.more_vert_rounded, color: context.cxInk),
+                color: context.cxSurface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -88,8 +87,8 @@ class ConversationAppBar extends StatelessWidget
                             _iconFor(a.icon),
                             size: 18,
                             color: a.isDestructive
-                                ? const Color(0xFFFF6B6B)
-                                : _kSubtle,
+                                ? context.cxDanger
+                                : context.cxMuted,
                           ),
                           const SizedBox(width: 12),
                           Text(
@@ -98,8 +97,8 @@ class ConversationAppBar extends StatelessWidget
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: a.isDestructive
-                                  ? const Color(0xFFFF6B6B)
-                                  : Colors.white,
+                                  ? context.cxDanger
+                                  : context.cxInk,
                             ),
                           ),
                         ],
@@ -159,11 +158,11 @@ class _TitleBlock extends StatelessWidget {
                 c.name,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.2,
-                  color: Colors.white,
+                  color: context.cxInk,
                 ),
               ),
             ),
@@ -183,7 +182,7 @@ class _TitleBlock extends StatelessWidget {
             fontWeight: FontWeight.w600,
             color: c.isTyping
                 ? _kOnline
-                : (c.status == ConversationStatus.online ? _kOnline : _kSubtle),
+                : (c.status == ConversationStatus.online ? _kOnline : context.cxMuted),
           ),
         ),
       ],
@@ -367,7 +366,7 @@ class _MessageComposerState extends State<MessageComposer> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(voiceUrl.error ?? 'Failed to send voice'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: context.cxDanger,
         ),
       );
       return;
@@ -404,7 +403,7 @@ class _MessageComposerState extends State<MessageComposer> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.error ?? 'Failed to start recording'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: context.cxDanger,
         ),
       );
       return;
@@ -424,9 +423,9 @@ class _MessageComposerState extends State<MessageComposer> {
         margin: const EdgeInsets.fromLTRB(12, 4, 12, 6),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .035),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white.withValues(alpha: .07)),
+          color: context.cxCanvas,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: context.cxLine),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: .14),
@@ -490,17 +489,17 @@ class _MessageComposerState extends State<MessageComposer> {
         if (isGifMode) return;
         _handleSend();
       },
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w500,
-        color: Colors.white,
+        color: context.cxInk,
       ),
       decoration: InputDecoration(
         hintText: isGifMode ? 'Search GIFs...' : 'Message',
         hintStyle: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w500,
-          color: isGifMode ? const Color(0xFF9DB2E8) : _kSubtle,
+          color: isGifMode ? context.cxMuted : context.cxMuted,
         ),
         border: InputBorder.none,
         focusedBorder: InputBorder.none,
@@ -523,13 +522,13 @@ class _MessageComposerState extends State<MessageComposer> {
       child: InkWell(
         onTap: widget.onCancelGif,
         borderRadius: BorderRadius.circular(14),
-        splashColor: Colors.white.withValues(alpha: .10),
+        splashColor: context.cxInk.withValues(alpha: .10),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          child: const Icon(
+          child: Icon(
             Icons.close_rounded,
             size: 20,
-            color: Color(0xFFB9C3DC),
+            color: context.cxSoft,
           ),
         ),
       ),
@@ -570,27 +569,27 @@ class _MessageComposerState extends State<MessageComposer> {
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .05),
+        color: context.cxInk.withValues(alpha: .05),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .06)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .06)),
       ),
       child: Row(
         children: [
           Container(
             width: 6,
             height: 6,
-            decoration: const BoxDecoration(
-              color: Color(0xFFFF4D8D),
+            decoration: BoxDecoration(
+              color: context.cxDanger,
               shape: BoxShape.circle,
             ),
           ),
           const SizedBox(width: 6),
           Text(
             _formatDuration(_recordingDuration),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: context.cxInk,
             ),
           ),
           const Spacer(),
@@ -600,11 +599,11 @@ class _MessageComposerState extends State<MessageComposer> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               minimumSize: Size.zero,
             ),
-            child: const Text(
+            child: Text(
               'Cancel',
               style: TextStyle(
                 fontSize: 12.5,
-                color: Color(0xFFFF4D8D),
+                color: context.cxDanger,
               ),
             ),
           ),
@@ -653,20 +652,20 @@ class _CircleButton extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             gradient: filled
-                ? const LinearGradient(
-                    colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
+                ? LinearGradient(
+                    colors: [context.cxAccent, context.cxAccent],
                   )
                 : null,
-            color: filled ? null : Colors.white.withValues(alpha: .06),
+            color: filled ? null : context.cxInk.withValues(alpha: .06),
             shape: BoxShape.circle,
             border: filled
                 ? null
-                : Border.all(color: Colors.white.withValues(alpha: .10)),
+                : Border.all(color: context.cxInk.withValues(alpha: .10)),
           ),
           child: Icon(
             icon,
             size: size * 0.52,
-            color: filled ? Colors.white : _kSubtle,
+            color: filled ? Colors.white : context.cxMuted,
           ),
         ),
       ),
@@ -695,17 +694,17 @@ class ConversationIntro extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  _kAccent.withValues(alpha: .22),
-                  _kAccent.withValues(alpha: .08),
+                  context.cxAccent.withValues(alpha: .22),
+                  context.cxAccent.withValues(alpha: .08),
                 ],
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: .08)),
+              border: Border.all(color: context.cxInk.withValues(alpha: .08)),
             ),
             alignment: Alignment.center,
-            child: const Icon(
+            child: Icon(
               Icons.lock_outline_rounded,
               size: 27,
-              color: Color(0xFFB7A5FF),
+              color: context.cxInk,
             ),
           ),
           const SizedBox(height: 16),
@@ -713,17 +712,17 @@ class ConversationIntro extends StatelessWidget {
           Text(
             'You\'re connected with $name',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              color: context.cxInk,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Say hello and start the conversation.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: _kMuted),
+            style: TextStyle(fontSize: 13, color: context.cxMuted),
           ),
         ],
       ),
@@ -746,16 +745,16 @@ class TypingBubble extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           decoration: BoxDecoration(
-            color: const Color(0x14FFFFFF),
+            color: const Color(0x141B1B1F),
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(22),
               topRight: Radius.circular(22),
               bottomLeft: Radius.circular(7),
               bottomRight: Radius.circular(22),
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: .08)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .08)),
           ),
-          child: const TypingIndicator(color: _kSubtle),
+          child: TypingIndicator(color: context.cxMuted),
         ),
       ),
     );
@@ -785,7 +784,7 @@ class _GifLabelButton extends StatelessWidget {
             child: CircularProgressIndicator(
               strokeWidth: 2,
               valueColor: AlwaysStoppedAnimation<Color>(
-                effectiveEnabled ? _kAccent : _kMuted,
+                effectiveEnabled ? context.cxAccent : context.cxMuted,
               ),
             ),
           )
@@ -795,7 +794,7 @@ class _GifLabelButton extends StatelessWidget {
               fontSize: 13,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
-              color: effectiveEnabled ? _kAccent : _kMuted,
+              color: effectiveEnabled ? context.cxAccent : context.cxMuted,
             ),
           );
     return Material(
@@ -803,8 +802,8 @@ class _GifLabelButton extends StatelessWidget {
       child: InkWell(
         onTap: effectiveEnabled ? onTap : null,
         borderRadius: BorderRadius.circular(14),
-        splashColor: _kAccent.withValues(alpha: .10),
-        highlightColor: Colors.white.withValues(alpha: .03),
+        splashColor: context.cxAccent.withValues(alpha: .10),
+        highlightColor: context.cxInk.withValues(alpha: .03),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: child,
@@ -838,28 +837,29 @@ class ConnectionChatWelcome extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  _kAccent.withValues(alpha: .20),
-                  _kAccent.withValues(alpha: .08),
+                  context.cxAccent.withValues(alpha: .20),
+                  context.cxAccent.withValues(alpha: .08),
                 ],
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: .08)),
+              border: Border.all(color: context.cxInk.withValues(alpha: .08)),
             ),
             alignment: Alignment.center,
-            child: const Icon(
+            child: Icon(
               Icons.waving_hand_rounded,
               size: 26,
-              color: Color(0xFFB7A5FF),
+              color: context.cxInk,
             ),
           ),
           const SizedBox(height: 16),
           Text(
             'You\'re connected with $name',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.2,
-              color: Colors.white,
+            style: TextStyle(
+              fontSize: 22,
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w500,
+              letterSpacing: -0.4,
+              color: context.cxInk,
             ),
           ),
           const SizedBox(height: 6),
@@ -868,7 +868,7 @@ class ConnectionChatWelcome extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
-              color: _kMuted,
+              color: context.cxMuted,
             ),
           ),
         ],

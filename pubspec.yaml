@@ -23,7 +23,6 @@ dependencies:
 
   # Routing
   
-
   # State Management
   flutter_riverpod: ^2.6.1
 
@@ -90,8 +89,26 @@ flutter:
     - assets/images/auth/
     - assets/images/portraits/
     - assets/images/plans/
+    - assets/images/connections/
+    - assets/images/chat/
     - assets/icons/
     - assets/logo/
     - assets/animations/
     - assets/verification/
+    - assets/fonts/
 
+  fonts:
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/Fraunces-500.ttf
+          weight: 500
+        - asset: assets/fonts/Fraunces-600.ttf
+          weight: 600
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-400.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-500.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-600.ttf
+          weight: 600

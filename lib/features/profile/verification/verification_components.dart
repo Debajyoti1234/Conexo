@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/app_theme.dart';
+
 import 'verification_theme.dart';
 
 /// The three controlled capture angles, in canonical order.
@@ -51,9 +53,9 @@ class VerifyGuideFrame extends StatelessWidget {
   final bool captured;
   final bool pulse;
 
-  @override
+@override
   Widget build(BuildContext context) {
-    final accent = captured ? VerifyColors.verified : VerifyColors.accent;
+    final accent = captured ? context.cxSuccess : context.cxAccent;
     return AspectRatio(
       aspectRatio: 0.84,
       child: DecoratedBox(
@@ -168,7 +170,7 @@ class VerifyGuidePlaceholder extends StatelessWidget {
       child: VerifyGlyph(
         angle.glyph,
         size: 132,
-        color: Colors.white.withValues(alpha: .16),
+        color: context.cxInk.withValues(alpha: .16),
       ),
     );
   }
@@ -196,11 +198,11 @@ class VerifyAnglePreviewCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               gradient: LinearGradient(
                 colors: [
-                  VerifyColors.accent.withValues(alpha: .22),
-                  VerifyColors.accent2.withValues(alpha: .12),
+                  context.cxAccent.withValues(alpha: .22),
+                  context.cxAccent.withValues(alpha: .12),
                 ],
               ),
-              border: Border.all(color: VerifyColors.line),
+              border: Border.all(color: context.cxLine),
             ),
             child: VerifyGlyph(angle.glyph, size: 34),
           ),
@@ -211,20 +213,20 @@ class VerifyAnglePreviewCard extends StatelessWidget {
               children: [
                 Text(
                   angle.label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.4,
-                    color: VerifyColors.text,
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   angle.hint,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     height: 1.35,
-                    color: VerifyColors.soft,
+                    color: context.cxSoft,
                   ),
                 ),
               ],
@@ -250,15 +252,15 @@ class _NumberBadge extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: VerifyColors.accent.withValues(alpha: .18),
-        border: Border.all(color: VerifyColors.accent.withValues(alpha: .5)),
+        color: context.cxAccent.withValues(alpha: .18),
+        border: Border.all(color: context.cxAccent.withValues(alpha: .5)),
       ),
       child: Text(
         '$n',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12.5,
           fontWeight: FontWeight.w800,
-          color: VerifyColors.accentSoft,
+          color: context.cxAccentSoft,
         ),
       ),
     );
@@ -286,9 +288,9 @@ class VerifyAngleProgressCard extends StatelessWidget {
     return VerifyGlass(
       padding: const EdgeInsets.all(12),
       radius: 18,
-      borderColor: active
-          ? VerifyColors.accent.withValues(alpha: .55)
-          : (captured ? VerifyColors.verified.withValues(alpha: .4) : null),
+borderColor: active
+          ? context.cxAccent.withValues(alpha: .55)
+          : (captured ? context.cxSuccess.withValues(alpha: .4) : null),
       child: Row(
         children: [
           _Thumb(angle: angle, thumbnail: thumbnail, captured: captured),
@@ -299,21 +301,21 @@ class VerifyAngleProgressCard extends StatelessWidget {
               children: [
                 Text(
                   angle.label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.4,
-                    color: VerifyColors.text,
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
+Text(
                   captured
                       ? 'Captured'
                       : (active ? 'Capturing' : 'Pending'),
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: captured ? VerifyColors.verified : VerifyColors.soft,
+                    color: captured ? context.cxSuccess : context.cxSoft,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -354,8 +356,8 @@ class _Thumb extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white.withValues(alpha: .05),
-        border: Border.all(color: VerifyColors.line),
+        color: context.cxInk.withValues(alpha: .05),
+        border: Border.all(color: context.cxLine),
       ),
       child: thumbnail != null
           ? Image.memory(thumbnail!, fit: BoxFit.cover)
@@ -363,7 +365,7 @@ class _Thumb extends StatelessWidget {
               child: VerifyGlyph(
                 angle.glyph,
                 size: 26,
-                color: Colors.white.withValues(alpha: .35),
+                color: context.cxInk.withValues(alpha: .35),
               ),
             ),
     );
@@ -379,10 +381,10 @@ class _CheckBadge extends StatelessWidget {
       height: 26,
       width: 26,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [VerifyColors.verified, VerifyColors.verified2],
+          colors: [context.cxSuccess, context.cxSuccess],
         ),
       ),
       child: const Icon(Icons.check_rounded, size: 16, color: Colors.white),

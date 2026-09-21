@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../app/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../app/router/app_router.dart';
@@ -126,8 +128,8 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
   Widget build(BuildContext context) {
     Widget body;
     if (_loading) {
-      body = const Center(
-        child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+      body = Center(
+        child: CircularProgressIndicator(color: context.cxInk),
       );
     } else if (_error != null) {
       body = _ErrorState(
@@ -140,28 +142,12 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
-        padding: const EdgeInsets.fromLTRB(2, 8, 2, 150),
+        padding: const EdgeInsets.fromLTRB(2, 4, 2, 150),
         children: [
-          const Text(
-            'Connections',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Your network, requests & plans',
-            style: TextStyle(
-              fontSize: 14.5,
-              color: Color(0xFFAFB8D4),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 24),
+          const _HeroBanner(),
+          const SizedBox(height: 16),
           _buildSummaryGrid(),
-          const SizedBox(height: 26),
+          const SizedBox(height: 30),
           if (_notifications != null) _ActivitySection(controller: _notifications!),
         ],
       );
@@ -169,61 +155,177 @@ class _ConnectionsDashboardState extends State<ConnectionsDashboard> {
 
     return RefreshIndicator(
       onRefresh: _refresh,
-      color: const Color(0xFF8B5CF6),
+      color: context.cxInk,
       child: body,
     );
   }
 
   Widget _buildSummaryGrid() {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.9,
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
+    return _StatStrip(
       children: [
         _SummaryCard(
           index: 0,
-          icon: Icons.people_rounded,
+          icon: Icons.people_outline,
           label: 'Network',
           count: _network.length,
-          accent: const Color(0xFF47D7A5),
+          accent: context.cxSuccess,
           onTap: () {
             Navigator.of(context).push(AppRouter.networkPageRoute());
           },
         ),
         _SummaryCard(
           index: 1,
-          icon: Icons.person_add_rounded,
+          icon: Icons.person_add_alt_1_outlined,
           label: 'Requests',
           count: _requests.length,
-          accent: const Color(0xFFFF4D8D),
+          accent: context.cxDanger,
           onTap: () {
             Navigator.of(context).push(AppRouter.requestsPageRoute());
           },
         ),
         _SummaryCard(
           index: 2,
-          icon: Icons.schedule_rounded,
+          icon: Icons.schedule_outlined,
           label: 'Pending',
           count: _pending.length,
-          accent: const Color(0xFFFFC24D),
+          accent: context.cxAccentSoft,
           onTap: () {
             Navigator.of(context).push(AppRouter.pendingPageRoute());
           },
         ),
         _SummaryCard(
           index: 3,
-          icon: Icons.star_rounded,
-          label: 'Hosted Plans',
+          icon: Icons.star_outline_rounded,
+          label: 'Hosted',
           count: _plans.length,
-          accent: const Color(0xFF7C3AED),
+          accent: context.cxInk,
           onTap: () {
             Navigator.of(context).push(AppRouter.hostedPlansPageRoute());
           },
         ),
       ],
+    );
+  }
+}
+
+/// Editorial hero: the generated illustration with the page title set into
+/// its negative space. Purely decorative — no interaction.
+class _HeroBanner extends StatelessWidget {
+  const _HeroBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return EntranceFade(
+      duration: const Duration(milliseconds: 460),
+      offset: Offset(0, 0.06),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: SizedBox(
+          height: 190,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                'assets/images/connections/hero.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.centerRight,
+              ),
+              // Dark mode: subtle dark scrim so the hero reads as a dark glass card
+              if (isDark)
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(26),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        context.cxCanvas.withValues(alpha: .3),
+                        context.cxCanvas.withValues(alpha: .6),
+                        context.cxCanvas,
+                      ],
+                      stops: const [0.0, 0.6, 1.0],
+                    ),
+                  ),
+                ),
+              // Hairline border so the card reads on both themes.
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: context.cxLine),
+                ),
+              ),
+              Positioned(
+                left: 22,
+                right: 22,
+                bottom: 22,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Connections',
+                      style: TextStyle(
+                        fontSize: 36,
+                        fontFamily: 'Fraunces',
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: -0.9,
+                        height: 1.0,
+                        color: context.cxInk,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Your network, requests & plans',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        color: context.cxSoft,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A single white strip holding the four summary cells, separated by
+/// hairlines. Replaces the 2x2 grid; each cell keeps its own tap target.
+class _StatStrip extends StatelessWidget {
+  const _StatStrip({required this.children});
+
+  final List<Widget> children;
+
+@override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: context.cxCanvas,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: context.cxLine),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0)
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: context.cxLine,
+                ),
+              Expanded(child: children[i]),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -255,17 +357,17 @@ class _ErrorState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 72, horizontal: 28),
       child: Column(
         children: [
-          Container(
+Container(
             height: 58,
             width: 58,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFF4D8D).withValues(alpha: .12),
+              color: context.cxDanger.withValues(alpha: .12),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.wifi_off_rounded,
               size: 27,
-              color: Color(0xFFFF4D8D),
+              color: context.cxDanger,
             ),
           ),
           const SizedBox(height: 14),
@@ -280,9 +382,9 @@ class _ErrorState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
-              color: Color(0xFFB9C3DC),
+              color: context.cxSoft,
             ),
           ),
           const SizedBox(height: 18),
@@ -323,76 +425,65 @@ class _SummaryCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: Ink(
-            decoration: BoxDecoration(
-              color: const Color(0xFF182039).withValues(alpha: .78),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: Colors.white.withValues(alpha: .09)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: .22),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(6, 18, 6, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // Monochrome glyph on a quiet neutral disc — one tone across
+                  // all four cells reads calmer and more professional than
+                  // four tinted colours.
                   Container(
-                    height: 42,
-                    width: 42,
+                    height: 30,
+                    width: 30,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: accent.withValues(alpha: .16),
+                      color: context.cxSurface,
                     ),
-                    child: Icon(icon, size: 21, color: accent),
+                    child: Icon(icon, size: 15, color: context.cxInk),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 380),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(
-                                opacity: animation,
-                                child: ScaleTransition(
-                                  scale: Tween<double>(begin: 0.82, end: 1)
-                                      .animate(animation),
-                                  child: child,
-                                ),
-                              ),
-                          child: Text(
-                            '$count',
-                            key: ValueKey<int>(count),
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.4,
-                              height: 1.1,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFB9C3DC),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 12),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 380),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        scale: Tween<double>(begin: 0.82, end: 1)
+                            .animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: Text(
+                      '$count',
+                      key: ValueKey<int>(count),
+                      // Tabular sans figures: metrics read like a real
+                      // dashboard and stay aligned when counts change.
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.4,
+                        height: 1.0,
+                        color: context.cxInk,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    label.toUpperCase(),
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.9,
+                      color: context.cxMuted,
                     ),
                   ),
                 ],
@@ -439,13 +530,14 @@ class _ActivityBody extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
           child: Row(
             children: [
-              const Text(
-                'Your Activity',
+              Text(
+                'Your activity',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFFEAEEF9),
-                  letterSpacing: -0.2,
+                  fontSize: 24,
+                  fontFamily: 'Fraunces',
+                  fontWeight: FontWeight.w500,
+                  color: context.cxInk,
+                  letterSpacing: -0.4,
                 ),
               ),
               const Spacer(),
@@ -453,12 +545,12 @@ class _ActivityBody extends StatelessWidget {
                 onPressed: () {
                   controller.markAllRead();
                 },
-                child: const Text(
+                child: Text(
                   'Mark all read',
                   style: TextStyle(
                     fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF8B5CF6),
+                    fontWeight: FontWeight.w600,
+                    color: context.cxSoft,
                   ),
                 ),
               ),
@@ -481,26 +573,52 @@ class _ActivityBody extends StatelessWidget {
       if (items == null || items.isEmpty) continue;
       rows.add(
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+          padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
           child: Text(
-            notificationBucketLabel(bucket),
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF9DB2E8),
-              letterSpacing: 0.4,
+            notificationBucketLabel(bucket).toUpperCase(),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: context.cxMuted,
+              letterSpacing: 1.1,
             ),
           ),
         ),
       );
-      for (final n in items) {
-        rows.add(
-          _ActivityRow(
-            notification: n,
-            onTap: () => NotificationNavigation.open(context, n),
+rows.add(
+        Container(
+          decoration: BoxDecoration(
+            color: context.cxCanvas,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: context.cxLine),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .04),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
-        );
-      }
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 66,
+                    color: context.cxLine,
+                  ),
+                _ActivityRow(
+                  notification: items[i],
+                  onTap: () => NotificationNavigation.open(context, items[i]),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
     }
     return rows;
   }
@@ -519,21 +637,11 @@ class _ActivityRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: notification.unread
-              ? Colors.white.withValues(alpha: .05)
-              : Colors.white.withValues(alpha: .02),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: notification.unread
-                ? Colors.white.withValues(alpha: .08)
-                : Colors.white.withValues(alpha: .04),
-          ),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        color: notification.unread
+            ? context.cxSurface.withValues(alpha: .6)
+            : Colors.transparent,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -548,12 +656,12 @@ class _ActivityRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight:
-                          notification.unread ? FontWeight.w800 : FontWeight.w600,
+                          notification.unread ? FontWeight.w600 : FontWeight.w500,
                       color: notification.unread
-                          ? const Color(0xFFEAEEF9)
-                          : const Color(0xFFB9C3DC),
+                          ? context.cxInk
+                          : context.cxSoft,
                     ),
                   ),
                   if (notification.subtitle.isNotEmpty) ...[
@@ -562,10 +670,10 @@ class _ActivityRow extends StatelessWidget {
                       notification.subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF9DB2E8),
+                        color: context.cxMuted,
                       ),
                     ),
                   ],
@@ -575,19 +683,19 @@ class _ActivityRow extends StatelessWidget {
             const SizedBox(width: 10),
             Text(
               notificationTimeLabel(notification.timestamp),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF7B8BA8),
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                color: context.cxMuted,
               ),
             ),
-            if (notification.unread) ...[
+if (notification.unread) ...[
               const SizedBox(width: 6),
               Container(
                 width: 7,
                 height: 7,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFF6B8A),
+                  color: context.cxDanger,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -700,12 +808,12 @@ class _ActivityAvatarState extends State<_ActivityAvatar> {
         width: 36,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: .08),
+          color: context.cxInk.withValues(alpha: .08),
         ),
-        child: const SizedBox(
+        child: SizedBox(
           width: 16,
           height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8B5CF6)),
+          child: CircularProgressIndicator(strokeWidth: 2, color: context.cxInk),
         ),
       );
     }
@@ -730,12 +838,12 @@ class _ActivityAvatarState extends State<_ActivityAvatar> {
                 width: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: .08),
+                  color: context.cxInk.withValues(alpha: .08),
                 ),
-                child: const SizedBox(
+                child: SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8B5CF6)),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: context.cxInk),
                 ),
               );
             },
@@ -748,8 +856,8 @@ class _ActivityAvatarState extends State<_ActivityAvatar> {
     return _fallbackIcon();
   }
 
-  Widget _fallbackIcon() {
-    final accent = _kindColor(widget.notification.kind);
+Widget _fallbackIcon() {
+    final accent = _kindColor(context, widget.notification.kind);
     return Container(
       height: 36,
       width: 36,
@@ -781,20 +889,21 @@ class _ActivityEmpty extends StatelessWidget {
               width: 58,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF7C3AED).withValues(alpha: .14),
+                color: context.cxSurface,
+                border: Border.all(color: context.cxLine),
               ),
-              child: const Icon(Icons.notifications_off_outlined,
-                  size: 27, color: Color(0xFFB7A5FF)),
+              child: Icon(Icons.notifications_none_outlined,
+                  size: 26, color: context.cxMuted),
             ),
             const SizedBox(height: 14),
             Text(
               'You\'re all caught up.',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
                 height: 1.45,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
             ),
           ],
@@ -804,23 +913,23 @@ class _ActivityEmpty extends StatelessWidget {
   }
 }
 
-Color _kindColor(NotificationKind kind) {
+Color _kindColor(BuildContext context, NotificationKind kind) {
   switch (kind) {
     case NotificationKind.join:
-      return const Color(0xFF47D7A5);
+      return context.cxSuccess;
     case NotificationKind.request:
-      return const Color(0xFFB7A5FF);
+      return context.cxInk;
     case NotificationKind.requestAccepted:
-      return const Color(0xFF47D7A5);
+      return context.cxSuccess;
     case NotificationKind.planInvitation:
-      return const Color(0xFFFF6B8A);
+      return context.cxDanger;
     case NotificationKind.joinRequest:
-      return const Color(0xFFFFB86B);
+      return context.cxAccentSoft;
     case NotificationKind.plan:
-      return const Color(0xFFFFB86B);
+      return context.cxAccentSoft;
     case NotificationKind.message:
-      return const Color(0xFF6EA8FE);
+      return context.cxAccent;
     case NotificationKind.system:
-      return const Color(0xFFB7A5FF);
+      return context.cxInk;
   }
 }

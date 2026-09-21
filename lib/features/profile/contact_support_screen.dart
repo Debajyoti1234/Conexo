@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/theme/app_theme.dart';
 import '../../app/theme/app_widgets.dart';
+import '../plans/plans_theme.dart';
+import '../plans/plan_details_widgets.dart';
 
 class ContactSupportScreen extends StatefulWidget {
   const ContactSupportScreen({super.key});
@@ -36,27 +39,29 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
           children: [
             Row(
               children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back_rounded),
+                CircleGlassButton(
+                  icon: Icons.arrow_back_rounded,
+                  onTap: () => Navigator.of(context).maybePop(),
+                  semanticLabel: 'Back',
                 ),
                 const SizedBox(width: 4),
                 Text(
                   'Contact Support',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: plansDisplay(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: context.cxInk,
+                  ),
                 ),
               ],
             ),
@@ -72,22 +77,22 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                         height: 44,
                         width: 44,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF22BFE0).withValues(alpha: .18),
+                          color: const Color(0xFF0E8FA8).withValues(alpha: .18),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(
                           Icons.support_agent_rounded,
-                          color: Color(0xFF22BFE0),
+                          color: Color(0xFF0E8FA8),
                           size: 22,
                         ),
                       ),
                       const SizedBox(width: 14),
                       Text(
                         'Need help?',
-                        style: TextStyle(
+                        style: plansDisplay(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white.withValues(alpha: .92),
+                          color: context.cxInk,
                         ),
                       ),
                     ],
@@ -96,10 +101,10 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                   Text(
                     'Our support team is here to help with account issues, '
                     'safety concerns, reports, or other Conexo questions.',
-                    style: TextStyle(
+                    style: plansBody(
                       fontSize: 14,
                       height: 1.5,
-                      color: const Color(0xFFB9C3DC),
+                      color: context.cxSoft,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -109,26 +114,26 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .04),
+                      color: context.cxGlass,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: .08),
+                        color: context.cxLine,
                       ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.email_outlined,
-                          color: Color(0xFFB9C3DC),
+                          color: context.cxSoft,
                           size: 18,
                         ),
                         const SizedBox(width: 10),
                         Text(
                           _supportEmail,
-                          style: const TextStyle(
+                          style: plansBody(
                             fontSize: 14.5,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFEAEEF9),
+                            color: context.cxInk,
                           ),
                         ),
                       ],
@@ -147,10 +152,10 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
                     'For safety concerns involving another user, use '
                     'Report a Problem so we can associate your request '
                     'with the relevant account.',
-                    style: TextStyle(
+                    style: plansBody(
                       fontSize: 12.5,
                       height: 1.45,
-                      color: const Color(0xFFB9C3DC).withValues(alpha: .8),
+                      color: context.cxSoft.withValues(alpha: .8),
                     ),
                   ),
                 ],

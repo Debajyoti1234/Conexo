@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 /// Data models and demo content for the premium Connections dashboard.
 ///
 /// All models carry a stable [String] `id` so the UI can key widgets and
@@ -147,7 +149,7 @@ const demoNetwork = <NetworkConnection>[
     city: 'Bengaluru • Indiranagar',
     connectedSince: 'Connected since Jan 2026',
     mutualInterests: ['Photography', 'Coffee', 'Slow travel'],
-    color: Color(0xFFE36D9D),
+    color: Color(0xFFD9485F),
     portrait: _p1,
   ),
   NetworkConnection(
@@ -158,7 +160,7 @@ const demoNetwork = <NetworkConnection>[
     city: 'Bengaluru • Koramangala',
     connectedSince: 'Connected since Dec 2025',
     mutualInterests: ['Music', 'Books', 'Long walks'],
-    color: Color(0xFF22BFE0),
+    color: Color(0xFF0E8FA8),
     portrait: _p2,
   ),
   NetworkConnection(
@@ -169,12 +171,12 @@ const demoNetwork = <NetworkConnection>[
     city: 'Mumbai • Bandra',
     connectedSince: 'Connected since Nov 2025',
     mutualInterests: ['Photography', 'Art', 'Coffee'],
-    color: Color(0xFFF09A65),
+    color: Color(0xFFD07A3A),
     portrait: _p3,
   ),
 ];
 
-const demoRequests = <IncomingRequest>[
+final demoRequests = <IncomingRequest>[
   IncomingRequest(
     id: 'request_001',
     name: 'Kabir Singh',
@@ -182,7 +184,7 @@ const demoRequests = <IncomingRequest>[
         'Software engineer who unplugs on mountain trails and takes board-game '
         'nights a little too seriously.',
     mutualInterests: ['Running', 'Gaming', 'Cooking'],
-    color: Color(0xFF6C8EF5),
+    color: Color(0xFF2F5FD0),
     age: 29,
     occupation: 'Backend Engineer',
     city: 'Pune • Kalyani Nagar',
@@ -195,7 +197,7 @@ const demoRequests = <IncomingRequest>[
         'Content writer with a shelf that keeps outgrowing my apartment. '
         'I bake when I think, and I think out loud over chai.',
     mutualInterests: ['Books', 'Poetry', 'Coffee'],
-    color: Color(0xFFB78AF6),
+    color: Color(0xFF1B1B1F),
     age: 25,
     occupation: 'Content Writer',
     city: 'Delhi • Hauz Khas',
@@ -207,13 +209,13 @@ const demoPending = <PendingRequest>[
   PendingRequest(
     id: 'pending_001',
     name: 'Dev Malhotra',
-    color: Color(0xFF47D7A5),
+    color: Color(0xFF1F9D6B),
     portrait: _p6,
   ),
   PendingRequest(
     id: 'pending_002',
     name: 'Sara Iyer',
-    color: Color(0xFFFF4D8D),
+    color: Color(0xFFD9485F),
     portrait: _p2,
   ),
 ];

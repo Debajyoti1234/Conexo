@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../app/theme/app_widgets.dart';
 import 'profile_strength_data.dart';
 import 'profile_strength_widgets.dart';
@@ -10,7 +12,6 @@ import 'profile_strength_widgets.dart';
 /// [ProfileStrengthResult]. There is NO business logic, persistence, or
 /// scoring here — all computation lives in `profile_strength_data.dart`.
 
-const _kSoftText = Color(0xFFB9C3DC);
 
 // ── OverallStrengthSection ────────────────────────────────────────────────────
 
@@ -184,7 +185,7 @@ class _AllDoneCard extends StatelessWidget {
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
-                colors: [Color(0xFF47D7A5), Color(0xFF22BFE0)],
+                colors: [Color(0xFF1F9D6B), Color(0xFF0E8FA8)],
               ),
             ),
             child: const Icon(Icons.check_rounded, color: Colors.white),
@@ -204,9 +205,9 @@ class _AllDoneCard extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   message,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: _kSoftText,
+                    color: context.cxSoft,
                     height: 1.35,
                   ),
                 ),

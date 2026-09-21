@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../home_discovery_animations.dart';
 import 'chat_models.dart';
 
@@ -9,10 +11,7 @@ import 'chat_models.dart';
 /// stays const-constructible wherever possible for cheap rebuilds.
 
 // ── Palette (kept local + minimal) ──────────────────────────────────────
-const _kAccent = Color(0xFF8B5CF6);
-const _kOnline = Color(0xFF47D7A5);
-const _kSubtle = Color(0xFF9DB2E8);
-const _kMuted = Color(0xFFB9C3DC);
+const _kOnline = Color(0xFF1F9D6B);
 
 /// A portrait avatar that supports both local assets and remote HTTPS URLs,
 /// with a graceful letter fallback and an optional presence ring / dot.
@@ -39,17 +38,17 @@ class ConversationAvatar extends StatelessWidget {
     return value.startsWith('http://') || value.startsWith('https://');
   }
 
-  Widget _buildImage() {
+  Widget _buildImage(BuildContext context) {
     if (asset.isEmpty) {
       return Container(
-        color: _kAccent,
+        color: context.cxAccent,
         alignment: Alignment.center,
         child: Text(
           name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
           style: TextStyle(
             fontSize: size * .36,
             fontWeight: FontWeight.w800,
-            color: Colors.white,
+            color: context.cxAccentSoft,
           ),
         ),
       );
@@ -62,7 +61,7 @@ class ConversationAvatar extends StatelessWidget {
         width: size,
         height: size,
         errorBuilder: (context, error, stackTrace) => Container(
-          color: _kAccent,
+          color: context.cxAccent,
           alignment: Alignment.center,
           child: Text(
             name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
@@ -82,7 +81,7 @@ class ConversationAvatar extends StatelessWidget {
       width: size,
       height: size,
       errorBuilder: (context, error, stackTrace) => Container(
-        color: _kAccent,
+        color: context.cxAccent,
         alignment: Alignment.center,
         child: Text(
           name.isEmpty ? '?' : name.substring(0, 1).toUpperCase(),
@@ -114,18 +113,18 @@ class ConversationAvatar extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(
                 color: isNew
-                    ? _kAccent.withValues(alpha: .8)
-                    : Colors.white.withValues(alpha: .14),
+                    ? context.cxAccent.withValues(alpha: .8)
+                    : context.cxInk.withValues(alpha: .14),
                 width: isNew ? 2 : 1.2,
               ),
             ),
-            child: ClipOval(child: _buildImage()),
+            child: ClipOval(child: _buildImage(context)),
           ),
           if (isOnline)
-            const Positioned(
+            Positioned(
               right: -1,
               bottom: -1,
-              child: OnlineIndicator(ringColor: Color(0xFF0B1020)),
+              child: OnlineIndicator(ringColor: context.cxCanvas),
             ),
         ],
       ),
@@ -184,15 +183,15 @@ class UnreadBadge extends StatelessWidget {
         color: chatStyle ? const Color(0xFF25D366) : null,
         gradient: chatStyle
             ? null
-            : const LinearGradient(
-                colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
+            : LinearGradient(
+                colors: [context.cxAccent, context.cxAccent],
               ),
         borderRadius: BorderRadius.circular(11),
         boxShadow: chatStyle
             ? null
             : [
                 BoxShadow(
-                  color: _kAccent.withValues(alpha: .45),
+                  color: context.cxAccent.withValues(alpha: .45),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -286,10 +285,10 @@ class PinnedIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Transform.rotate(
         angle: 0.6,
-        child: const Icon(
+        child: Icon(
           Icons.push_pin_rounded,
           size: 14,
-          color: _kSubtle,
+          color: context.cxMuted,
         ),
       );
 }
@@ -304,7 +303,7 @@ class VerifiedBadge extends StatelessWidget {
   Widget build(BuildContext context) => Icon(
         Icons.verified_rounded,
         size: size,
-        color: const Color(0xFF56B6FF),
+        color: const Color(0xFF2F5FD0),
       );
 }
 
@@ -331,46 +330,46 @@ class PremiumSearchBar extends StatelessWidget {
         controller: controller,
         onChanged: onChanged,
         textInputAction: TextInputAction.search,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 14.5,
-          color: Colors.white,
+          color: context.cxInk,
           fontWeight: FontWeight.w500,
         ),
-        cursorColor: const Color(0xFFB7A5FF),
+        cursorColor: context.cxInk,
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white.withValues(alpha: .06),
+          fillColor: context.cxInk.withValues(alpha: .06),
           hintText: hint,
-          hintStyle: const TextStyle(
+          hintStyle: TextStyle(
             fontSize: 14.5,
-            color: _kSubtle,
+            color: context.cxMuted,
             fontWeight: FontWeight.w500,
           ),
-          prefixIcon: const Icon(Icons.search_rounded, size: 20, color: _kSubtle),
+          prefixIcon: Icon(Icons.search_rounded, size: 20, color: context.cxMuted),
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
             builder: (context, value, _) {
               if (value.text.isEmpty) return const SizedBox.shrink();
               return GestureDetector(
                 onTap: onClear,
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.only(left: 6),
-                  child: Icon(Icons.close_rounded, size: 18, color: _kSubtle),
+                  child: Icon(Icons.close_rounded, size: 18, color: context.cxMuted),
                 ),
               );
             },
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: .10)),
+            borderSide: BorderSide(color: context.cxInk.withValues(alpha: .10)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: .10)),
+            borderSide: BorderSide(color: context.cxInk.withValues(alpha: .10)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),
-            borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
+            borderSide: BorderSide(color: context.cxInk, width: 1.5),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
@@ -412,13 +411,13 @@ class EmptyInbox extends StatelessWidget {
               height: 84,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: .05),
-                border: Border.all(color: Colors.white.withValues(alpha: .10)),
+                color: context.cxInk.withValues(alpha: .05),
+                border: Border.all(color: context.cxInk.withValues(alpha: .10)),
               ),
               child: Icon(
                 isSearch ? Icons.search_off_rounded : emptyIcon,
                 size: 34,
-                color: _kSubtle,
+                color: context.cxMuted,
               ),
             ),
             const SizedBox(height: 20),
@@ -430,7 +429,7 @@ class EmptyInbox extends StatelessWidget {
             Text(
               isSearch ? 'Try a different name.' : emptyBody,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13.5, color: _kMuted),
+              style: TextStyle(fontSize: 13.5, color: context.cxMuted),
             ),
           ],
         ),
@@ -466,9 +465,9 @@ class ChatSegmentedTabs extends StatelessWidget {
           height: 48,
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .05),
+            color: context.cxInk.withValues(alpha: .05),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: .08)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .08)),
           ),
           child: Stack(
             children: [
@@ -482,13 +481,13 @@ class ChatSegmentedTabs extends StatelessWidget {
                   width: segmentWidth,
                   height: double.infinity,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
+                    gradient: LinearGradient(
+                      colors: [context.cxAccent, context.cxAccent],
                     ),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: _kAccent.withValues(alpha: .35),
+                        color: context.cxAccent.withValues(alpha: .35),
                         blurRadius: 14,
                         offset: const Offset(0, 4),
                       ),
@@ -549,7 +548,7 @@ class _Segment extends StatelessWidget {
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.1,
-                  color: selected ? Colors.white : _kSubtle,
+                  color: selected ? Colors.white : context.cxMuted,
                 ),
               ),
               if (count != null && count! > 0) ...[
@@ -561,8 +560,8 @@ class _Segment extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: selected
-                        ? Colors.white.withValues(alpha: .22)
-                        : Colors.white.withValues(alpha: .08),
+                        ? context.cxInk.withValues(alpha: .22)
+                        : context.cxInk.withValues(alpha: .08),
                     borderRadius: BorderRadius.circular(9),
                   ),
                   child: Text(
@@ -570,7 +569,7 @@ class _Segment extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: selected ? Colors.white : _kSubtle,
+                      color: selected ? Colors.white : context.cxMuted,
                     ),
                   ),
                 ),
@@ -650,8 +649,8 @@ class ConversationTile extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(20),
-        splashColor: _kAccent.withValues(alpha: .10),
-        highlightColor: Colors.white.withValues(alpha: .03),
+        splashColor: context.cxAccent.withValues(alpha: .10),
+        highlightColor: context.cxInk.withValues(alpha: .03),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
           child: Row(
@@ -696,11 +695,11 @@ class _NameAndPreview extends StatelessWidget {
                 maxLines: 1,
                 softWrap: false,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.2,
-                  color: Colors.white,
+                  color: context.cxInk,
                 ),
               ),
             ),
@@ -710,10 +709,10 @@ class _NameAndPreview extends StatelessWidget {
             ],
             if (c.isMuted) ...[
               const SizedBox(width: 6),
-              const Icon(
+              Icon(
                 Icons.notifications_off_rounded,
                 size: 13,
-                color: _kSubtle,
+                color: context.cxMuted,
               ),
             ],
           ],
@@ -756,7 +755,7 @@ class _PreviewLine extends StatelessWidget {
     return Row(
       children: [
         if (glyph != null) ...[
-          Icon(glyph, size: 13.5, color: _kSubtle),
+          Icon(glyph, size: 13.5, color: context.cxMuted),
           const SizedBox(width: 5),
         ],
         Expanded(
@@ -767,7 +766,7 @@ class _PreviewLine extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
-              color: emphasize ? const Color(0xFFE7ECF9) : _kMuted,
+              color: emphasize ? context.cxInk : context.cxMuted,
             ),
           ),
         ),
@@ -796,7 +795,7 @@ class _Trailing extends StatelessWidget {
           style: TextStyle(
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
-            color: c.hasUnread ? const Color(0xFFB7A5FF) : _kSubtle,
+            color: c.hasUnread ? context.cxInk : context.cxMuted,
           ),
         ),
         const SizedBox(height: 6),

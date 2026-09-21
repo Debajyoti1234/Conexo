@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../features/chat/chat_repository.dart';
 import '../../features/chat/chat_models.dart';
 import '../../features/chat/conversation_screen.dart';
@@ -57,12 +59,12 @@ class _NetworkPageState extends State<NetworkPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF141C31),
+        backgroundColor: context.cxSurface,
         title: const Text('Remove connection?',
             style: TextStyle(color: Colors.white)),
         content: Text(
           'Remove ${connection.otherUserName} from your network?',
-          style: const TextStyle(color: Color(0xFFB9C3DC)),
+          style: TextStyle(color: context.cxSoft),
         ),
         actions: [
           TextButton(
@@ -72,7 +74,7 @@ class _NetworkPageState extends State<NetworkPage> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             child:
-                const Text('Remove', style: TextStyle(color: Color(0xFFE36D9D))),
+                const Text('Remove', style: TextStyle(color: Color(0xFFD9485F))),
           ),
         ],
       ),
@@ -87,7 +89,7 @@ class _NetworkPageState extends State<NetworkPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.error ?? 'Failed to remove connection'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
       return;
@@ -125,7 +127,7 @@ class _NetworkPageState extends State<NetworkPage> {
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(result.error ?? 'Failed to open conversation'),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
       return;
@@ -156,7 +158,7 @@ class _NetworkPageState extends State<NetworkPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1020),
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Column(
           children: [
@@ -166,18 +168,19 @@ class _NetworkPageState extends State<NetworkPage> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_rounded,
-                        color: Colors.white),
+                    icon: Icon(Icons.arrow_back_rounded,
+                        color: context.cxInk),
                     tooltip: 'Back',
                   ),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Your Network',
                       style: TextStyle(
                         fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFEAEEF9),
+                        fontFamily: 'Fraunces',
+                        fontWeight: FontWeight.w600,
+                        color: context.cxInk,
                         letterSpacing: -0.4,
                       ),
                     ),
@@ -187,8 +190,8 @@ class _NetworkPageState extends State<NetworkPage> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+                  ? Center(
+                      child: CircularProgressIndicator(color: context.cxInk),
                     )
                   : _error != null
                       ? _ErrorState(message: _error!, onRetry: _load)
@@ -199,7 +202,7 @@ class _NetworkPageState extends State<NetworkPage> {
                                   'Your network is just getting started.',
                             )
                            : RefreshIndicator(
-                               color: const Color(0xFF8B5CF6),
+                               color: context.cxInk,
                                onRefresh: _load,
                                child: ListView(
                                  padding:
@@ -283,9 +286,9 @@ class _NetworkRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF141C31).withValues(alpha: .55),
+        color: context.cxSurface.withValues(alpha: .55),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .08)),
       ),
       child: Column(
         children: [
@@ -298,7 +301,7 @@ class _NetworkRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(28),
                   child: PortraitAvatar(
                     name: connection.otherUserName,
-                    color: connection.otherUserColor ?? const Color(0xFF8B5CF6),
+                    color: connection.otherUserColor ?? context.cxInk,
                     portrait: connection.otherUserPortrait ?? '',
                     size: 52,
                   ),
@@ -327,7 +330,7 @@ class _NetworkRow extends StatelessWidget {
                                   if (connection.isVerified) ...[
                                     const SizedBox(width: 4),
                                     const Icon(Icons.verified_rounded,
-                                        size: 15, color: Color(0xFF77DFF1)),
+                                        size: 15, color: Color(0xFF0E8FA8)),
                                   ],
                                 ],
                               ),
@@ -337,24 +340,24 @@ class _NetworkRow extends StatelessWidget {
                         const SizedBox(height: 3),
                         Text(
                           '${connection.otherUserAge ?? 0} • ${connection.otherUserOccupation ?? ''}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12.5,
-                            color: Color(0xFFB9C3DC),
+                            color: context.cxSoft,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            const Icon(Icons.location_on_outlined,
-                                size: 12, color: Color(0xFF9DB2E8)),
+                            Icon(Icons.location_on_outlined,
+                                size: 12, color: context.cxMuted),
                             const SizedBox(width: 3),
                             Expanded(
                               child: Text(
                                 connection.otherUserCity ?? '',
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: Color(0xFF9DB2E8),
+                                  color: context.cxMuted,
                                 ),
                               ),
                             ),
@@ -413,10 +416,10 @@ class _ErrorState extends StatelessWidget {
             width: 58,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFF4D8D).withValues(alpha: .12),
+              color: const Color(0xFFD9485F).withValues(alpha: .12),
             ),
             child: const Icon(Icons.wifi_off_rounded,
-                size: 27, color: Color(0xFFFF4D8D)),
+                size: 27, color: Color(0xFFD9485F)),
           ),
           const SizedBox(height: 14),
           Text(
@@ -430,9 +433,9 @@ class _ErrorState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
-              color: Color(0xFFB9C3DC),
+              color: context.cxSoft,
             ),
           ),
           const SizedBox(height: 18),
@@ -465,19 +468,19 @@ class _EmptyState extends StatelessWidget {
               width: 58,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF7C3AED).withValues(alpha: .14),
+                color: context.cxInk.withValues(alpha: .14),
               ),
-              child: Icon(icon, size: 27, color: const Color(0xFFB7A5FF)),
+              child: Icon(icon, size: 27, color: context.cxInk),
             ),
             const SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
                 height: 1.45,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
             ),
           ],

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../app/theme/app_widgets.dart';
 import 'profile_data.dart';
 import 'profile_photo_resolver.dart';
@@ -18,12 +20,8 @@ import 'public_profile_data.dart';
 /// TweenAnimationBuilder where appropriate) with easeOutCubic / easeInOutCubic
 /// — no bounce.
 
-const _kAccent = Color(0xFF8B5CF6);
-const _kAccent2 = Color(0xFF587BE2);
-const _kSoftText = Color(0xFFB9C3DC);
-const _kBrightText = Color(0xFFEAEEF9);
-const _kVerified = Color(0xFF47D7A5);
-const _kPending = Color(0xFFF0C25A);
+const _kVerified = Color(0xFF1F9D6B);
+const _kPending = Color(0xFFC98A1E);
 
 // ── PublicProfileHeader ─────────────────────────────────────────────────────
 
@@ -133,7 +131,7 @@ class _OwnerPrivacyBadge extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: .3),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: .28)),
+              border: Border.all(color: context.cxInk.withValues(alpha: .28)),
             ),
             child: Icon(icon, size: 15, color: Colors.white),
           ),
@@ -167,7 +165,7 @@ class _OwnerVerificationBadge extends StatelessWidget {
           'Pending',
         ),
       VerificationStatus.notVerified => (
-          _kAccent,
+          context.cxAccent,
           Icons.shield_outlined,
           'Verify',
         ),
@@ -395,11 +393,12 @@ class _ProfileHeroState extends State<ProfileHero> {
                               titleLine,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 32,
-                                fontWeight: FontWeight.w800,
+                                fontFamily: 'Fraunces',
+                                fontWeight: FontWeight.w600,
                                 letterSpacing: -0.6,
-                                color: Colors.white,
+                                color: context.cxInk,
                               ),
                             ),
                           ),
@@ -422,11 +421,12 @@ class _ProfileHeroState extends State<ProfileHero> {
                       ],
                       Text(
                         titleLine,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 32,
-                          fontWeight: FontWeight.w800,
+                          fontFamily: 'Fraunces',
+                          fontWeight: FontWeight.w600,
                           letterSpacing: -0.6,
-                          color: Colors.white,
+                          color: context.cxInk,
                         ),
                       ),
                     ],
@@ -434,10 +434,10 @@ class _ProfileHeroState extends State<ProfileHero> {
                        const SizedBox(height: 10),
                        Text(
                          profile.occupation.trim(),
-                         style: const TextStyle(
+                         style: TextStyle(
                            fontSize: 15,
                            fontWeight: FontWeight.w600,
-                           color: _kSoftText,
+                           color: context.cxSoft,
                            letterSpacing: 0.1,
                          ),
                        ),
@@ -636,12 +636,12 @@ class _HeroPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_kAccent, _kAccent2],
+          colors: [context.cxAccent, context.cxAccent],
         ),
       ),
       child: Center(
@@ -684,7 +684,7 @@ class _ProgressBars extends StatelessWidget {
                     ),
                     Container(
                       height: 3,
-                      color: Colors.white.withValues(alpha: .18),
+                      color: context.cxInk.withValues(alpha: .18),
                     ),
                     AnimatedFractionallySizedBox(
                       duration: const Duration(milliseconds: 420),
@@ -732,7 +732,7 @@ class PublicSectionTitle extends StatelessWidget {
     return Row(
       children: [
         if (icon != null) ...[
-          Icon(icon, size: 20, color: const Color(0xFFB7A5FF)),
+          Icon(icon, size: 20, color: context.cxInk),
           const SizedBox(width: 8),
         ],
         Text(
@@ -766,10 +766,10 @@ class AboutSection extends StatelessWidget {
           if (bio.trim().isNotEmpty)
             Text(
               bio.trim(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15.5,
                 height: 1.5,
-                color: _kBrightText,
+                color: context.cxInk,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -778,10 +778,10 @@ class AboutSection extends StatelessWidget {
           if (aboutMe.trim().isNotEmpty)
             Text(
               aboutMe.trim(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.55,
-                color: _kSoftText,
+                color: context.cxSoft,
               ),
             ),
         ],
@@ -841,19 +841,19 @@ class _Chip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
       decoration: BoxDecoration(
         gradient: filled
-            ? const LinearGradient(colors: [_kAccent, _kAccent2])
+            ? LinearGradient(colors: [context.cxAccent, context.cxAccent])
             : null,
-        color: filled ? null : Colors.white.withValues(alpha: .06),
+        color: filled ? null : context.cxInk.withValues(alpha: .06),
         borderRadius: BorderRadius.circular(30),
         border: filled
             ? null
-            : Border.all(color: Colors.white.withValues(alpha: .12)),
+            : Border.all(color: context.cxInk.withValues(alpha: .12)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: filled ? Colors.white : _kSoftText),
+            Icon(icon, size: 14, color: filled ? Colors.white : context.cxSoft),
             const SizedBox(width: 6),
           ],
           Text(
@@ -861,7 +861,7 @@ class _Chip extends StatelessWidget {
             style: TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.w600,
-              color: filled ? Colors.white : _kBrightText,
+              color: filled ? Colors.white : context.cxInk,
             ),
           ),
         ],
@@ -962,10 +962,10 @@ class _OptionalRow extends StatelessWidget {
           width: 34,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: .06),
-            border: Border.all(color: Colors.white.withValues(alpha: .1)),
+            color: context.cxInk.withValues(alpha: .06),
+            border: Border.all(color: context.cxInk.withValues(alpha: .1)),
           ),
-          child: Icon(row.icon, size: 17, color: _kSoftText),
+          child: Icon(row.icon, size: 17, color: context.cxSoft),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -974,19 +974,19 @@ class _OptionalRow extends StatelessWidget {
             children: [
               Text(
                 row.label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: _kSoftText,
+                  color: context.cxSoft,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 row.value,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w700,
-                  color: _kBrightText,
+                  color: context.cxInk,
                 ),
               ),
             ],
@@ -1018,7 +1018,7 @@ class SocialLinkTile extends StatelessWidget {
             width: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(colors: [_kAccent, _kAccent2]),
+              gradient: LinearGradient(colors: [context.cxAccent, context.cxAccent]),
             ),
             child: const Icon(Icons.link_rounded, size: 18, color: Colors.white),
           ),
@@ -1029,10 +1029,10 @@ class SocialLinkTile extends StatelessWidget {
               children: [
                 Text(
                   link.platform.trim().isNotEmpty ? link.platform.trim() : 'Link',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: _kSoftText,
+                    color: context.cxSoft,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1040,10 +1040,10 @@ class SocialLinkTile extends StatelessWidget {
                   display,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: _kBrightText,
+                    color: context.cxInk,
                   ),
                 ),
               ],
@@ -1071,9 +1071,9 @@ class CommonConnectionsCard extends StatelessWidget {
           Container(
             height: 44,
             width: 44,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(colors: [_kAccent, _kAccent2]),
+              gradient: LinearGradient(colors: [context.cxAccent, context.cxAccent]),
             ),
             child: const Icon(Icons.group_rounded, color: Colors.white),
           ),
@@ -1084,16 +1084,16 @@ class CommonConnectionsCard extends StatelessWidget {
               children: [
                 Text(
                   count == 1 ? '1 connection in common' : '$count connections in common',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
-                    color: _kBrightText,
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(height: 2),
-                const Text(
+                Text(
                   'You may know some of the same people.',
-                  style: TextStyle(fontSize: 12.5, color: _kSoftText),
+                  style: TextStyle(fontSize: 12.5, color: context.cxSoft),
                 ),
               ],
             ),
@@ -1163,11 +1163,11 @@ class _HostedPlanCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withValues(alpha: .08),
-            Colors.white.withValues(alpha: .03),
+            context.cxInk.withValues(alpha: .08),
+            context.cxInk.withValues(alpha: .03),
           ],
         ),
-        border: Border.all(color: Colors.white.withValues(alpha: .1)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1177,19 +1177,19 @@ class _HostedPlanCard extends StatelessWidget {
             width: 38,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _kAccent.withValues(alpha: .2),
+              color: context.cxAccent.withValues(alpha: .2),
             ),
-            child: Icon(plan.icon, size: 20, color: const Color(0xFFB7A5FF)),
+            child: Icon(plan.icon, size: 20, color: context.cxInk),
           ),
           const Spacer(),
           Text(
             plan.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: _kBrightText,
+              color: context.cxInk,
             ),
           ),
           const SizedBox(height: 3),
@@ -1197,7 +1197,7 @@ class _HostedPlanCard extends StatelessWidget {
             plan.subtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12.5, color: _kSoftText),
+            style: TextStyle(fontSize: 12.5, color: context.cxSoft),
           ),
         ],
       ),
@@ -1221,17 +1221,17 @@ class PublicProfileEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.person_outline_rounded, size: 56, color: _kSoftText),
+            Icon(Icons.person_outline_rounded, size: 56, color: context.cxSoft),
             const SizedBox(height: 16),
             Text(
               displayName,
               style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'This profile has nothing to show yet.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: _kSoftText),
+              style: TextStyle(fontSize: 14, color: context.cxSoft),
             ),
           ],
         ),

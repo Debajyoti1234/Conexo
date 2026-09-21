@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
+import '../../../app/theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/services/image_normalizer.dart';
@@ -188,12 +190,12 @@ class _ThreeAngleCaptureScreenState extends State<ThreeAngleCaptureScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: VerifyColors.bgBottom,
+return Scaffold(
+      backgroundColor: context.cxCanvas,
       body: VerifyBackground(
         glow: _phase == _Phase.verified
-            ? VerifyColors.verified
-            : VerifyColors.accent,
+            ? context.cxSuccess
+            : context.cxAccent,
         child: SafeArea(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 320),
@@ -268,12 +270,13 @@ class _ThreeAngleCaptureScreenState extends State<ThreeAngleCaptureScreen> {
               Text(
                 _current.title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   height: 1.2,
-                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Fraunces',
+                  fontWeight: FontWeight.w600,
                   letterSpacing: -0.5,
-                  color: VerifyColors.text,
+                  color: context.cxInk,
                 ),
               ),
               const SizedBox(height: 20),
@@ -313,26 +316,27 @@ class _ThreeAngleCaptureScreenState extends State<ThreeAngleCaptureScreen> {
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
             children: [
               const SizedBox(height: 4),
-              const Center(
+Center(
                 child: VerifyGlowBadge(
                   size: 92,
-                  colors: [VerifyColors.verified, VerifyColors.verified2],
-                  glowColor: VerifyColors.verified,
+                  colors: [context.cxSuccess, context.cxSuccess],
+                  glowColor: context.cxSuccess,
                   glowStrength: .5,
                   child:
-                      Icon(Icons.check_rounded, size: 44, color: Colors.white),
+                      Icon(Icons.check_rounded, size: 44, color: context.cxInk),
                 ),
               ),
               const SizedBox(height: 20),
               Text(
                 'Great!\n${_current.label.substring(0, 1)}${_current.label.substring(1).toLowerCase()} view captured',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 22,
                   height: 1.25,
-                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Fraunces',
+                  fontWeight: FontWeight.w600,
                   letterSpacing: -0.4,
-                  color: VerifyColors.text,
+                  color: context.cxInk,
                 ),
               ),
               const SizedBox(height: 24),
@@ -395,21 +399,22 @@ class _ProcessingView extends StatelessWidget {
             const Spacer(),
             const VerifyingIndicator(size: 104),
             const SizedBox(height: 30),
-            const Text(
+            Text(
               'All set!',
               style: TextStyle(
                 fontSize: 26,
-                fontWeight: FontWeight.w800,
+                fontFamily: 'Fraunces',
+                fontWeight: FontWeight.w600,
                 letterSpacing: -0.5,
-                color: VerifyColors.text,
+                color: context.cxInk,
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               "We're reviewing your photos.\nThis may take a few seconds — please\ndon't close the app.",
               textAlign: TextAlign.center,
               style:
-                  TextStyle(fontSize: 14, height: 1.5, color: VerifyColors.soft),
+                  TextStyle(fontSize: 14, height: 1.5, color: context.cxSoft),
             ),
             const Spacer(),
           ],
@@ -464,14 +469,14 @@ class _NoticeText extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.info_outline_rounded,
-            size: 16, color: VerifyColors.warn),
+        Icon(Icons.info_outline_rounded,
+            size: 16, color: context.cxAccentSoft),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12.5, color: VerifyColors.warn),
+            style: TextStyle(fontSize: 12.5, color: context.cxAccentSoft),
           ),
         ),
       ],
@@ -496,12 +501,12 @@ class _ShutterButton extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: Colors.white.withValues(alpha: .35),
+              color: context.cxInk.withValues(alpha: .35),
               width: 3,
             ),
             boxShadow: [
               BoxShadow(
-                color: VerifyColors.accent.withValues(alpha: .4),
+                color: context.cxAccent.withValues(alpha: .4),
                 blurRadius: 26,
                 spreadRadius: -2,
               ),
@@ -518,16 +523,16 @@ class _ShutterButton extends StatelessWidget {
                 ),
               ),
               child: busy
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 24,
                       width: 24,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        color: VerifyColors.accent,
+                        color: context.cxAccent,
                       ),
                     )
-                  : const Icon(Icons.camera_alt_rounded,
-                      color: VerifyColors.accent, size: 26),
+                  : Icon(Icons.camera_alt_rounded,
+                      color: context.cxAccent, size: 26),
             ),
           ),
         ),
@@ -549,11 +554,11 @@ class _SecondaryButton extends StatelessWidget {
       child: TextButton(
         onPressed: onTap,
         style: TextButton.styleFrom(
-          backgroundColor: Colors.white.withValues(alpha: .06),
-          foregroundColor: VerifyColors.text,
+          backgroundColor: context.cxAccent.withValues(alpha: .06),
+          foregroundColor: context.cxInk,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: VerifyColors.line),
+            side: BorderSide(color: context.cxLine),
           ),
         ),
         child: Text(

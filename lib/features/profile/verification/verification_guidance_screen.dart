@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../app/theme/app_theme.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 import 'three_angle_capture_screen.dart';
@@ -60,7 +62,7 @@ class _VerificationGuidanceScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: VerifyColors.bgBottom,
+      backgroundColor: context.cxCanvas,
       body: VerifyBackground(
         child: SafeArea(
           child: Column(
@@ -85,12 +87,12 @@ class _VerificationGuidanceScreenState
               SmoothPageIndicator(
                 controller: _controller,
                 count: 3,
-                effect: const ExpandingDotsEffect(
+                effect: ExpandingDotsEffect(
                   dotHeight: 7,
                   dotWidth: 7,
                   expansionFactor: 3.4,
                   spacing: 6,
-                  activeDotColor: VerifyColors.accent,
+                  activeDotColor: context.cxAccent,
                   dotColor: Color(0x33FFFFFF),
                 ),
               ),
@@ -123,29 +125,30 @@ class _StartPage extends StatelessWidget {
             size: 116,
             glowStrength: .4,
             colors: [
-              VerifyColors.accent.withValues(alpha: .95),
-              VerifyColors.accent2.withValues(alpha: .8),
+              context.cxAccent.withValues(alpha: .95),
+              context.cxAccent.withValues(alpha: .8),
             ],
             child: VerifyGlyph(VerifyAsset.shieldFace,
-                size: 58, color: Colors.white),
+                size: 58, color: context.cxInk),
           ),
         ),
         const SizedBox(height: 28),
-        const Text(
+        Text(
           'Get Verified',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 30,
-            fontWeight: FontWeight.w800,
+            fontFamily: 'Fraunces',
+            fontWeight: FontWeight.w600,
             letterSpacing: -0.6,
-            color: VerifyColors.text,
+            color: context.cxInk,
           ),
         ),
         const SizedBox(height: 10),
-        const Text(
+        Text(
           'Verify your identity with\nthree quick selfies.',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 15, height: 1.5, color: VerifyColors.soft),
+          style: TextStyle(fontSize: 15, height: 1.5, color: context.cxSoft),
         ),
         const SizedBox(height: 28),
         const _BenefitRow(
@@ -196,11 +199,11 @@ class _BenefitRow extends StatelessWidget {
           size: 42,
           glowStrength: .28,
           colors: [
-            VerifyColors.accent.withValues(alpha: .28),
-            VerifyColors.accent2.withValues(alpha: .18),
+            context.cxAccent.withValues(alpha: .28),
+            context.cxAccent.withValues(alpha: .18),
           ],
-          glowColor: VerifyColors.accent,
-          child: VerifyGlyph(asset, size: 20, color: VerifyColors.accentSoft),
+          glowColor: context.cxAccent,
+          child: VerifyGlyph(asset, size: 20, color: context.cxAccentSoft),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -209,19 +212,19 @@ class _BenefitRow extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: VerifyColors.text,
+                  color: context.cxInk,
                 ),
               ),
               const SizedBox(height: 3),
               Text(
                 body,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   height: 1.45,
-                  color: VerifyColors.soft,
+                  color: context.cxSoft,
                 ),
               ),
             ],
@@ -287,15 +290,15 @@ class _InstructionsPage extends StatelessWidget {
         Row(
           children: [
             VerifyGlyph(VerifyAsset.privacy,
-                size: 18, color: VerifyColors.muted),
+                size: 18, color: context.cxMuted),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Your photos are used only for verification and are never shared.',
                 style: TextStyle(
                   fontSize: 12.5,
                   height: 1.4,
-                  color: VerifyColors.muted,
+                  color: context.cxMuted,
                 ),
               ),
             ),
@@ -331,15 +334,15 @@ class _AngleOverviewPage extends StatelessWidget {
         Row(
           children: [
             VerifyGlyph(VerifyAsset.shieldCheck,
-                size: 18, color: VerifyColors.accentSoft),
+                size: 18, color: context.cxAccentSoft),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Make sure your face is clearly visible in all three views.',
                 style: TextStyle(
                   fontSize: 12.5,
                   height: 1.4,
-                  color: VerifyColors.soft,
+                  color: context.cxSoft,
                 ),
               ),
             ),
@@ -363,21 +366,22 @@ class _PageHeader extends StatelessWidget {
         Text(
           title,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 24,
-            fontWeight: FontWeight.w800,
+            fontFamily: 'Fraunces',
+            fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
-            color: VerifyColors.text,
+            color: context.cxInk,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           subtitle,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             height: 1.45,
-            color: VerifyColors.soft,
+            color: context.cxSoft,
           ),
         ),
       ],

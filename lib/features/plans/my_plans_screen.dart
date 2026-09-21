@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'create_plan_data.dart';
 import 'create_plan_screen.dart';
 import 'my_plans_data.dart';
@@ -176,7 +178,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.message),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
     } catch (_) {
@@ -184,7 +186,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to archive plan. Please try again.'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
     }
@@ -200,7 +202,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.message),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
     } catch (_) {
@@ -208,7 +210,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to restore plan. Please try again.'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
     }
@@ -233,7 +235,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error.message),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
     } catch (_) {
@@ -241,7 +243,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to delete plan. Please try again.'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
     }
@@ -265,7 +267,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.message),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
     } catch (_) {
@@ -273,7 +275,7 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to leave plan. Please try again.'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
     }
@@ -329,24 +331,13 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Stack(
           children: [
-            Positioned.fill(
-              child: Image.asset(
-                'assets/images/plans/myplan.PNG',
-                fit: BoxFit.cover,
-              ),
-            ),
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withValues(alpha: .35),
-              ),
-            ),
             RefreshIndicator(
               onRefresh: _load,
-              color: const Color(0xFF8B5CF6),
+              color: context.cxInk,
               strokeWidth: 2.2,
               displacement: 8,
               child: CustomScrollView(
@@ -392,10 +383,10 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 80),
         child: Center(
-          child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+          child: CircularProgressIndicator(color: context.cxInk),
         ),
       );
     }
@@ -405,12 +396,12 @@ class _MyPlansScreenState extends State<MyPlansScreen> {
         padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
         child: Column(
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 48, color: Color(0xFF9DB2E8)),
+            Icon(Icons.wifi_off_rounded, size: 48, color: context.cxMuted),
             const SizedBox(height: 20),
             Text(
               _error!,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 15, color: Color(0xFFB9C3DC)),
+              style: TextStyle(fontSize: 15, color: context.cxSoft),
             ),
             const SizedBox(height: 16),
             TextButton.icon(
@@ -497,7 +488,8 @@ class _Header extends StatelessWidget {
               'My Plans',
               style: TextStyle(
                 fontSize: 30,
-                fontWeight: FontWeight.w800,
+                fontFamily: 'Fraunces',
+                fontWeight: FontWeight.w600,
                 letterSpacing: -0.6,
               ),
             ),

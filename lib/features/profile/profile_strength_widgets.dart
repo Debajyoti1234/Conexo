@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../app/theme/app_widgets.dart';
 import 'profile_strength_data.dart';
 
@@ -14,20 +16,16 @@ import 'profile_strength_data.dart';
 /// AnimatedOpacity / AnimatedScale / Fade / Slide with easeOutCubic /
 /// easeInOutCubic — no bounce.
 
-const _kAccent = Color(0xFF8B5CF6);
-const _kAccent2 = Color(0xFF587BE2);
-const _kSoftText = Color(0xFFB9C3DC);
-const _kBrightText = Color(0xFFEAEEF9);
-const _kDone = Color(0xFF47D7A5);
+const _kDone = Color(0xFF1F9D6B);
 
 // ── Tier palette ──────────────────────────────────────────────────────────────
 
 /// The gradient colors used to represent a [ProfileStrengthTier].
 List<Color> tierGradient(ProfileStrengthTier tier) => switch (tier) {
       ProfileStrengthTier.bronze => const [Color(0xFFC08457), Color(0xFF8A5A38)],
-      ProfileStrengthTier.silver => const [Color(0xFFB9C3DC), Color(0xFF8791A8)],
-      ProfileStrengthTier.gold => const [Color(0xFFF0C25A), Color(0xFFE0952B)],
-      ProfileStrengthTier.platinum => const [_kAccent, _kAccent2],
+      ProfileStrengthTier.silver => const [Color(0xFF5C5C66), Color(0xFF8791A8)],
+      ProfileStrengthTier.gold => const [Color(0xFFC98A1E), Color(0xFFE0952B)],
+      ProfileStrengthTier.platinum => const [Color(0xFF1B1B1F), Color(0xFF1B1B1F)],
     };
 
 IconData _tierIcon(ProfileStrengthTier tier) => switch (tier) {
@@ -82,7 +80,8 @@ class ProfileStrengthRing extends StatelessWidget {
                       '${(value * 100).round()}%',
                       style: const TextStyle(
                         fontSize: 34,
-                        fontWeight: FontWeight.w800,
+                        fontFamily: 'Fraunces',
+                        fontWeight: FontWeight.w600,
                         letterSpacing: -1,
                       ),
                     ),
@@ -91,7 +90,7 @@ class ProfileStrengthRing extends StatelessWidget {
                       'Complete',
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: _kSoftText,
+                        color: context.cxSoft,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
                       ),
@@ -128,7 +127,7 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
-      ..color = Colors.white.withValues(alpha: .08);
+      ..color = Color(0xFF1B1B1F).withValues(alpha: .08);
     canvas.drawCircle(center, radius, track);
 
     if (progress <= 0) return;
@@ -230,18 +229,19 @@ class ProfileStrengthCard extends StatelessWidget {
             children: [
               Text(
                 '${result.profileScore}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: _kBrightText,
+                  fontFamily: 'Fraunces',
+                  fontWeight: FontWeight.w600,
+                  color: context.cxInk,
                 ),
               ),
               const SizedBox(width: 4),
-              const Text(
+              Text(
                 '/ 100 profile score',
                 style: TextStyle(
                   fontSize: 14,
-                  color: _kSoftText,
+                  color: context.cxSoft,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -263,7 +263,7 @@ class ProfileScoreRow extends StatelessWidget {
     required this.max,
     super.key,
     this.icon,
-    this.accent = _kAccent,
+      this.accent = const Color(0xFF1B1B1F),
   });
 
   final String label;
@@ -289,19 +289,19 @@ class ProfileScoreRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
-                    color: _kBrightText,
+                    color: context.cxInk,
                   ),
                 ),
               ),
               Text(
                 '$earned/$max',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  color: _kSoftText,
+                  color: context.cxSoft,
                 ),
               ),
             ],
@@ -314,7 +314,7 @@ class ProfileScoreRow extends StatelessWidget {
                   Container(
                     height: 8,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .07),
+                      color: context.cxInk.withValues(alpha: .07),
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
@@ -359,10 +359,10 @@ class SuggestionTile extends StatelessWidget {
             width: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(colors: [_kAccent, _kAccent2]),
+              gradient: LinearGradient(colors: [context.cxAccent, context.cxAccent]),
               boxShadow: [
                 BoxShadow(
-                  color: _kAccent.withValues(alpha: .4),
+                  color: context.cxAccent.withValues(alpha: .4),
                   blurRadius: 14,
                   offset: const Offset(0, 5),
                 ),
@@ -375,10 +375,10 @@ class SuggestionTile extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: _kBrightText,
+                color: context.cxInk,
               ),
             ),
           ),
@@ -407,19 +407,19 @@ class MissingItemTile extends StatelessWidget {
             width: 30,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: .07),
-              border: Border.all(color: Colors.white.withValues(alpha: .14)),
+              color: context.cxInk.withValues(alpha: .07),
+              border: Border.all(color: context.cxInk.withValues(alpha: .14)),
             ),
-            child: const Icon(Icons.add_rounded, size: 18, color: _kSoftText),
+            child: Icon(Icons.add_rounded, size: 18, color: context.cxSoft),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: _kBrightText,
+                color: context.cxInk,
               ),
             ),
           ),
@@ -472,17 +472,17 @@ class _ChecklistRow extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: done
-                ? const LinearGradient(colors: [_kDone, Color(0xFF22BFE0)])
+                ? const LinearGradient(colors: [_kDone, Color(0xFF0E8FA8)])
                 : null,
-            color: done ? null : Colors.white.withValues(alpha: .07),
+            color: done ? null : context.cxInk.withValues(alpha: .07),
             border: done
                 ? null
-                : Border.all(color: Colors.white.withValues(alpha: .16)),
+                : Border.all(color: context.cxInk.withValues(alpha: .16)),
           ),
           child: Icon(
             done ? Icons.check_rounded : Icons.circle_outlined,
             size: done ? 16 : 14,
-            color: done ? Colors.white : _kSoftText,
+            color: done ? Colors.white : context.cxSoft,
           ),
         ),
         const SizedBox(width: 12),
@@ -492,7 +492,7 @@ class _ChecklistRow extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: done ? _kBrightText : _kSoftText,
+              color: done ? context.cxInk : context.cxSoft,
             ),
           ),
         ),
@@ -501,7 +501,7 @@ class _ChecklistRow extends StatelessWidget {
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w700,
-            color: done ? _kDone : _kSoftText.withValues(alpha: .7),
+            color: done ? _kDone : context.cxSoft.withValues(alpha: .7),
           ),
         ),
       ],
@@ -558,7 +558,7 @@ class ScoreBreakdownCard extends StatelessWidget {
             icon: Icons.auto_awesome_outlined,
             earned: breakdown.optionalScore,
             max: 20,
-            accent: _kAccent2,
+            accent: context.cxAccent,
           ),
           ProfileScoreRow(
             label: 'Verification bonus',
@@ -570,22 +570,22 @@ class ScoreBreakdownCard extends StatelessWidget {
           const Divider(height: 26, color: Color(0x1AFFFFFF)),
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Total score',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
-                    color: _kBrightText,
+                    color: context.cxInk,
                   ),
                 ),
               ),
               Text(
                 '${breakdown.total}/100',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: _kAccent,
+                  color: context.cxAccent,
                 ),
               ),
             ],
@@ -619,7 +619,7 @@ class StrengthSectionTitle extends StatelessWidget {
         Row(
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 20, color: const Color(0xFFB7A5FF)),
+              Icon(icon, size: 20, color: context.cxInk),
               const SizedBox(width: 8),
             ],
             Expanded(
@@ -638,7 +638,7 @@ class StrengthSectionTitle extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             subtitle!,
-            style: const TextStyle(fontSize: 13.5, color: _kSoftText),
+            style: TextStyle(fontSize: 13.5, color: context.cxSoft),
           ),
         ],
       ],

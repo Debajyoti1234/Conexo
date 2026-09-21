@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../app/theme/app_theme.dart';
 import '../../app/router/app_router.dart';
 import '../../core/services/app_navigator.dart';
 import '../../core/services/permission_manager.dart';
@@ -342,14 +343,17 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final light = context.isLightTheme;
     if (_showError) {
       return Scaffold(
         body: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFF090B14), Colors.black],
+              colors: light
+                  ? const [Color(0xFFFFFFFF), Color(0xFFFFFFFF)]
+                  : const [Color(0xFF090B14), Colors.black],
             ),
           ),
           child: Center(
@@ -365,16 +369,21 @@ class _SplashScreenState extends State<SplashScreen>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.25),
+                          color: (light
+                                  ? context.cxInk
+                                  : const Color(0xFF8B5CF6))
+                              .withValues(alpha: 0.25),
                           blurRadius: 40,
                           spreadRadius: 8,
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.wifi_off_rounded,
                       size: 36,
-                      color: Color(0xFFB7A5FF),
+                      color: light
+                          ? context.cxInk
+                          : const Color(0xFFB7A5FF),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -382,7 +391,8 @@ class _SplashScreenState extends State<SplashScreen>
                     _errorMessage ?? 'Something went wrong',
                     style: const TextStyle(
                       fontSize: 22,
-                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Fraunces',
+                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                       letterSpacing: -0.3,
                     ),
@@ -393,7 +403,10 @@ class _SplashScreenState extends State<SplashScreen>
                     'Connect to the internet to continue.',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.white.withValues(alpha: 0.55),
+                      color: (light
+                              ? context.cxInk
+                              : Colors.white)
+                          .withValues(alpha: 0.55),
                       fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
@@ -439,10 +452,16 @@ class _SplashScreenState extends State<SplashScreen>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                const ColoredBox(color: Colors.black),
+                ColoredBox(
+                  color: light
+                      ? const Color(0xFFFFFFFF)
+                      : const Color(0xFF090B14),
+                ),
                 Opacity(
                   opacity: navyOpacity,
-                  child: const ColoredBox(color: Color(0xFF090B14)),
+                  child: ColoredBox(
+                    color: light ? const Color(0xFFFFFFFF) : Colors.black,
+                  ),
                 ),
                 RepaintBoundary(
                   child: CustomPaint(
@@ -450,6 +469,7 @@ class _SplashScreenState extends State<SplashScreen>
                       progress: progress,
                       blobOpacity: blobOpacity,
                       particleOpacity: particleOpacity,
+                      light: light,
                     ),
                   ),
                 ),
@@ -469,11 +489,13 @@ class _SplashScreenState extends State<SplashScreen>
                                 child: Container(
                                   height: logoSize * .76,
                                   width: logoSize * .76,
-                                  decoration: const BoxDecoration(
+                                  decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Color(0xFF7C3AED),
+                                        color: light
+                                            ? context.cxInk
+                                            : const Color(0xFF7C3AED),
                                         blurRadius: 54,
                                         spreadRadius: 12,
                                       ),
@@ -496,12 +518,15 @@ class _SplashScreenState extends State<SplashScreen>
                           offset: Offset(0, titleOffset),
                           child: Opacity(
                             opacity: titleOpacity,
-                            child: const Text(
+                            child: Text(
                               'Conexo',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: light
+                                    ? context.cxInk
+                                    : Colors.white,
                                 fontSize: 42,
-                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Fraunces',
+                                fontWeight: FontWeight.w600,
                                 letterSpacing: 0.6,
                               ),
                             ),
@@ -510,10 +535,12 @@ class _SplashScreenState extends State<SplashScreen>
                         const SizedBox(height: 10),
                         Opacity(
                           opacity: taglineOpacity,
-                          child: const Text(
+                          child: Text(
                             'Meet \u2022 Connect \u2022 Explore',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: light
+                                  ? context.cxInk
+                                  : Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.15,
@@ -552,18 +579,24 @@ class _RetryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final light = context.isLightTheme;
     return GestureDetector(
       onTap: onPressed,
       child: Container(
         height: 52,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
+          gradient: LinearGradient(
+            colors: light
+                ? const [Color(0xFF1B1B1F), Color(0xFF1B1B1F)]
+                : const [Color(0xFF8B5CF6), Color(0xFF587BE2)],
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8B5CF6).withValues(alpha: 0.35),
+              color: (light
+                      ? context.cxInk
+                      : const Color(0xFF8B5CF6))
+                  .withValues(alpha: 0.35),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -600,7 +633,7 @@ class _LogoArtwork extends StatelessWidget {
       height: size,
       width: size,
       child: Image.asset(
-        'assets/logo/conexo_logo.png.png',
+        'assets/logo/conexo_logo2.png',
         fit: BoxFit.contain,
       ),
     );
@@ -618,11 +651,13 @@ class _AmbientBackgroundPainter extends CustomPainter {
     required this.progress,
     required this.blobOpacity,
     required this.particleOpacity,
+    required this.light,
   });
 
   final double progress;
   final double blobOpacity;
   final double particleOpacity;
+  final bool light;
 
   static const _particles = [
     Offset(0.08, 0.16),
@@ -650,7 +685,8 @@ class _AmbientBackgroundPainter extends CustomPainter {
         size.height * .17,
       ),
       size.width * .56,
-      const Color(0xFF7C3AED).withValues(alpha: .20 * blobOpacity),
+      (light ? Color(0xFF1B1B1F) : const Color(0xFF7C3AED))
+          .withValues(alpha: .20 * blobOpacity),
     );
     _paintBlob(
       canvas,
@@ -660,7 +696,8 @@ class _AmbientBackgroundPainter extends CustomPainter {
         size.height * (.72 + math.cos(time * .30) * .05),
       ),
       size.width * .62,
-      const Color(0xFF22D3EE).withValues(alpha: .12 * blobOpacity),
+      (light ? const Color(0xFF0E8FA8) : const Color(0xFF22D3EE))
+          .withValues(alpha: .12 * blobOpacity),
     );
     _paintBlob(
       canvas,
@@ -670,11 +707,13 @@ class _AmbientBackgroundPainter extends CustomPainter {
         size.height * .96,
       ),
       size.width * .42,
-      const Color(0xFFFF4D8D).withValues(alpha: .09 * blobOpacity),
+      (light ? const Color(0xFFD9485F) : const Color(0xFFFF4D8D))
+          .withValues(alpha: .09 * blobOpacity),
     );
 
     final particlePaint = Paint()
-      ..color = Colors.white.withValues(alpha: particleOpacity);
+      ..color = (light ? Color(0xFF1B1B1F) : Colors.white)
+          .withValues(alpha: particleOpacity);
     for (var index = 0; index < _particles.length; index++) {
       final seed = index * 0.73;
       final point = _particles[index];
@@ -706,6 +745,7 @@ class _AmbientBackgroundPainter extends CustomPainter {
   bool shouldRepaint(covariant _AmbientBackgroundPainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.blobOpacity != blobOpacity ||
-        oldDelegate.particleOpacity != particleOpacity;
+        oldDelegate.particleOpacity != particleOpacity ||
+        oldDelegate.light != light;
   }
 }

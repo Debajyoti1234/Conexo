@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'gif_service.dart';
 
 /// A premium, lightweight GIF picker presented as a bottom sheet.
@@ -124,9 +126,9 @@ class _GifPickerState extends State<GifPicker> {
           maxHeight: media.size.height * 0.56,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xFF141B2E),
+          color: context.cxSurface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          border: Border.all(color: context.cxInk.withValues(alpha: .08)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: .42),
@@ -143,7 +145,7 @@ class _GifPickerState extends State<GifPicker> {
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .18),
+                color: context.cxInk.withValues(alpha: .18),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -157,10 +159,10 @@ class _GifPickerState extends State<GifPicker> {
                       _searchController.text.trim().isNotEmpty
                           ? 'Search results'
                           : 'Trending GIFs',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFFEAEEF9),
+                        color: context.cxInk,
                       ),
                     ),
                   ),
@@ -168,10 +170,10 @@ class _GifPickerState extends State<GifPicker> {
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close_rounded,
                       size: 22,
-                      color: Color(0xFFB9C3DC),
+                      color: context.cxSoft,
                     ),
                     onPressed: () => Navigator.of(context).pop(),
                     visualDensity: VisualDensity.compact,
@@ -196,30 +198,30 @@ class _GifPickerState extends State<GifPicker> {
         controller: _searchController,
         decoration: InputDecoration(
           hintText: 'Search GIFs...',
-          hintStyle: const TextStyle(
+          hintStyle: TextStyle(
             fontSize: 13.5,
-            color: Color(0xFF9DB2E8),
+            color: context.cxMuted,
           ),
-          prefixIcon: const Icon(
+          prefixIcon: Icon(
             Icons.search_rounded,
             size: 19,
-            color: Color(0xFF9DB2E8),
+            color: context.cxMuted,
           ),
           isCollapsed: true,
           isDense: true,
           filled: true,
-          fillColor: Colors.white.withValues(alpha: .05),
+          fillColor: context.cxInk.withValues(alpha: .05),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: .08)),
+            borderSide: BorderSide(color: context.cxInk.withValues(alpha: .08)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: .08)),
+            borderSide: BorderSide(color: context.cxInk.withValues(alpha: .08)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFF8B5CF6)),
+            borderSide: BorderSide(color: context.cxInk),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
@@ -227,7 +229,7 @@ class _GifPickerState extends State<GifPicker> {
           fontSize: 14,
           color: Colors.white,
         ),
-        cursorColor: const Color(0xFFB7A5FF),
+        cursorColor: context.cxInk,
       ),
     );
   }
@@ -257,7 +259,7 @@ class _GifPickerState extends State<GifPicker> {
         itemCount: rowCount * colCount,
         itemBuilder: (_, _) => Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .04),
+            color: context.cxInk.withValues(alpha: .04),
             borderRadius: BorderRadius.circular(10),
           ),
         ),
@@ -274,14 +276,14 @@ class _GifPickerState extends State<GifPicker> {
             Icon(
               Icons.broken_image_rounded,
               size: 32,
-              color: Colors.white.withValues(alpha: .3),
+              color: context.cxInk.withValues(alpha: .3),
             ),
             const SizedBox(height: 8),
             Text(
               _error ?? 'Something went wrong',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white.withValues(alpha: .5),
+                color: context.cxInk.withValues(alpha: .5),
               ),
             ),
             if (_error != null && _error != 'No GIFs found')
@@ -291,16 +293,16 @@ class _GifPickerState extends State<GifPicker> {
                   'GIPHY API key detected: ${GifService.instance.hasApiKey}',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white.withValues(alpha: .35),
+                    color: context.cxInk.withValues(alpha: .35),
                   ),
                 ),
               ],
             const SizedBox(height: 14),
             TextButton(
               onPressed: _loading ? null : _onRetry,
-              child: const Text(
+              child: Text(
                 'Retry',
-                style: TextStyle(color: Color(0xFF8B5CF6)),
+                style: TextStyle(color: context.cxInk),
               ),
             ),
           ],
@@ -358,12 +360,12 @@ class _GifTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-        splashColor: Colors.white.withValues(alpha: .10),
+        splashColor: context.cxInk.withValues(alpha: .10),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .04),
+            color: context.cxInk.withValues(alpha: .04),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withValues(alpha: .06)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .06)),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(10),

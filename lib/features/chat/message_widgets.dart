@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'message_models.dart';
 
 /// Reusable premium message primitives for Phase 6.2 messaging.
@@ -11,14 +13,8 @@ import 'message_models.dart';
 /// luxury dark-glass language and stays const-constructible where possible.
 
 // ── Palette (kept local + minimal) ──────────────────────────────────────
-const _kAccent = Color(0xFF8B5CF6);
-const _kMeStart = Color(0xFF9B6BFF);
-const _kMeMid = Color(0xFF8B5CF6);
-const _kMeEnd = Color(0xFF587BE2);
+// Sent bubbles: solid ink. Received bubbles: warm paper surface.
 
-const _kThem = Color(0x14FFFFFF);
-const _kSubtle = Color(0xFF9DB2E8);
-const _kMuted = Color(0xFFB9C3DC);
 
 class MessageBubble extends StatefulWidget {
   const MessageBubble({
@@ -156,22 +152,22 @@ class _MessageBubbleState extends State<MessageBubble> {
     return '$authorName replied to $repliedTo';
   }
 
-  Widget _buildMessageText(String text, bool isMe) {
+  Widget _buildMessageText(BuildContext context, String text, bool isMe) {
     final reply = _parseReply(text);
     if (reply != null) {
       // Instagram-style inverted quoted surface: a sent (purple) bubble carries
       // a dark/translucent quote, a received (dark) bubble carries a
       // purple-tinted quote. Both get a subtle vertical left accent bar.
       final quotedSurface = isMe
-          ? Colors.black.withValues(alpha: .18)
-          : _kAccent.withValues(alpha: .18);
+          ? Colors.white.withValues(alpha: .12)
+          : context.cxInk.withValues(alpha: .06);
       final accentBar =
-          isMe ? Colors.white.withValues(alpha: .55) : _kAccent;
+          isMe ? Colors.white.withValues(alpha: .6) : context.cxInk;
       final quotedSenderColor =
-          isMe ? Colors.white : const Color(0xFFB7A5FF);
+          isMe ? Colors.white : context.cxInk;
       final quotedTextColor = isMe
           ? Colors.white.withValues(alpha: .85)
-          : const Color(0xFFCBD3E8);
+          : context.cxSoft;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,7 +230,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                 fontSize: 14.5,
                 height: 1.3,
                 fontWeight: FontWeight.w500,
-                color: isMe ? Colors.white : const Color(0xFFE7ECF9),
+                color: isMe ? Colors.white : context.cxInk,
               ),
             ),
           ],
@@ -247,12 +243,12 @@ class _MessageBubbleState extends State<MessageBubble> {
         fontSize: 14.5,
         height: 1.3,
         fontWeight: FontWeight.w500,
-        color: isMe ? Colors.white : const Color(0xFFE7ECF9),
+        color: isMe ? Colors.white : context.cxInk,
       ),
     );
   }
 
-  Widget _buildImageContent(bool isMe) {
+  Widget _buildImageContent(BuildContext context, bool isMe) {
     final hasCaption = widget.message.text.isNotEmpty;
 
     Widget imageWidget;
@@ -261,16 +257,16 @@ class _MessageBubbleState extends State<MessageBubble> {
         height: 180,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .06),
+          color: context.cxInk.withValues(alpha: .06),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Center(
+        child: Center(
           child: SizedBox(
             width: 24,
             height: 24,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(_kSubtle),
+              valueColor: AlwaysStoppedAnimation<Color>(context.cxMuted),
             ),
           ),
         ),
@@ -280,7 +276,7 @@ class _MessageBubbleState extends State<MessageBubble> {
         height: 120,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .06),
+          color: context.cxInk.withValues(alpha: .06),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Center(
@@ -290,14 +286,14 @@ class _MessageBubbleState extends State<MessageBubble> {
               Icon(
                 Icons.broken_image_rounded,
                 size: 28,
-                color: _kMuted.withValues(alpha: .6),
+                color: context.cxMuted.withValues(alpha: .6),
               ),
               const SizedBox(height: 6),
               Text(
                 'Failed to load image',
                 style: TextStyle(
                   fontSize: 12,
-                  color: _kMuted.withValues(alpha: .7),
+                  color: context.cxMuted.withValues(alpha: .7),
                 ),
               ),
             ],
@@ -320,7 +316,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                 height: 180,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .06),
+                  color: context.cxInk.withValues(alpha: .06),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
@@ -329,7 +325,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: const AlwaysStoppedAnimation<Color>(_kSubtle),
+                      valueColor: AlwaysStoppedAnimation<Color>(context.cxMuted),
                     ),
                   ),
                 ),
@@ -340,14 +336,14 @@ class _MessageBubbleState extends State<MessageBubble> {
                 height: 120,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .06),
+                  color: context.cxInk.withValues(alpha: .06),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
                   child: Icon(
                     Icons.broken_image_rounded,
                     size: 28,
-                    color: _kMuted.withValues(alpha: .6),
+                    color: context.cxMuted.withValues(alpha: .6),
                   ),
                 ),
               );
@@ -368,7 +364,7 @@ class _MessageBubbleState extends State<MessageBubble> {
               fontSize: 14.5,
               height: 1.3,
               fontWeight: FontWeight.w500,
-              color: isMe ? Colors.white : const Color(0xFFE7ECF9),
+              color: isMe ? Colors.white : context.cxInk,
             ),
           ),
         ),
@@ -408,33 +404,24 @@ class _MessageBubbleState extends State<MessageBubble> {
               : const EdgeInsets.fromLTRB(16, 11, 16, 11),
        decoration: isDeleted
            ? BoxDecoration(
-               color: Colors.white.withValues(alpha: .045),
+               color: context.cxInk.withValues(alpha: .045),
                borderRadius: radius,
              )
            : isImage || isVoice || isGif
                ? null
               : BoxDecoration(
-                  gradient: (isMe && !isDeleted)
-                      ? const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [_kMeStart, _kMeMid, _kMeEnd],
-                        )
-                      : null,
-                  color: isMe ? null : _kThem,
+                  color: isMe ? context.cxAccent : context.cxSurface,
                   borderRadius: radius,
-                  border: (isMe && !isDeleted)
+                  border: isMe
                       ? null
-                      : Border.all(color: Colors.white.withValues(alpha: .08)),
-                  boxShadow: (isMe && !isDeleted)
-                      ? [
-                          BoxShadow(
-                            color: _kAccent.withValues(alpha: .22),
-                            blurRadius: 14,
-                            offset: const Offset(0, 5),
-                          ),
-                        ]
-                      : null,
+                      : Border.all(color: context.cxLine),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isMe ? .10 : .04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
       child: isDeleted
           ? Row(
@@ -443,7 +430,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                 Icon(
                   Icons.do_not_disturb_alt_rounded,
                   size: 15,
-                  color: _kMuted.withValues(alpha: .75),
+                  color: context.cxMuted.withValues(alpha: .75),
                 ),
                 const SizedBox(width: 7),
                 Flexible(
@@ -454,7 +441,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                       height: 1.3,
                       fontWeight: FontWeight.w500,
                       fontStyle: FontStyle.italic,
-                      color: _kMuted.withValues(alpha: .85),
+                      color: context.cxMuted.withValues(alpha: .85),
                     ),
                   ),
                 ),
@@ -467,10 +454,10 @@ class _MessageBubbleState extends State<MessageBubble> {
                       ( (_) async => null),
                 )
               : isImage
-                  ? _buildImageContent(isMe)
+                  ? _buildImageContent(context, isMe)
                   : isGif
-                      ? _buildImageContent(isMe)
-                      : _buildMessageText(widget.message.text, isMe),
+                      ? _buildImageContent(context, isMe)
+                      : _buildMessageText(context, widget.message.text, isMe),
     );
 
     final interactiveBubble = (widget.onLongPress != null && !isDeleted)
@@ -506,10 +493,10 @@ class _MessageBubbleState extends State<MessageBubble> {
               padding: const EdgeInsets.only(left: 12, bottom: 3),
               child: Text(
                 widget.message.senderName!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
-                  color: _kSubtle,
+                  color: context.cxMuted,
                 ),
               ),
             ),
@@ -527,7 +514,7 @@ class _MessageBubbleState extends State<MessageBubble> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: _kSubtle.withValues(alpha: .55),
+                  color: context.cxMuted.withValues(alpha: .55),
                 ),
               ),
             ),
@@ -563,8 +550,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                       Icons.favorite_rounded,
                       size: 15,
                       color: widget.isLiked
-                          ? const Color(0xFFFF4D8D)
-                          : const Color(0xFFFF4D8D).withValues(alpha: .7),
+                          ? context.cxDanger
+                          : context.cxDanger.withValues(alpha: .7),
                     ),
                     if (widget.totalLikes >= 2) ...[
                       const SizedBox(width: 3),
@@ -574,8 +561,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
                           color: widget.isLiked
-                              ? const Color(0xFFFF4D8D)
-                              : const Color(0xFFFF4D8D).withValues(alpha: .7),
+                              ? context.cxDanger
+                              : context.cxDanger.withValues(alpha: .7),
                         ),
                       ),
                     ],
@@ -673,11 +660,11 @@ class _MetaLine extends StatelessWidget {
       children: [
         Text(
           clock,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10.5,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
             letterSpacing: 0.2,
-            color: _kMuted,
+            color: context.cxMuted,
           ),
         ),
 
@@ -687,8 +674,8 @@ class _MetaLine extends StatelessWidget {
             _statusGlyph(message.deliveryStatus),
             size: 13,
             color: message.deliveryStatus == MessageDeliveryStatus.read
-                ? const Color(0xFF56B6FF)
-                : _kMuted,
+                ? const Color(0xFF6A3FBF)
+                : context.cxMuted,
           ),
         ],
       ],
@@ -710,17 +697,17 @@ class SystemMessageChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .05),
+            color: context.cxInk.withValues(alpha: .05),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: .08)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .08)),
           ),
           child: Text(
             message.text,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: _kSubtle,
+              color: context.cxMuted,
             ),
           ),
         ),
@@ -746,14 +733,14 @@ class SharedContentCard extends StatelessWidget {
             // Phase 6.3: navigate into the shared content.
           },
           borderRadius: BorderRadius.circular(16),
-          splashColor: _kAccent.withValues(alpha: .10),
-          highlightColor: Colors.white.withValues(alpha: .03),
+          splashColor: context.cxAccent.withValues(alpha: .10),
+          highlightColor: context.cxInk.withValues(alpha: .03),
           child: Container(
             padding: const EdgeInsets.all(15),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .05),
+              color: context.cxInk.withValues(alpha: .05),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withValues(alpha: .10)),
+              border: Border.all(color: context.cxInk.withValues(alpha: .10)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: .18),
@@ -772,18 +759,18 @@ class SharedContentCard extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        _kAccent.withValues(alpha: .28),
-                        _kAccent.withValues(alpha: .12),
+                        context.cxAccent.withValues(alpha: .28),
+                        context.cxAccent.withValues(alpha: .12),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(13),
-                    border: Border.all(color: Colors.white.withValues(alpha: .08)),
+                    border: Border.all(color: context.cxInk.withValues(alpha: .08)),
                   ),
                   alignment: Alignment.center,
                   child: Icon(
                     _contentGlyph(content.type),
                     size: 21,
-                    color: const Color(0xFFB7A5FF),
+                    color: context.cxInk,
                   ),
                 ),
                 const SizedBox(width: 13),
@@ -807,20 +794,20 @@ class SharedContentCard extends StatelessWidget {
                         content.subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: _kMuted,
+                          color: context.cxMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(
+                Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 14,
-                  color: _kSubtle,
+                  color: context.cxMuted,
                 ),
               ],
             ),
@@ -877,7 +864,7 @@ class _LikersPopover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF141B2E),
+      backgroundColor: context.cxSurface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 22),
@@ -890,15 +877,15 @@ class _LikersPopover extends StatelessWidget {
                 Icon(
                   Icons.favorite_rounded,
                   size: 18,
-                  color: const Color(0xFFFF4D8D),
+                  color: context.cxDanger,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Liked by ${likers.length}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFFEAEEF9),
+                    color: context.cxInk,
                   ),
                 ),
               ],
@@ -909,9 +896,9 @@ class _LikersPopover extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Text(
                   nameById[id] ?? id,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
-                    color: Color(0xFFB9C3DC),
+                    color: context.cxSoft,
                   ),
                 ),
               ),
@@ -1070,15 +1057,15 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
       content = Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isMe ? Colors.white.withValues(alpha: .08) : Colors.white.withValues(alpha: .06),
+          color: isMe ? context.cxInk.withValues(alpha: .08) : context.cxInk.withValues(alpha: .06),
           borderRadius: BorderRadius.circular(14),
         ),
-        child: const SizedBox(
+        child: SizedBox(
           width: 16,
           height: 16,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(_kSubtle),
+              valueColor: AlwaysStoppedAnimation<Color>(context.cxMuted),
           ),
         ),
       );
@@ -1086,7 +1073,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
       content = Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isMe ? Colors.white.withValues(alpha: .08) : Colors.white.withValues(alpha: .06),
+          color: isMe ? context.cxInk.withValues(alpha: .08) : context.cxInk.withValues(alpha: .06),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -1095,14 +1082,14 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
             Icon(
               Icons.broken_image_rounded,
               size: 18,
-              color: _kMuted.withValues(alpha: .6),
+              color: context.cxMuted.withValues(alpha: .6),
             ),
             const SizedBox(width: 8),
             Text(
               'Failed to load audio',
               style: TextStyle(
                 fontSize: 12,
-                color: _kMuted.withValues(alpha: .7),
+                color: context.cxMuted.withValues(alpha: .7),
               ),
             ),
           ],
@@ -1122,7 +1109,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: isMe ? Colors.white.withValues(alpha: .08) : Colors.white.withValues(alpha: .06),
+            color: isMe ? context.cxInk.withValues(alpha: .08) : context.cxInk.withValues(alpha: .06),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
@@ -1131,7 +1118,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
               Icon(
                 _playing ? _kPauseIcon : _kPlayIcon,
                 size: 22,
-                color: isMe ? Colors.white : _kSubtle,
+                color: isMe ? Colors.white : context.cxMuted,
               ),
              const SizedBox(width: 10),
              SizedBox(
@@ -1141,7 +1128,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: isMe ? Colors.white : _kSubtle,
+                    color: isMe ? Colors.white : context.cxMuted,
                   ),
                 ),
               ),
@@ -1152,10 +1139,10 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                   child: LinearProgressIndicator(
                     value: progress.clamp(0.0, 1.0),
                     backgroundColor: isMe
-                        ? Colors.white.withValues(alpha: .12)
-                        : Colors.white.withValues(alpha: .08),
+                        ? context.cxInk.withValues(alpha: .12)
+                        : context.cxInk.withValues(alpha: .08),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      isMe ? Colors.white : _kSubtle,
+                      isMe ? Colors.white : context.cxMuted,
                     ),
                     minHeight: 3,
                   ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../app/theme/app_widgets.dart';
 
 /// Premium widgets specific to the Phase 4.2 Profile Management flow.
@@ -12,9 +14,6 @@ import '../../app/theme/app_widgets.dart';
 /// Motion is limited to Fade / Scale / Opacity with easeOutCubic /
 /// easeInOutCubic — no bounce or elastic.
 
-const _kAccent = Color(0xFF8B5CF6);
-const _kAccent2 = Color(0xFF587BE2);
-const _kSoftText = Color(0xFFB9C3DC);
 
 // ── UnsavedChangesResult ────────────────────────────────────────────────────
 
@@ -83,11 +82,11 @@ class UnsavedChangesDialog extends StatelessWidget {
                       width: 40,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: _kAccent.withValues(alpha: .18),
+                        color: context.cxAccent.withValues(alpha: .18),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.info_outline_rounded,
-                        color: Color(0xFFB7A5FF),
+                        color: context.cxInk,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -103,10 +102,10 @@ class UnsavedChangesDialog extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'You have edits that are not saved yet. What would you '
                   'like to do?',
-                  style: TextStyle(fontSize: 14, color: _kSoftText, height: 1.4),
+                  style: TextStyle(fontSize: 14, color: context.cxSoft, height: 1.4),
                 ),
                 const SizedBox(height: 20),
                 Row(
@@ -122,7 +121,7 @@ class UnsavedChangesDialog extends StatelessWidget {
                       onPressed: () => Navigator.of(context)
                           .pop(UnsavedChangesResult.discard),
                       style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFF08A8A),
+                        foregroundColor: const Color(0xFFD9485F),
                       ),
                       child: const Text('Discard'),
                     ),
@@ -133,9 +132,9 @@ class UnsavedChangesDialog extends StatelessWidget {
                               .pop(UnsavedChangesResult.save)
                           : null,
                       style: FilledButton.styleFrom(
-                        backgroundColor: _kAccent,
+                        backgroundColor: context.cxAccent,
                         disabledBackgroundColor:
-                            _kAccent.withValues(alpha: .3),
+                            context.cxAccent.withValues(alpha: .3),
                       ),
                       child: const Text('Save'),
                     ),
@@ -178,7 +177,7 @@ class _SaveSuccessOverlayState extends State<SaveSuccessOverlay> {
     return Positioned.fill(
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFF0A0F1F).withValues(alpha: .92),
+          color: context.cxGlass.withValues(alpha: .92),
         ),
         child: Center(
           child: AnimatedOpacity(
@@ -198,11 +197,11 @@ class _SaveSuccessOverlayState extends State<SaveSuccessOverlay> {
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
-                        colors: [Color(0xFF47D7A5), Color(0xFF22BFE0)],
+                        colors: [Color(0xFF1F9D6B), Color(0xFF0E8FA8)],
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0x8847D7A5),
+                          color: Color(0x881F9D6B),
                           blurRadius: 36,
                           spreadRadius: 3,
                         ),
@@ -284,10 +283,10 @@ class ManagementSectionHeader extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             subtitle!,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
               height: 1.4,
-              color: _kSoftText,
+              color: context.cxSoft,
             ),
           ),
         ],
@@ -308,7 +307,7 @@ class _HeaderCheck extends StatelessWidget {
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [Color(0xFF47D7A5), Color(0xFF22BFE0)],
+          colors: [Color(0xFF1F9D6B), Color(0xFF0E8FA8)],
         ),
       ),
       child: const Icon(Icons.check_rounded, size: 15, color: Colors.white),
@@ -358,12 +357,12 @@ class _SaveChangesButtonState extends State<SaveChangesButton> {
             height: 56,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [_kAccent, _kAccent2]),
+              gradient: LinearGradient(colors: [context.cxAccent, context.cxAccent]),
               borderRadius: BorderRadius.circular(16),
               boxShadow: active
                   ? [
                       BoxShadow(
-                        color: _kAccent.withValues(alpha: .5),
+                        color: context.cxAccent.withValues(alpha: .5),
                         blurRadius: 24,
                         offset: const Offset(0, 10),
                       ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'plans_data.dart';
 
 /// Data layer for the premium Create Plan flow.
@@ -56,12 +58,12 @@ class PlanMoodOption {
   final String? cover;
 }
 
-const _violet = Color(0xFF8B5CF6);
-const _blue = Color(0xFF6C8EF5);
-const _cyan = Color(0xFF22BFE0);
-const _pink = Color(0xFFE36D9D);
-const _orange = Color(0xFFF09A65);
-const _green = Color(0xFF47D7A5);
+const _violet = Color(0xFF1B1B1F);
+const _blue = Color(0xFF2F5FD0);
+const _cyan = Color(0xFF0E8FA8);
+const _pink = Color(0xFFD9485F);
+const _orange = Color(0xFFD07A3A);
+const _green = Color(0xFF1F9D6B);
 
 const planMoods = <PlanMoodOption>[
   PlanMoodOption('Movie Night', '🎬', _violet,

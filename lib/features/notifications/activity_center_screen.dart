@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
 import 'notification_controller.dart';
 import 'notification_models.dart';
 import 'notification_navigation.dart';
@@ -44,7 +45,7 @@ class _ActivityCenterScreenState extends State<ActivityCenterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1020),
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Column(
           children: [
@@ -83,16 +84,17 @@ class _ActivityHeader extends StatelessWidget {
         children: [
           IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            icon: Icon(Icons.arrow_back_rounded, color: context.cxInk),
             tooltip: 'Back',
           ),
           const SizedBox(width: 4),
-          const Text(
+          Text(
             'Activity',
             style: TextStyle(
               fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFFEAEEF9),
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w600,
+              color: context.cxInk,
             ),
           ),
         ],
@@ -132,7 +134,7 @@ class _ActivityBody extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      color: const Color(0xFF8B5CF6),
+      color: context.cxAccent,
       onRefresh: onRefresh ?? () async {},
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),

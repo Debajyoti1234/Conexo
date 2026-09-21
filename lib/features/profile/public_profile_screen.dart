@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../home_discovery_animations.dart';
 import 'profile_data.dart';
 import 'profile_photo_resolver.dart';
@@ -122,9 +124,9 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         body: SafeArea(
           child: Stack(
             children: [
-              const Positioned.fill(child: ColoredBox(color: Colors.black)),
-              const Center(
-                child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+              Positioned.fill(child: ColoredBox(color: context.cxCanvas)),
+              Center(
+                child: CircularProgressIndicator(color: context.cxInk),
               ),
               _floatingBack(context),
             ],
@@ -146,7 +148,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           : SafeArea(
               child: Stack(
                 children: [
-                  const Positioned.fill(child: ColoredBox(color: Colors.black)),
+                  Positioned.fill(child: ColoredBox(color: context.cxCanvas)),
                   PublicProfileEmptyState(displayName: widget.data.displayName),
                   _floatingBack(context),
                 ],
@@ -162,7 +164,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     final profile = _profile;
     return Stack(
       children: [
-        const Positioned.fill(child: ColoredBox(color: Colors.black)),
+        Positioned.fill(child: ColoredBox(color: context.cxCanvas)),
         ListView(
           padding: const EdgeInsets.only(bottom: 40),
           physics: const BouncingScrollPhysics(

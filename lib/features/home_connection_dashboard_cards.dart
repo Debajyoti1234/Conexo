@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 import '../app/theme/app_widgets.dart';
 import '../features/profile/connections_view_model.dart';
 import 'home_connection_dashboard_data.dart';
@@ -56,7 +58,7 @@ class PortraitAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: .16), width: 1.4),
+        border: Border.all(color: context.cxInk.withValues(alpha: .16), width: 1.4),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .3),
@@ -69,7 +71,7 @@ class PortraitAvatar extends StatelessWidget {
     );
   }
 
-  Widget _buildFallback(BuildContext context, Object? error, StackTrace? stackTrace) {
+Widget _buildFallback(BuildContext context, Object? error, StackTrace? stackTrace) {
     final radius = size / 2;
     return Container(
       width: radius * 2,
@@ -80,9 +82,9 @@ class PortraitAvatar extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color.lerp(color, Colors.white, 0.32) ?? color,
+            Color.lerp(color, context.cxCanvas, 0.32) ?? color,
             color,
-            Color.lerp(color, const Color(0xFF0A0F1F), 0.5) ?? color,
+            Color.lerp(color, context.cxCanvas, 0.5) ?? color,
           ],
         ),
       ),
@@ -123,19 +125,19 @@ class ActionPill extends StatefulWidget {
 class ActionPillState extends State<ActionPill> {
   bool _pressed = false;
 
-  @override
+@override
   Widget build(BuildContext context) {
     final Color background;
     final Color foreground;
     if (widget.primary) {
-      background = const Color(0xFF7C3AED);
-      foreground = Colors.white;
+      background = context.cxInk;
+      foreground = context.cxCanvas;
     } else if (widget.danger) {
-      background = Colors.white.withValues(alpha: .06);
-      foreground = const Color(0xFFFF8BAE);
+      background = context.cxDanger.withValues(alpha: .12);
+      foreground = context.cxDanger;
     } else {
-      background = Colors.white.withValues(alpha: .08);
-      foreground = Colors.white;
+      background = context.cxGlass;
+      foreground = context.cxInk;
     }
 
     return GestureDetector(
@@ -156,13 +158,15 @@ class ActionPillState extends State<ActionPill> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: widget.danger
-                  ? const Color(0xFFFF8BAE).withValues(alpha: .35)
-                  : Colors.white.withValues(alpha: .14),
+                  ? context.cxDanger.withValues(alpha: .35)
+                  : widget.primary
+                      ? Colors.transparent
+                      : context.cxLine,
             ),
             boxShadow: widget.primary
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF7C3AED).withValues(alpha: .4),
+                      color: context.cxAccent.withValues(alpha: .4),
                       blurRadius: 18,
                       offset: const Offset(0, 8),
                     ),
@@ -230,7 +234,7 @@ class NetworkConnectionCard extends StatelessWidget {
             children: [
               PortraitAvatar(
                 name: connection.otherUserName,
-                color: connection.otherUserColor ?? const Color(0xFF8B5CF6),
+                color: connection.otherUserColor ?? context.cxInk,
                 portrait: connection.otherUserPortrait ?? '',
                 size: 56,
               ),
@@ -257,34 +261,34 @@ class NetworkConnectionCard extends StatelessWidget {
                           const Icon(
                             Icons.verified_rounded,
                             size: 17,
-                            color: Color(0xFF77DFF1),
+                            color: Color(0xFF0E8FA8),
                           ),
                       ],
                     ),
                     const SizedBox(height: 3),
                     Text(
                       '${connection.otherUserAge ?? 0} • ${connection.otherUserOccupation ?? ''}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
-                        color: Color(0xFFB9C3DC),
+                        color: context.cxSoft,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.location_on_outlined,
                           size: 13,
-                          color: Color(0xFF9DB2E8),
+                          color: context.cxMuted,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             connection.otherUserCity ?? '',
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
-                              color: Color(0xFF9DB2E8),
+                              color: context.cxMuted,
                             ),
                           ),
                         ),
@@ -296,10 +300,10 @@ class NetworkConnectionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Container(
+Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF47D7A5).withValues(alpha: .12),
+              color: context.cxSuccess.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -308,7 +312,7 @@ class NetworkConnectionCard extends StatelessWidget {
                 const Icon(
                   Icons.handshake_rounded,
                   size: 13,
-                  color: Color(0xFF47D7A5),
+                  color: Color(0xFF1F9D6B),
                 ),
                 const SizedBox(width: 5),
                 Text(
@@ -329,7 +333,7 @@ class NetworkConnectionCard extends StatelessWidget {
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
               letterSpacing: .6,
-              color: Colors.white.withValues(alpha: .55),
+              color: context.cxInk.withValues(alpha: .55),
             ),
           ),
           const SizedBox(height: 8),
@@ -344,16 +348,16 @@ class NetworkConnectionCard extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: .07),
+                    color: context.cxInk.withValues(alpha: .07),
                     borderRadius: BorderRadius.circular(11),
-                    border: Border.all(color: Colors.white.withValues(alpha: .12)),
+                    border: Border.all(color: context.cxInk.withValues(alpha: .12)),
                   ),
                   child: Text(
                     interest,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFDDE3F4),
+                      color: context.cxInk,
                     ),
                   ),
                 ),
@@ -416,9 +420,9 @@ class IncomingRequestCard extends StatelessWidget {
                   onTap: onViewProfile,
                   child: Row(
                     children: [
-                      PortraitAvatar(
+PortraitAvatar(
                         name: request.otherUserName,
-                        color: request.otherUserColor ?? const Color(0xFFFF4D8D),
+                        color: request.otherUserColor ?? context.cxDanger,
                         portrait: request.otherUserPortrait ?? '',
                         size: 54,
                       ),
@@ -439,10 +443,10 @@ class IncomingRequestCard extends StatelessWidget {
                               request.otherUserBio ?? '',
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12.5,
                                 height: 1.35,
-                                color: Color(0xFFB9C3DC),
+                                color: context.cxSoft,
                               ),
                             ),
                           ],
@@ -459,25 +463,25 @@ class IncomingRequestCard extends StatelessWidget {
             spacing: 7,
             runSpacing: 7,
             children: [
-              for (final interest in request.mutualInterests)
+for (final interest in request.mutualInterests)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF7C3AED).withValues(alpha: .14),
+                    color: context.cxInk.withValues(alpha: .14),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: const Color(0xFF7C3AED).withValues(alpha: .3),
+                      color: context.cxInk.withValues(alpha: .3),
                     ),
                   ),
                   child: Text(
                     interest,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFFC9B6FF),
+                      color: context.cxAccentSoft,
                     ),
                   ),
                 ),
@@ -532,9 +536,9 @@ class PendingRequestCard extends StatelessWidget {
         onTap: onViewProfile,
         child: Row(
           children: [
-            PortraitAvatar(
+PortraitAvatar(
               name: request.otherUserName,
-              color: request.otherUserColor ?? const Color(0xFFFFC24D),
+              color: request.otherUserColor ?? context.cxAccentSoft,
               portrait: request.otherUserPortrait ?? '',
               size: 48,
             ),
@@ -556,7 +560,7 @@ class PendingRequestCard extends StatelessWidget {
                       Icon(
                         Icons.hourglass_top_rounded,
                         size: 13,
-                        color: Color(0xFFFFC24D),
+                        color: Color(0xFFC98A1E),
                       ),
                       SizedBox(width: 5),
                       Flexible(
@@ -567,7 +571,7 @@ class PendingRequestCard extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFFFC24D),
+                            color: Color(0xFFC98A1E),
                           ),
                         ),
                       ),
@@ -619,9 +623,9 @@ class ParticipantChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .06),
+            color: context.cxInk.withValues(alpha: .06),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: .1)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .1)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -637,14 +641,14 @@ class ParticipantChip extends StatelessWidget {
                 child: Text(
                   participant.name,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFFDDE3F4),
+                    color: context.cxInk,
                   ),
                 ),
               ),
-              if (onRemove != null) ...[
+if (onRemove != null) ...[
                 const SizedBox(width: 6),
                 InkWell(
                   onTap: onRemove,
@@ -653,12 +657,12 @@ class ParticipantChip extends StatelessWidget {
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFFE36D9D).withValues(alpha: .16),
+                      color: context.cxDanger.withValues(alpha: .16),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.close_rounded,
                       size: 14,
-                      color: Color(0xFFE36D9D),
+                      color: context.cxDanger,
                     ),
                   ),
                 ),
@@ -690,9 +694,9 @@ class JoinRequestRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .05),
+        color: context.cxInk.withValues(alpha: .05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .08)),
       ),
       child: Row(
         children: [

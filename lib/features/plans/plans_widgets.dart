@@ -2,7 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'plans_data.dart';
+import 'plans_theme.dart';
 
 /// Reusable premium primitives for the Plans discovery experience.
 ///
@@ -28,11 +31,11 @@ class PlanCover extends StatelessWidget {
   final bool scrim;
   final double radius;
 
-  @override
+@override
   Widget build(BuildContext context) {
     Widget image;
     if (asset.isEmpty) {
-      image = _buildRemoteFallback();
+      image = _buildRemoteFallback(context);
     } else if (asset.startsWith('http://') || asset.startsWith('https://')) {
       image = Image.network(
         asset,
@@ -50,7 +53,7 @@ class PlanCover extends StatelessWidget {
         errorBuilder: _buildFallback,
       );
     } else if (asset.startsWith('plans/')) {
-      image = _buildRemoteFallback();
+      image = _buildRemoteFallback(context);
     } else {
       image = Image.file(
         File(asset),
@@ -104,11 +107,11 @@ class PlanCover extends StatelessWidget {
     );
   }
 
-  Widget _buildFallback(BuildContext context, Object error, StackTrace? stackTrace) {
-    return _buildRemoteFallback();
+Widget _buildFallback(BuildContext context, Object error, StackTrace? stackTrace) {
+    return _buildRemoteFallback(context);
   }
 
-  Widget _buildRemoteFallback() {
+  Widget _buildRemoteFallback(BuildContext context) {
     return Container(
       height: height,
       decoration: BoxDecoration(
@@ -116,9 +119,9 @@ class PlanCover extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color.lerp(accent, Colors.white, .25) ?? accent,
+            Color.lerp(accent, context.cxCanvas, .25) ?? accent,
             accent,
-            Color.lerp(accent, const Color(0xFF0A0F1F), .55) ?? accent,
+            Color.lerp(accent, context.cxCanvas, .55) ?? accent,
           ],
         ),
       ),
@@ -143,48 +146,40 @@ class PlansSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minHeight: 56),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+      height: 48,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .07),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .12)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .28),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: context.cxGlass,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: context.cxLine),
       ),
       child: Row(
         children: [
-          const Icon(Icons.search_rounded, color: Color(0xFF9DB2E8)),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
+          Icon(Icons.search, color: context.cxSoft, size: 22),
+          const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: controller,
               onChanged: onChanged,
               textInputAction: TextInputAction.search,
-              style: const TextStyle(
-                fontSize: 14.5,
-                color: Colors.white,
+              style: plansBody(
+                fontSize: 15,
+                color: context.cxInk,
                 fontWeight: FontWeight.w500,
               ),
-              cursorColor: const Color(0xFFB7A5FF),
-              decoration: const InputDecoration(
+              cursorColor: context.cxInk,
+              decoration: InputDecoration(
                 isCollapsed: true,
                 border: InputBorder.none,
                 hintText: 'What do you feel like doing today?',
-                hintStyle: TextStyle(
-                  fontSize: 14.5,
-                  color: Color(0xFF9DB2E8),
-                  fontWeight: FontWeight.w500,
+                hintStyle: plansBody(
+                  fontSize: 15,
+                  color: context.cxMuted,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
           // Clear button appears while typing; otherwise the tune glyph.
           ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
@@ -198,16 +193,18 @@ class PlansSearchBar extends StatelessWidget {
                   switchOutCurve: Curves.easeInOutCubic,
                   child: Container(
                     key: ValueKey(hasText),
-                    height: 34,
-                    width: 34,
+                    margin: const EdgeInsets.only(right: 8),
+                    height: 32,
+                    width: 32,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: .08),
-                      borderRadius: BorderRadius.circular(11),
+                      color: hasText ? context.cxAccent.withValues(alpha: .12) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      border: hasText ? Border.all(color: context.cxAccent.withValues(alpha: .3)) : null,
                     ),
                     child: Icon(
-                      hasText ? Icons.close_rounded : Icons.tune_rounded,
+                      hasText ? Icons.close : Icons.tune,
                       size: 18,
-                      color: const Color(0xFFB7A5FF),
+                      color: hasText ? context.cxAccent : context.cxSoft,
                     ),
                   ),
                 ),
@@ -223,34 +220,113 @@ class PlansSearchBar extends StatelessWidget {
 
 /// A small elegant glass chip used for compact card info (date, time, etc).
 class InfoChip extends StatelessWidget {
-  const InfoChip({required this.emoji, required this.label, super.key});
-  final String emoji;
+  const InfoChip({
+    required this.label,
+    super.key,
+    this.icon,
+    this.emoji,
+    this.onLight = false,
+  });
+
+  /// Preferred leading glyph. When null, [emoji] is shown instead.
+  final IconData? icon;
+
+  /// Legacy leading glyph; ignored when [icon] is provided.
+  final String? emoji;
   final String label;
 
-  @override
+  /// True when rendered on a white card surface rather than over a photo.
+  final bool onLight;
+
+@override
   Widget build(BuildContext context) {
+    final fg = onLight ? context.cxInk : Colors.white;
+    final bg = onLight ? context.cxSurface : context.cxGlass;
+    final borderColor = onLight ? context.cxLine : context.cxLine;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .10),
+        color: bg,
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: Colors.white.withValues(alpha: .14)),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 11.5)),
+          if (icon != null)
+            Icon(icon, size: 13, color: fg)
+          else
+            Text(emoji ?? '', style: const TextStyle(fontSize: 11.5)),
           const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(
+            style: plansBody(
               fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFFE7ECF9),
+              fontWeight: FontWeight.w600,
+              color: fg,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Resolves the outlined glyph for a plan mood via its Discovery category.
+/// Unknown moods fall back to a neutral sparkle so nothing renders blank.
+IconData iconForMood(String mood) {
+  final label = categoryForMood(mood);
+  for (final c in planCategories) {
+    if (c.label == label) return c.icon;
+  }
+  return Icons.auto_awesome_outlined;
+}
+
+/// A compact inline meta line (date · time · distance …) rendered as small
+/// outlined icons + text with no boxes, so cards read like editorial captions
+/// instead of a wall of chips. Wraps gracefully when space is tight.
+class PlanMetaLine extends StatelessWidget {
+  const PlanMetaLine({
+    required this.items,
+    super.key,
+    this.onLight = false,
+    this.fontSize = 12.5,
+  });
+
+  /// Ordered (icon, label) pairs.
+  final List<(IconData, String)> items;
+
+  /// True when rendered on a white card surface rather than over a photo.
+  final bool onLight;
+  final double fontSize;
+
+@override
+  Widget build(BuildContext context) {
+    final fg = onLight
+        ? context.cxSoft
+        : context.cxInk;
+    return Wrap(
+      spacing: 14,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final (icon, label) in items)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: fontSize + 2, color: fg),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: plansBody(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w500,
+                  color: fg,
+                ),
+              ),
+            ],
+          ),
+      ],
     );
   }
 }
@@ -262,32 +338,44 @@ class MoodBadge extends StatelessWidget {
     required this.mood,
     required this.accent,
     super.key,
+    this.onLight = false,
   });
   final String emoji;
   final String mood;
   final Color accent;
 
-  @override
+  /// True when rendered on a white card surface rather than over a photo.
+  final bool onLight;
+
+@override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: .22),
+        color: onLight
+            ? context.cxAccent.withValues(alpha: .08)
+            : context.cxGlass,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accent.withValues(alpha: .45)),
+        border: onLight
+            ? Border.all(color: context.cxAccent.withValues(alpha: .25))
+            : Border.all(color: context.cxLine),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 11)),
+          Icon(
+            iconForMood(mood),
+            size: 12,
+            color: onLight ? context.cxAccent : context.cxAccent,
+          ),
           const SizedBox(width: 5),
           Text(
             mood,
-            style: const TextStyle(
+            style: plansBody(
               fontSize: 10.5,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
               letterSpacing: .2,
-              color: Colors.white,
+              color: onLight ? context.cxAccent : context.cxInk,
             ),
           ),
         ],
@@ -301,30 +389,30 @@ class VisibilityBadge extends StatelessWidget {
   const VisibilityBadge({required this.isPublic, super.key});
   final bool isPublic;
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .32),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withValues(alpha: .16)),
+        color: context.cxGlass,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: context.cxLine),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            isPublic ? Icons.public_rounded : Icons.lock_rounded,
+            isPublic ? Icons.public_outlined : Icons.lock_outline_rounded,
             size: 12,
-            color: const Color(0xFFDDE3F4),
+            color: context.cxInk,
           ),
           const SizedBox(width: 4),
           Text(
             isPublic ? 'Public' : 'Private',
-            style: const TextStyle(
+            style: plansBody(
               fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFFDDE3F4),
+              fontWeight: FontWeight.w600,
+              color: context.cxInk,
             ),
           ),
         ],
@@ -335,30 +423,36 @@ class VisibilityBadge extends StatelessWidget {
 
 /// Small, elegant glass "View →" call-to-action. UI only.
 class ViewPill extends StatelessWidget {
-  const ViewPill({super.key});
+  const ViewPill({super.key, this.onLight = false});
 
-  @override
+  /// True when rendered on a white card surface rather than over a photo.
+  final bool onLight;
+
+@override
   Widget build(BuildContext context) {
+    final fg = onLight ? context.cxCanvas : context.cxInk;
+    final bg = onLight ? context.cxInk : context.cxGlass;
+    final borderColor = onLight ? Colors.transparent : context.cxLine;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .12),
+        color: bg,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withValues(alpha: .18)),
+        border: Border.all(color: borderColor),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'View',
-            style: TextStyle(
+            style: plansBody(
               fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              color: fg,
             ),
           ),
-          SizedBox(width: 5),
-          Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
+          const SizedBox(width: 5),
+          Icon(Icons.arrow_forward, size: 14, color: fg),
         ],
       ),
     );
@@ -371,21 +465,26 @@ class HighlightLine extends StatelessWidget {
     required this.text,
     required this.isEditorsPick,
     super.key,
+    this.onLight = false,
   });
   final String text;
   final bool isEditorsPick;
 
-  @override
+  /// True when rendered on a white card surface rather than over a photo.
+  final bool onLight;
+
+@override
   Widget build(BuildContext context) {
+    final color = onLight ? context.cxSoft : context.cxMuted;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
           isEditorsPick
-              ? Icons.star_rounded
-              : Icons.auto_awesome_rounded,
+              ? Icons.star_outline_rounded
+              : Icons.auto_awesome_outlined,
           size: 13,
-          color: const Color(0xFFFFC24D),
+          color: color,
         ),
         const SizedBox(width: 5),
         Flexible(
@@ -393,10 +492,10 @@ class HighlightLine extends StatelessWidget {
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: plansBody(
               fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFFCBD4EC),
+              fontWeight: FontWeight.w500,
+              color: color,
             ),
           ),
         ),
@@ -441,12 +540,12 @@ class PlanPortrait extends StatelessWidget {
       );
     }
 
-    return Container(
+return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: .35), width: 1.4),
+        border: Border.all(color: context.cxLine, width: 1.4),
       ),
       child: ClipOval(child: image),
     );
@@ -505,7 +604,7 @@ class ParticipantStack extends StatelessWidget {
               left: i * overlap,
               child: PlanPortrait(asset: shown[i], accent: accent, size: size),
             ),
-          if (extra > 0)
+if (extra > 0)
             Positioned(
               left: shown.length * overlap,
               child: Container(
@@ -513,19 +612,19 @@ class ParticipantStack extends StatelessWidget {
                 height: size,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF232C47),
+                  color: context.cxSurface,
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: .35),
+                    color: context.cxLine,
                     width: 1.4,
                   ),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   '+$extra',
-                  style: TextStyle(
+                  style: plansBody(
                     fontSize: size * .34,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    color: context.cxInk,
                   ),
                 ),
               ),
@@ -571,75 +670,45 @@ class _CategoryCardState extends State<CategoryCard> {
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOutCubic,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 280),
+          duration: const Duration(milliseconds: 240),
           curve: Curves.easeOutCubic,
-          width: 92,
-          padding: EdgeInsets.all(selected ? 1.6 : 1),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            // Gradient border when selected (via padding + inner fill).
-            gradient: selected
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      c.color.withValues(alpha: .95),
-                      c.color.withValues(alpha: .35),
-                    ],
-                  )
-                : null,
-            border: selected
-                ? null
-                : Border.all(color: Colors.white.withValues(alpha: .1)),
+            borderRadius: BorderRadius.circular(22),
+            color: selected ? context.cxAccent : context.cxCanvas,
+            border: Border.all(
+              color: selected ? context.cxAccent : context.cxLine,
+              width: 1.2,
+            ),
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: c.color.withValues(alpha: .5),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
+                      color: context.cxAccent.withValues(alpha: .35),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
                   ]
                 : null,
           ),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 9),
-            decoration: BoxDecoration(
-              color: selected
-                  ? const Color(0xFF161E36).withValues(alpha: .92)
-                  : Colors.white.withValues(alpha: .06),
-              borderRadius: BorderRadius.circular(19),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedScale(
-                  scale: selected ? 1.18 : 1.0,
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeOutCubic,
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: c.color.withValues(alpha: selected ? .32 : .16),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(c.icon, size: 20, color: Colors.white),
-                  ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                c.icon,
+                size: 16,
+                color: selected ? context.cxCanvas : context.cxInk,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                c.label,
+                maxLines: 1,
+                style: plansBody(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: selected ? context.cxCanvas : context.cxInk,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  c.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: selected ? Colors.white : const Color(0xFFCBD4EC),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -676,32 +745,29 @@ class _CreatePlanButtonState extends State<CreatePlanButton> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
-            ),
+            gradient: LinearGradient(colors: [context.cxAccent, context.cxAccent]),
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF7C3AED).withValues(alpha: .5),
-                blurRadius: 26,
+                color: context.cxAccent.withValues(alpha: .45),
+                blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.add_rounded, size: 20, color: Colors.white),
-              SizedBox(width: 8),
+              const Icon(Icons.add, size: 20, color: Colors.white),
+              const SizedBox(width: 8),
               Text(
-                '✨ Create Plan',
-                style: TextStyle(
+                'Create plan',
+                style: plansBody(
                   fontSize: 14.5,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
               ),
-
             ],
           ),
         ),
@@ -725,25 +791,29 @@ class PlansEmptyState extends StatelessWidget {
             height: 84,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: .06),
-              border: Border.all(color: Colors.white.withValues(alpha: .12)),
+              color: context.cxSurface,
+              border: Border.all(color: context.cxLine),
             ),
-            child: const Icon(
-              Icons.travel_explore_rounded,
+            child: Icon(
+              Icons.travel_explore_outlined,
               size: 36,
-              color: Color(0xFF9DB2E8),
+              color: context.cxMuted,
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Nothing here yet',
-            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+            style: plansDisplay(fontSize: 24, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Try another category or create the first nearby plan.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13.5, color: Color(0xFFB9C3DC)),
+            style: plansBody(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w400,
+              color: context.cxSoft,
+            ),
           ),
 
         ],

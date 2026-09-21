@@ -1,10 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../app/theme/app_theme.dart';
 import '../../app/theme/app_widgets.dart';
+import '../plans/plans_theme.dart';
+import '../plans/plan_details_widgets.dart';
 import '../../core/supabase/auth_service.dart';
 import 'connection_data.dart';
 import 'connection_repository.dart';
@@ -188,10 +192,10 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Stack(
           children: [
@@ -200,17 +204,19 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
               children: [
                 Row(
                   children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded),
+                    CircleGlassButton(
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () => Navigator.of(context).maybePop(),
+                      semanticLabel: 'Back',
                     ),
                     const SizedBox(width: 4),
                     Text(
                       'Report a Problem',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: plansDisplay(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: context.cxInk,
+                      ),
                     ),
                   ],
                 ),
@@ -220,35 +226,35 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Who are you reporting?',
-                        style: TextStyle(
+                        style: plansBody(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFFEAEEF9),
+                          color: context.cxInk,
                         ),
                       ),
                       const SizedBox(height: 10),
                       if (_loadingConnections)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.all(16),
-                          child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+                          child: CircularProgressIndicator(color: context.cxInk),
                         )
                       else if (_connections.isEmpty)
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: .04),
+                            color: context.cxGlass,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: .08),
+                              color: context.cxLine,
                             ),
                           ),
                           child: Text(
                             'Open a profile to report a specific user.',
-                            style: TextStyle(
+                            style: plansBody(
                               fontSize: 13.5,
-                              color: const Color(0xFFB9C3DC),
+                              color: context.cxSoft,
                             ),
                           ),
                         )
@@ -257,19 +263,33 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                           value: _selectedUserId,
                           decoration: InputDecoration(
                             filled: true,
-                            fillColor: Colors.white.withValues(alpha: .04),
+                            fillColor: context.cxGlass,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide(
-                                color: Colors.white.withValues(alpha: .08),
+                                color: context.cxLine,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: context.cxLine,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: context.cxAccent,
                               ),
                             ),
                           ),
+                          dropdownColor: context.cxSurface,
+                          style: plansBody(color: context.cxInk),
                           items: _connections
                               .map(
                                 (c) => DropdownMenuItem(
                                   value: c.userId,
-                                  child: Text(c.userName),
+                                  child: Text(c.userName, style: plansBody(color: context.cxInk)),
                                 ),
                               )
                               .toList(),
@@ -280,12 +300,12 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                           },
                         ),
                       const SizedBox(height: 24),
-                      const Text(
+                      Text(
                         'What is the issue?',
-                        style: TextStyle(
+                        style: plansBody(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFFEAEEF9),
+                          color: context.cxInk,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -297,12 +317,12 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      const Text(
+                      Text(
                         'Description (optional)',
-                        style: TextStyle(
+                        style: plansBody(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFFEAEEF9),
+                          color: context.cxInk,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -310,34 +330,41 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                         controller: _descriptionController,
                         maxLines: 5,
                         minLines: 3,
+                        style: plansBody(color: context.cxInk),
                         decoration: InputDecoration(
                           hintText: 'Tell us what happened...',
-                          hintStyle: TextStyle(
-                            color: const Color(0xFFB9C3DC).withValues(alpha: .7),
+                          hintStyle: plansBody(
+                            color: context.cxMuted,
                           ),
                           filled: true,
-                          fillColor: Colors.white.withValues(alpha: .04),
+                          fillColor: context.cxGlass,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide(
-                              color: Colors.white.withValues(alpha: .08),
+                              color: context.cxLine,
                             ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: BorderSide(
-                              color: Colors.white.withValues(alpha: .08),
+                              color: context.cxLine,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(
+                              color: context.cxAccent,
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 24),
-                      const Text(
+                      Text(
                         'Screenshot (optional)',
-                        style: TextStyle(
+                        style: plansBody(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFFEAEEF9),
+                          color: context.cxInk,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -356,12 +383,10 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                             Positioned(
                               top: 8,
                               right: 8,
-                              child: IconButton.filled(
-                                onPressed: () => setState(() => _screenshot = null),
-                                icon: const Icon(Icons.close_rounded, size: 18),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: Colors.black.withValues(alpha: .6),
-                                ),
+                              child: CircleGlassButton(
+                                icon: Icons.close_rounded,
+                                onTap: () => setState(() => _screenshot = null),
+                                semanticLabel: 'Remove screenshot',
                               ),
                             ),
                           ],
@@ -374,18 +399,26 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                           _screenshot == null
                               ? Icons.add_photo_alternate_outlined
                               : Icons.swap_horiz_rounded,
+                          color: context.cxInk,
                         ),
-                        label: Text(_screenshot == null
-                            ? 'Add Screenshot'
-                            : 'Change Screenshot'),
+                        label: Text(
+                          _screenshot == null ? 'Add Screenshot' : 'Change Screenshot',
+                          style: plansBody(
+                            fontWeight: FontWeight.w700,
+                            color: context.cxInk,
+                          ),
+                        ),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFEAEEF9),
+                          foregroundColor: context.cxInk,
                           side: BorderSide(
-                            color: Colors.white.withValues(alpha: .12),
+                            color: context.cxLine,
                           ),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 18,
                             vertical: 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                       ),
@@ -428,13 +461,13 @@ class _ReportTypeChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF8B5CF6).withValues(alpha: .18)
-              : Colors.white.withValues(alpha: .04),
+              ? context.cxAccent.withValues(alpha: .18)
+              : context.cxGlass,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected
-                ? const Color(0xFF8B5CF6)
-                : Colors.white.withValues(alpha: .08),
+                ? context.cxAccent
+                : context.cxLine,
           ),
         ),
         child: Row(
@@ -443,16 +476,16 @@ class _ReportTypeChip extends StatelessWidget {
               selected
                   ? Icons.check_circle_rounded
                   : Icons.circle_outlined,
-              color: selected ? const Color(0xFF8B5CF6) : const Color(0xFFB9C3DC),
+              color: selected ? context.cxAccent : context.cxSoft,
               size: 20,
             ),
             const SizedBox(width: 12),
             Text(
               label,
-              style: TextStyle(
+              style: plansBody(
                 fontSize: 14,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: const Color(0xFFEAEEF9),
+                color: context.cxInk,
               ),
             ),
           ],

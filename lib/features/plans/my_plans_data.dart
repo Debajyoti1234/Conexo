@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'create_plan_data.dart';
 import 'plans_data.dart';
 import 'plans_filter.dart';
@@ -59,7 +61,7 @@ List<Experience> sortMyPlans(List<Experience> list) {
 /// Mirrors [draftToPlan] logic — derives accent/emoji from the mood label.
 Experience publishedToExperience(PublishedPlan plan) {
   final mood = moodByLabel(plan.mood);
-  final accent = mood?.accent ?? const Color(0xFF8B5CF6);
+  final accent = mood?.accent ?? Color(0xFF1B1B1F);
 
   String dateLabel = 'Date TBD';
   if (plan.date != null) {

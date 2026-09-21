@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'create_plan_screen.dart';
 import 'my_plans_screen.dart';
 import 'plan_details_screen.dart';
@@ -11,6 +13,7 @@ import 'plans_data.dart';
 
 import 'plans_filter.dart';
 import 'plans_sections.dart';
+import 'plans_theme.dart';
 import 'plans_widgets.dart';
 import 'supabase_plan_repository.dart';
 
@@ -185,8 +188,8 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> with Widget
     if (_loading) {
       return [
         const SizedBox(height: 200),
-        const Center(
-          child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+        Center(
+          child: CircularProgressIndicator(color: context.cxInk),
         ),
       ];
     }
@@ -194,12 +197,12 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> with Widget
     if (_error != null) {
       return [
         const SizedBox(height: 200),
-        Icon(Icons.wifi_off_rounded, size: 48, color: const Color(0xFF9DB2E8)),
+        Icon(Icons.wifi_off_rounded, size: 48, color: context.cxMuted),
         const SizedBox(height: 20),
         Text(
           _error!,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 15, color: Color(0xFFB9C3DC)),
+          style: plansBody(fontSize: 15, color: context.cxSoft),
         ),
         const SizedBox(height: 16),
         TextButton.icon(
@@ -215,31 +218,22 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> with Widget
     final hasResults = processed.isNotEmpty;
 
     return [
-      const Padding(
-        padding: EdgeInsets.fromLTRB(20, 8, 20, 4),
-        child: Text(
-          'Plans',
-          style: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.6,
-          ),
-        ),
-      ),
       Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 2),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Expanded(
+Expanded(
               child: Text(
-                'Discover experiences worth showing up for.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFFB9C3DC),
+                'Plans',
+                style: plansDisplay(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.8,
+                  color: context.cxInk,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
             _MyPlansPill(
               onTap: () async {
                 await Navigator.of(context).push<void>(myPlansRoute());
@@ -250,9 +244,19 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> with Widget
           ],
         ),
       ),
-
       Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 22),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+        child: Text(
+          'Discover experiences worth showing up for.',
+          style: plansBody(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w400,
+            color: context.cxSoft,
+          ),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
         child: PlansSearchBar(
           controller: _searchController,
           onChanged: _onSearchChanged,
@@ -263,7 +267,7 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> with Widget
         selectedIndex: _categoryIndex,
         onSelected: _onCategorySelected,
       ),
-      const SizedBox(height: 28),
+      const SizedBox(height: 22),
       // The hero + rails cross-fade whenever the filter changes.
       AnimatedSwitcher(
         duration: const Duration(milliseconds: 320),
@@ -287,24 +291,16 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> with Widget
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
+    return Theme(
+      data: plansLightTheme(context),
+      child: Scaffold(
+      backgroundColor: context.cxCanvas,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/plans/plan.PNG',
-              fit: BoxFit.cover,
-            ),
-          ),
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withValues(alpha: .35),
-            ),
-          ),
           RefreshIndicator(
             onRefresh: _refresh,
-            color: const Color(0xFF8B5CF6),
+            color: context.cxInk,
+            backgroundColor: context.cxCanvas,
             child: ListView(
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
@@ -343,6 +339,7 @@ class _PlansDiscoveryScreenState extends State<PlansDiscoveryScreen> with Widget
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -383,7 +380,7 @@ class _ResultsView extends StatelessWidget {
         ),
         if (sections['featured'] != null && sections['featured']!.isNotEmpty)
           ExperienceRail(
-            title: '⭐ Featured',
+            title: 'Featured',
             items: sections['featured']!,
             variant: CardVariant.immersive,
             onOpen: onOpen,
@@ -392,7 +389,7 @@ class _ResultsView extends StatelessWidget {
           const SizedBox(height: 30),
         if (sections['tonight'] != null && sections['tonight']!.isNotEmpty)
           ExperienceRail(
-            title: '🌙 Tonight',
+            title: 'Tonight',
             items: sections['tonight']!,
             variant: CardVariant.stacked,
             height: 400,
@@ -402,7 +399,7 @@ class _ResultsView extends StatelessWidget {
           const SizedBox(height: 30),
         if (sections['private'] != null && sections['private']!.isNotEmpty)
           ExperienceRail(
-            title: '🔒 Private',
+            title: 'Private',
             items: sections['private']!,
             variant: CardVariant.immersive,
             onOpen: onOpen,
@@ -410,14 +407,14 @@ class _ResultsView extends StatelessWidget {
         if (sections['private'] != null && sections['private']!.isNotEmpty)
           const SizedBox(height: 30),
         ExperienceRail(
-          title: '🔥 Trending',
+          title: 'Trending',
           items: sections['trending'] ?? const [],
           variant: CardVariant.immersive,
           onOpen: onOpen,
         ),
         const SizedBox(height: 30),
         ExperienceRail(
-          title: '📍 Near You',
+          title: 'Near you',
           items: sections['near'] ?? const [],
           variant: CardVariant.stacked,
           height: 400,
@@ -426,7 +423,7 @@ class _ResultsView extends StatelessWidget {
 
         const SizedBox(height: 30),
         ExperienceRail(
-          title: '👥 Friends Joined',
+          title: 'Friends joined',
           items: sections['friends'] ?? const [],
           variant: CardVariant.compact,
           height: 300,
@@ -436,7 +433,7 @@ class _ResultsView extends StatelessWidget {
         const SizedBox(height: 30),
         if (created.isNotEmpty)
           ExperienceRail(
-            title: '✨ Created',
+            title: 'Created by you',
             items: created,
             variant: CardVariant.immersive,
             onOpen: onOpen,
@@ -444,7 +441,7 @@ class _ResultsView extends StatelessWidget {
         if (created.isNotEmpty) const SizedBox(height: 30),
         if (recentlyVisited.isNotEmpty)
           ExperienceRail(
-            title: '🕒 Recently Visited',
+            title: 'Recently visited',
             items: recentlyVisited,
             variant: CardVariant.stacked,
             height: 360,
@@ -452,7 +449,7 @@ class _ResultsView extends StatelessWidget {
           ),
         if (recentlyVisited.isNotEmpty) const SizedBox(height: 30),
         ExperienceRail(
-          title: '🆕 New',
+          title: 'New',
           items: sections['new'] ?? const [],
           variant: CardVariant.immersive,
           onOpen: onOpen,
@@ -497,25 +494,25 @@ class _MyPlansPillState extends State<_MyPlansPill> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .07),
+            color: context.cxCanvas,
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: Colors.white.withValues(alpha: .14)),
+            border: Border.all(color: context.cxLine, width: 1.2),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.event_note_rounded,
+                Icons.event_note_outlined,
                 size: 16,
-                color: Color(0xFFB7A5FF),
+                color: context.cxInk,
               ),
-              SizedBox(width: 7),
+              const SizedBox(width: 7),
               Text(
                 'My Plans',
-                style: TextStyle(
+                style: plansBody(
                   fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  color: context.cxInk,
                 ),
               ),
             ],

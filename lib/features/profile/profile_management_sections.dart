@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../core/services/permission_manager.dart';
 import 'profile_creation_sections.dart'
     show
@@ -208,8 +210,8 @@ class ManagePhotosSection extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF131A2E),
+        decoration: BoxDecoration(
+          color: context.cxSurface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SafeArea(
@@ -281,21 +283,21 @@ class _PickerOption extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withValues(alpha: .1),
+            color: context.cxInk.withValues(alpha: .1),
             width: 1,
           ),
-          color: Colors.white.withValues(alpha: .06),
+          color: context.cxInk.withValues(alpha: .06),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: const Color(0xFFB9C3DC)),
+            Icon(icon, size: 22, color: context.cxSoft),
             const SizedBox(width: 14),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
             ),
           ],

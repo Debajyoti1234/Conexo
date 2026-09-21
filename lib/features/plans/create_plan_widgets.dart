@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../app/theme/app_widgets.dart';
 import '../home_discovery_animations.dart';
 import 'create_plan_data.dart';
@@ -13,9 +15,6 @@ import 'plans_widgets.dart';
 /// to AnimatedSwitcher / AnimatedSize / AnimatedScale / Fade / Slide / Scale
 /// with easeOutCubic / easeInOutCubic — no bounce, elastic, or overshoot.
 
-const _kAccent = Color(0xFF8B5CF6);
-const _kSecondary = Color(0xFF587BE2);
-const _kSoftText = Color(0xFFB9C3DC);
 
 // ── Section shell with live completion checkmark ────────────────────────
 
@@ -72,7 +71,7 @@ class CreateSection extends StatelessWidget {
             const SizedBox(height: 3),
             Text(
               subtitle!,
-              style: const TextStyle(fontSize: 13, color: _kSoftText),
+              style: TextStyle(fontSize: 13, color: context.cxSoft),
             ),
           ],
           const SizedBox(height: 12),
@@ -93,11 +92,11 @@ class _CompletionCheck extends StatelessWidget {
       height: 22,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF47D7A5).withValues(alpha: .22),
-        border: Border.all(color: const Color(0xFF47D7A5).withValues(alpha: .6)),
+        color: const Color(0xFF1F9D6B).withValues(alpha: .22),
+        border: Border.all(color: const Color(0xFF1F9D6B).withValues(alpha: .6)),
       ),
       alignment: Alignment.center,
-      child: const Icon(Icons.check_rounded, size: 13, color: Color(0xFF7BE8C2)),
+      child: const Icon(Icons.check_rounded, size: 13, color: Color(0xFF1F9D6B)),
     );
   }
 }
@@ -134,13 +133,13 @@ class StageRail extends StatelessWidget {
               done: stage.index < active.index,
             ),
             if (stage != stages.last)
-              const Expanded(
+              Expanded(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6),
                   child: Text(
                     '•',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xFF3C486A), fontSize: 12),
+                    style: TextStyle(color: context.cxLine, fontSize: 12),
                   ),
                 ),
               ),
@@ -173,7 +172,7 @@ class _StageItem extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-            color: highlighted ? Colors.white : const Color(0xFF6B7799),
+            color: highlighted ? context.cxInk : context.cxMuted,
           ),
           child: Text(label),
         ),
@@ -185,8 +184,8 @@ class _StageItem extends StatelessWidget {
           width: active ? 22 : (done ? 14 : 8),
           decoration: BoxDecoration(
             color: highlighted
-                ? _kAccent.withValues(alpha: active ? .95 : .5)
-                : const Color(0xFF2C3650),
+                ? context.cxAccent.withValues(alpha: active ? .95 : .5)
+                : context.cxLine,
             borderRadius: BorderRadius.circular(3),
           ),
         ),
@@ -265,7 +264,7 @@ class CoverPickerHero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          PlanCover(asset: asset, accent: _kAccent, radius: 24),
+          PlanCover(asset: asset, accent: Color(0xFF1B1B1F), radius: 24),
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -284,7 +283,7 @@ class CoverPickerHero extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: .45),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withValues(alpha: .2)),
+                  border: Border.all(color: Color(0xFF1B1B1F).withValues(alpha: .2)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -324,9 +323,9 @@ class _CoverActionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .07),
+          color: context.cxInk.withValues(alpha: .07),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: .12)),
+          border: Border.all(color: context.cxInk.withValues(alpha: .12)),
         ),
         child: Column(
           children: [
@@ -334,10 +333,10 @@ class _CoverActionCard extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: _kAccent.withValues(alpha: .16),
+                color: context.cxAccent.withValues(alpha: .16),
                 borderRadius: BorderRadius.circular(13),
               ),
-              child: Icon(icon, size: 18, color: const Color(0xFFB7A5FF)),
+              child: Icon(icon, size: 18, color: context.cxInk),
             ),
             const SizedBox(height: 10),
             Text(
@@ -414,13 +413,13 @@ class _GalleryTile extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: selected ? _kAccent : Colors.white.withValues(alpha: .1),
+            color: selected ? context.cxAccent : context.cxInk.withValues(alpha: .1),
             width: selected ? 2 : 1,
           ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: _kAccent.withValues(alpha: .4),
+                    color: context.cxAccent.withValues(alpha: .4),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
@@ -432,7 +431,7 @@ class _GalleryTile extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-               PlanCover(asset: option.asset, accent: _kAccent),
+               PlanCover(asset: option.asset, accent: context.cxAccent),
               Positioned(
                 left: 10,
                 right: 10,
@@ -455,12 +454,12 @@ class _GalleryTile extends StatelessWidget {
                   child: Container(
                     width: 22,
                     height: 22,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _kAccent,
+                      color: context.cxAccent,
                     ),
-                    child: const Icon(Icons.check_rounded,
-                        size: 14, color: Colors.white),
+                    child: Icon(Icons.check_rounded,
+                        size: 14, color: context.cxInk),
                   ),
                 ),
             ],
@@ -481,7 +480,7 @@ class LuxuryChip extends StatefulWidget {
     required this.onTap,
     super.key,
     this.emoji,
-    this.accent = _kAccent,
+      this.accent = const Color(0xFF1B1B1F),
   });
 
   final String label;
@@ -514,12 +513,12 @@ class _LuxuryChipState extends State<LuxuryChip> {
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: selected ? .16 : .06),
+            color: context.cxInk.withValues(alpha: selected ? .16 : .06),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: selected
                   ? widget.accent.withValues(alpha: .85)
-                  : Colors.white.withValues(alpha: .1),
+                  : context.cxInk.withValues(alpha: .1),
               width: selected ? 1.6 : 1,
             ),
             boxShadow: selected
@@ -544,7 +543,7 @@ class _LuxuryChipState extends State<LuxuryChip> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: selected ? Colors.white : const Color(0xFFCBD4EC),
+                  color: selected ? Colors.white : context.cxSoft,
                 ),
               ),
             ],
@@ -614,18 +613,18 @@ class _VisibilityCard extends StatelessWidget {
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: selected ? .12 : .05),
+          color: context.cxInk.withValues(alpha: selected ? .12 : .05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected
-                ? _kAccent.withValues(alpha: .85)
-                : Colors.white.withValues(alpha: .1),
+                ? context.cxAccent.withValues(alpha: .85)
+                : context.cxInk.withValues(alpha: .1),
             width: selected ? 1.6 : 1,
           ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: _kAccent.withValues(alpha: .35),
+                    color: context.cxAccent.withValues(alpha: .35),
                     blurRadius: 18,
                     offset: const Offset(0, 8),
                   ),
@@ -650,7 +649,7 @@ class _VisibilityCard extends StatelessWidget {
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 12, color: _kSoftText),
+                    style: TextStyle(fontSize: 12, color: context.cxSoft),
                   ),
                 ],
               ),
@@ -660,11 +659,11 @@ class _VisibilityCard extends StatelessWidget {
               transitionBuilder: (child, animation) =>
                   ScaleTransition(scale: animation, child: child),
               child: selected
-                  ? const Icon(Icons.check_circle_rounded,
-                      key: ValueKey('sel'), color: _kAccent, size: 22)
-                  : const Icon(Icons.circle_outlined,
+                  ? Icon(Icons.check_circle_rounded,
+                      key: ValueKey('sel'), color: context.cxAccent, size: 22)
+                  : Icon(Icons.circle_outlined,
                       key: ValueKey('unsel'),
-                      color: Color(0xFF3C486A),
+                      color: context.cxLine,
                       size: 22),
             ),
           ],
@@ -705,10 +704,10 @@ class SelectorTile extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: _kAccent.withValues(alpha: .16),
+                color: context.cxAccent.withValues(alpha: .16),
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(icon, size: 17, color: const Color(0xFFB7A5FF)),
+              child: Icon(icon, size: 17, color: context.cxInk),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -717,7 +716,7 @@ class SelectorTile extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(fontSize: 12, color: _kSoftText),
+                    style: TextStyle(fontSize: 12, color: context.cxSoft),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -725,13 +724,13 @@ class SelectorTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: placeholder ? const Color(0xFF6B7799) : Colors.white,
+                      color: placeholder ? context.cxMuted : Colors.white,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Color(0xFF6B7799)),
+            Icon(Icons.chevron_right_rounded, color: context.cxMuted),
           ],
         ),
       ),
@@ -766,9 +765,9 @@ class GlassTextField extends StatelessWidget {
         vertical: maxLines > 1 ? 14 : 6,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .06),
+        color: context.cxInk.withValues(alpha: .06),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .12)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .12)),
       ),
       child: TextField(
         controller: controller,
@@ -778,12 +777,12 @@ class GlassTextField extends StatelessWidget {
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         decoration: InputDecoration(
           prefixIcon: leadingIcon != null
-              ? Icon(leadingIcon, size: 18, color: const Color(0xFF9DB2E8))
+              ? Icon(leadingIcon, size: 18, color: context.cxMuted)
               : null,
           prefixIconConstraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           border: InputBorder.none,
           hintText: hint,
-          hintStyle: const TextStyle(color: Color(0xFF6B7799)),
+          hintStyle: TextStyle(color: context.cxMuted),
         ),
       ),
     );
@@ -829,13 +828,13 @@ class PublishButton extends StatelessWidget {
             height: 56,
             width: loading ? 56 : double.infinity,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [_kAccent, _kSecondary],
+              gradient: LinearGradient(
+                colors: [context.cxAccent, context.cxAccent],
               ),
               borderRadius: BorderRadius.circular(loading ? 28 : 18),
               boxShadow: [
                 BoxShadow(
-                  color: _kAccent.withValues(alpha: .45),
+                  color: context.cxAccent.withValues(alpha: .45),
                   blurRadius: 22,
                   offset: const Offset(0, 8),
                 ),
@@ -857,7 +856,7 @@ class PublishButton extends StatelessWidget {
                   : Text(
                       label,
                       key: const ValueKey('label'),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -886,7 +885,7 @@ class PublishSuccessOverlay extends StatelessWidget {
         ? 'Your plan has been updated.'
         : 'Your plan is now visible to nearby people.';
     return Container(
-      color: const Color(0xFF060912).withValues(alpha: .92),
+      color: context.cxGlass.withValues(alpha: .92),
       alignment: Alignment.center,
       child: EntranceFade(
         child: Column(
@@ -897,12 +896,12 @@ class PublishSuccessOverlay extends StatelessWidget {
               height: 96,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [_kAccent, _kSecondary],
+                gradient: LinearGradient(
+                  colors: [context.cxAccent, context.cxAccent],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _kAccent.withValues(alpha: .5),
+                    color: context.cxAccent.withValues(alpha: .5),
                     blurRadius: 34,
                     offset: const Offset(0, 12),
                   ),
@@ -914,7 +913,7 @@ class PublishSuccessOverlay extends StatelessWidget {
             const SizedBox(height: 26),
             Text(
               title,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 24, fontFamily: 'Fraunces', fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 10),
             Padding(
@@ -922,7 +921,7 @@ class PublishSuccessOverlay extends StatelessWidget {
               child: Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14.5, color: _kSoftText),
+                style: TextStyle(fontSize: 14.5, color: context.cxSoft),
               ),
             ),
           ],

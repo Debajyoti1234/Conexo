@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
 import '../../app/router/app_router.dart';
+import '../plans/plans_theme.dart';
+import '../plans/plan_details_widgets.dart';
 import '../home_discovery_animations.dart';
 import 'profile_repository.dart';
 import 'blocked_users_screen.dart';
@@ -14,41 +17,43 @@ class SafetyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
           children: [
             Row(
               children: [
-                IconButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back_rounded),
+                CircleGlassButton(
+                  icon: Icons.arrow_back_rounded,
+                  onTap: () => Navigator.of(context).maybePop(),
+                  semanticLabel: 'Back',
                 ),
                 const SizedBox(width: 4),
                 Text(
                   'Safety',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: plansDisplay(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: context.cxInk,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 4),
               child: Text(
                 'Your safety comes first. Tools to keep your experience secure '
                 'and comfortable.',
-                style: TextStyle(color: Color(0xFFB9C3DC)),
+                style: TextStyle(color: context.cxSoft),
               ),
             ),
             const SizedBox(height: 22),
             EntranceFade(
               child: _SafetyTile(
                 icon: Icons.flag_outlined,
-                iconColor: const Color(0xFFE36D9D),
+                iconColor: context.cxDanger,
                 title: 'Report a Problem',
                 subtitle: 'Tell us about inappropriate behavior or content.',
                 onTap: () => _openReportProblem(context),
@@ -58,7 +63,7 @@ class SafetyScreen extends StatelessWidget {
             EntranceFade(
               child: _SafetyTile(
                 icon: Icons.block_rounded,
-                iconColor: const Color(0xFFF2B34B),
+                iconColor: context.cxAccentSoft,
                 title: 'Blocked Users',
                 subtitle: 'Review and manage people you have blocked.',
                 onTap: () => _openBlockedUsers(context),
@@ -68,7 +73,7 @@ class SafetyScreen extends StatelessWidget {
             EntranceFade(
               child: _SafetyTile(
                 icon: Icons.shield_outlined,
-                iconColor: const Color(0xFF47D7A5),
+                iconColor: context.cxSuccess,
                 title: 'Safety Tips',
                 subtitle: 'Advice for meeting new people safely.',
                 onTap: () => _openSafetyTips(context),
@@ -78,7 +83,7 @@ class SafetyScreen extends StatelessWidget {
             EntranceFade(
               child: _SafetyTile(
                 icon: Icons.support_agent_rounded,
-                iconColor: const Color(0xFF22BFE0),
+                iconColor: context.cxAccent,
                 title: 'Contact Support',
                 subtitle: 'Get help from the Conexo team.',
                 onTap: () => _openContactSupport(context),
@@ -130,10 +135,10 @@ class _SafetyTile extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
 
-  @override
+@override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: .04),
+      color: context.cxSurface,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
@@ -142,7 +147,7 @@ class _SafetyTile extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: .08)),
+            border: Border.all(color: context.cxLine),
           ),
           child: Row(
             children: [
@@ -162,26 +167,26 @@ class _SafetyTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15.5,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFFEAEEF9),
+                        color: context.cxInk,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12.5,
-                        color: Color(0xFFB9C3DC),
+                        color: context.cxSoft,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
             ],
           ),

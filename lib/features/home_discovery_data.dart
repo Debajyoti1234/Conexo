@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 enum ConnectionState { none, pending, accepted, declined }
 
 class DiscoveryPerson {
@@ -58,49 +60,49 @@ class InterestCircle {
 }
 
 class NearbyMoment {
-  const NearbyMoment(this.title, this.subtitle, this.icon);
+  NearbyMoment(this.title, this.subtitle, this.icon);
   final String title;
   final String subtitle;
   final IconData icon;
 }
 
-const conversations = <Conversation>[
+final conversations = <Conversation>[
   Conversation(
     'Coffee conversation',
     'Maya + 2 nearby',
     Icons.coffee_rounded,
-    Color(0xFFE36D9D),
+    Color(0xFFD9485F),
   ),
   Conversation(
     'Night walk',
     'Arjun + 3 nearby',
     Icons.nightlight_round,
-    Color(0xFF6C8EF5),
+    Color(0xFF2F5FD0),
   ),
   Conversation(
     'Photography talk',
     'Nora + 2 nearby',
     Icons.camera_alt_rounded,
-    Color(0xFFF09A65),
+    Color(0xFFD07A3A),
   ),
   Conversation(
     'Study together',
     '4 people nearby',
     Icons.menu_book_rounded,
-    Color(0xFF8B5CF6),
+    Color(0xFF1B1B1F),
   ),
 ];
-const circles = <InterestCircle>[
-  InterestCircle('Coffee', Icons.coffee_rounded, Color(0xFFE36D9D)),
-  InterestCircle('Music', Icons.music_note_rounded, Color(0xFF22D3EE)),
-  InterestCircle('Travel', Icons.flight_takeoff_rounded, Color(0xFF8B5CF6)),
-  InterestCircle('Photography', Icons.camera_alt_rounded, Color(0xFFF09A65)),
-  InterestCircle('Gaming', Icons.sports_esports_rounded, Color(0xFF6C8EF5)),
-  InterestCircle('Fitness', Icons.fitness_center_rounded, Color(0xFF47D7A5)),
-  InterestCircle('Books', Icons.auto_stories_rounded, Color(0xFFFF4D8D)),
-  InterestCircle('Creative', Icons.palette_outlined, Color(0xFFB78AF6)),
+final circles = <InterestCircle>[
+  InterestCircle('Coffee', Icons.coffee_rounded, Color(0xFFD9485F)),
+  InterestCircle('Music', Icons.music_note_rounded, Color(0xFF0E8FA8)),
+  InterestCircle('Travel', Icons.flight_takeoff_rounded, Color(0xFF1B1B1F)),
+  InterestCircle('Photography', Icons.camera_alt_rounded, Color(0xFFD07A3A)),
+  InterestCircle('Gaming', Icons.sports_esports_rounded, Color(0xFF2F5FD0)),
+  InterestCircle('Fitness', Icons.fitness_center_rounded, Color(0xFF1F9D6B)),
+  InterestCircle('Books', Icons.auto_stories_rounded, Color(0xFFD9485F)),
+  InterestCircle('Creative', Icons.palette_outlined, Color(0xFF1B1B1F)),
 ];
-const nearbyMoments = <NearbyMoment>[
+final nearbyMoments = <NearbyMoment>[
   NearbyMoment(
     'Someone nearby wants company for coffee.',
     'A quiet hello could make their evening.',

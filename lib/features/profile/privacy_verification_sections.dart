@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import 'privacy_verification_widgets.dart';
 import 'profile_data.dart';
 
@@ -168,10 +170,10 @@ class GlassCardBenefits extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.workspace_premium_rounded,
-                  size: 20, color: Color(0xFFB7A5FF)),
+                  size: 20, color: context.cxInk),
               SizedBox(width: 8),
               Text(
                 'Benefits of verification',
@@ -212,7 +214,7 @@ class DiscoverySection extends StatelessWidget {
         GlassSettingTile(
           icon: isPublic ? Icons.visibility_rounded : Icons.visibility_off_rounded,
           iconColor:
-              isPublic ? const Color(0xFF47D7A5) : const Color(0xFFB9C3DC),
+              isPublic ? const Color(0xFF1F9D6B) : context.cxSoft,
           title: isPublic
               ? 'You are discoverable'
               : 'You are hidden from discovery',
@@ -262,7 +264,7 @@ class SafetySection extends StatelessWidget {
         GlassSettingTile(
           key: const ValueKey('safety_report'),
           icon: Icons.flag_outlined,
-          iconColor: const Color(0xFFF0A85A),
+          iconColor: const Color(0xFFC98A1E),
           title: 'Report a problem',
           subtitle: 'Tell us about inappropriate behavior or content.',
           trailing: const ComingSoonChip(),
@@ -272,7 +274,7 @@ class SafetySection extends StatelessWidget {
         GlassSettingTile(
           key: const ValueKey('safety_block'),
           icon: Icons.block_rounded,
-          iconColor: const Color(0xFFF08A8A),
+          iconColor: const Color(0xFFD9485F),
           title: 'Block someone',
           subtitle: 'Blocked people can no longer reach you.',
           trailing: const ComingSoonChip(),
@@ -282,7 +284,7 @@ class SafetySection extends StatelessWidget {
         GlassSettingTile(
           key: const ValueKey('safety_tips'),
           icon: Icons.lightbulb_outline_rounded,
-          iconColor: const Color(0xFF47D7A5),
+          iconColor: const Color(0xFF1F9D6B),
           title: 'Safety tips',
           subtitle: 'Best practices for meeting new people safely.',
           onTap: onSafetyTips,
@@ -306,9 +308,9 @@ class _SectionGlass extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF182039).withValues(alpha: .78),
+        color: context.cxSurface.withValues(alpha: .78),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: .09)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .09)),
       ),
       child: child,
     );

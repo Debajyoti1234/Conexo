@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../features/home_connection_dashboard_cards.dart';
 import '../../features/notifications/notification_models.dart';
 import '../../features/plans/plan_details_screen.dart';
@@ -156,7 +158,7 @@ class _HostedPlansPageState extends State<HostedPlansPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: const Color(0xFFFF4D8D),
+        backgroundColor: const Color(0xFFD9485F),
       ),
     );
   }
@@ -183,7 +185,7 @@ class _HostedPlansPageState extends State<HostedPlansPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1020),
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Column(
           children: [
@@ -193,18 +195,19 @@ class _HostedPlansPageState extends State<HostedPlansPage> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_rounded,
-                        color: Colors.white),
+                    icon: Icon(Icons.arrow_back_rounded,
+                        color: context.cxInk),
                     tooltip: 'Back',
                   ),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Hosted Plans',
                       style: TextStyle(
                         fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFEAEEF9),
+                        fontFamily: 'Fraunces',
+                        fontWeight: FontWeight.w600,
+                        color: context.cxInk,
                         letterSpacing: -0.4,
                       ),
                     ),
@@ -214,8 +217,8 @@ class _HostedPlansPageState extends State<HostedPlansPage> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+                  ? Center(
+                      child: CircularProgressIndicator(color: context.cxInk),
                     )
                   : _error != null
                       ? _ErrorState(message: _error!, onRetry: _load)
@@ -226,7 +229,7 @@ class _HostedPlansPageState extends State<HostedPlansPage> {
                                   'No hosted plans yet. Your plans will appear here.',
                             )
                            : RefreshIndicator(
-                               color: const Color(0xFF8B5CF6),
+                               color: context.cxInk,
                                onRefresh: _load,
                                child: ListView(
                                  padding:
@@ -330,9 +333,9 @@ class _HostedPlanRowState extends State<_HostedPlanRow> {
       padding: const EdgeInsets.only(bottom: 12),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF141C31).withValues(alpha: .55),
+          color: context.cxSurface.withValues(alpha: .55),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          border: Border.all(color: context.cxInk.withValues(alpha: .08)),
         ),
         child: Column(
           children: [
@@ -356,7 +359,7 @@ class _HostedPlanRowState extends State<_HostedPlanRow> {
                             experience.accent,
                             Color.lerp(
                                   experience.accent,
-                                  const Color(0xFF7C3AED),
+                                  context.cxInk,
                                   0.5,
                                 ) ??
                                 experience.accent,
@@ -393,9 +396,9 @@ class _HostedPlanRowState extends State<_HostedPlanRow> {
                           const SizedBox(height: 4),
                           Text(
                             '${plan.experience.date} • ${plan.experience.time}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12.5,
-                              color: Color(0xFF9DB2E8),
+                              color: context.cxMuted,
                             ),
                           ),
                         ],
@@ -407,22 +410,22 @@ class _HostedPlanRowState extends State<_HostedPlanRow> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFC24D).withValues(alpha: .12),
+                            color: const Color(0xFFC98A1E).withValues(alpha: .12),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFFFC24D).withValues(alpha: .3)),
+                            border: Border.all(color: const Color(0xFFC98A1E).withValues(alpha: .3)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.person_add_rounded,
-                                  size: 12, color: Color(0xFFFFC24D)),
+                                  size: 12, color: Color(0xFFC98A1E)),
                               const SizedBox(width: 4),
                               Text(
                                 '${plan.joinRequests.length}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFFFFC24D),
+                                  color: Color(0xFFC98A1E),
                                 ),
                               ),
                             ],
@@ -433,9 +436,9 @@ class _HostedPlanRowState extends State<_HostedPlanRow> {
                       turns: _expanded ? 0.5 : 0,
                       duration: const Duration(milliseconds: 320),
                       curve: Curves.easeInOutCubic,
-                      child: const Icon(
+                      child: Icon(
                         Icons.expand_more_rounded,
-                        color: Color(0xFFB9C3DC),
+                        color: context.cxSoft,
                       ),
                     ),
                   ],
@@ -467,16 +470,16 @@ class _HostedPlanRowState extends State<_HostedPlanRow> {
                         width: 32,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: .08),
-                          border: Border.all(color: Colors.white.withValues(alpha: .12)),
+                          color: context.cxInk.withValues(alpha: .08),
+                          border: Border.all(color: context.cxInk.withValues(alpha: .12)),
                         ),
                         child: Center(
                           child: Text(
                             '+${plan.memberBubbles.length - 6}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFFB9C3DC),
+                              color: context.cxSoft,
                             ),
                           ),
                         ),
@@ -497,28 +500,28 @@ class _HostedPlanRowState extends State<_HostedPlanRow> {
                       if (hasRequests) ...[
                         Row(
                           children: [
-                            const Text(
+                            Text(
                               'Join Requests',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFFB9C3DC),
+                                color: context.cxSoft,
                               ),
                             ),
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFC24D).withValues(alpha: .12),
+                                color: const Color(0xFFC98A1E).withValues(alpha: .12),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFFFC24D).withValues(alpha: .25)),
+                                border: Border.all(color: const Color(0xFFC98A1E).withValues(alpha: .25)),
                               ),
                               child: Text(
                                 '${plan.joinRequests.length}',
                                 style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFFFFC24D),
+                                  color: Color(0xFFC98A1E),
                                 ),
                               ),
                             ),
@@ -541,7 +544,7 @@ class _HostedPlanRowState extends State<_HostedPlanRow> {
                             'No pending join requests.',
                             style: TextStyle(
                               fontSize: 12.5,
-                              color: Colors.white.withValues(alpha: .5),
+                              color: context.cxInk.withValues(alpha: .5),
                             ),
                           ),
                         ),
@@ -581,9 +584,9 @@ class _JoinRequestRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .04),
+        color: context.cxInk.withValues(alpha: .04),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: .06)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .06)),
       ),
       child: Row(
         children: [
@@ -615,9 +618,9 @@ class _JoinRequestRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     'Requested ${notificationTimeLabel(request.requestedAt)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
-                      color: Color(0xFF9DB2E8),
+                      color: context.cxMuted,
                     ),
                   ),
                 ],
@@ -661,26 +664,28 @@ class _ErrorState extends StatelessWidget {
             width: 58,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFF4D8D).withValues(alpha: .12),
+              color: context.cxDanger.withValues(alpha: .12),
             ),
-            child: const Icon(Icons.wifi_off_rounded,
-                size: 27, color: Color(0xFFFF4D8D)),
+            child: Icon(
+                Icons.wifi_off_rounded,
+                size: 27, color: context.cxDanger),
           ),
           const SizedBox(height: 14),
           Text(
             'Something went wrong',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
+              color: context.cxInk,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13.5,
-              color: Color(0xFFB9C3DC),
+              color: context.cxSoft,
             ),
           ),
           const SizedBox(height: 18),
@@ -688,6 +693,10 @@ class _ErrorState extends StatelessWidget {
             onPressed: onRetry,
             icon: const Icon(Icons.refresh_rounded, size: 18),
             label: const Text('Retry'),
+            style: FilledButton.styleFrom(
+              backgroundColor: context.cxInk,
+              foregroundColor: context.cxCanvas,
+            ),
           ),
         ],
       ),
@@ -713,19 +722,19 @@ class _EmptyState extends StatelessWidget {
               width: 58,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF7C3AED).withValues(alpha: .14),
+                color: context.cxInk.withValues(alpha: .14),
               ),
-              child: Icon(icon, size: 27, color: const Color(0xFFB7A5FF)),
+              child: Icon(icon, size: 27, color: context.cxInk),
             ),
             const SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13.5,
                 height: 1.45,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
             ),
           ],

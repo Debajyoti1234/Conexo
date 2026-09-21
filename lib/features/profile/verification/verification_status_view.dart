@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/app_theme.dart';
+
 import 'verification_theme.dart';
 
 /// Premium status surfaces for the verification flow: a calm processing
@@ -44,7 +46,7 @@ class _VerifyingIndicatorState extends State<VerifyingIndicator>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: VerifyColors.accent.withValues(alpha: .35),
+                  color: context.cxAccent.withValues(alpha: .35),
                   blurRadius: 30,
                   spreadRadius: -4,
                 ),
@@ -56,13 +58,13 @@ class _VerifyingIndicatorState extends State<VerifyingIndicator>
             child: Container(
               height: widget.size,
               width: widget.size,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: SweepGradient(
                   colors: [
                     Color(0x008B5CF6),
-                    VerifyColors.accent,
-                    VerifyColors.accent2,
+                    context.cxAccent,
+                    context.cxAccent,
                     Color(0x00587BE2),
                   ],
                   stops: [0.0, 0.45, 0.7, 1.0],
@@ -73,13 +75,13 @@ class _VerifyingIndicatorState extends State<VerifyingIndicator>
           Container(
             height: widget.size - 12,
             width: widget.size - 12,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: VerifyColors.bgBottom,
+              color: context.cxCanvas,
             ),
           ),
           VerifyGlyph(VerifyAsset.shieldCheck,
-              size: widget.size * .42, color: VerifyColors.accentSoft),
+              size: widget.size * .42, color: context.cxAccentSoft),
         ],
       ),
     );
@@ -133,21 +135,22 @@ class _VerifyHeroStatusState extends State<VerifyHeroStatus> {
             Text(
               widget.title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 26,
-                fontWeight: FontWeight.w800,
+                fontFamily: 'Fraunces',
+                fontWeight: FontWeight.w600,
                 letterSpacing: -0.5,
-                color: VerifyColors.text,
+                color: context.cxInk,
               ),
             ),
             const SizedBox(height: 10),
             Text(
               widget.subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.5,
-                color: VerifyColors.soft,
+                color: context.cxSoft,
               ),
             ),
           ],
@@ -167,15 +170,15 @@ class VerifySuccessView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _CenteredStatus(
-      hero: const VerifyHeroStatus(
+      hero: VerifyHeroStatus(
         title: "You're Verified!",
         subtitle: 'Your identity has been confirmed.\nWelcome to Conexo.',
-        badge: VerifyGlowBadge(
+badge: VerifyGlowBadge(
           size: 104,
-          colors: [VerifyColors.verified, VerifyColors.verified2],
-          glowColor: VerifyColors.verified,
+          colors: [context.cxSuccess, context.cxSuccess],
+          glowColor: context.cxSuccess,
           glowStrength: .5,
-          child: Icon(Icons.check_rounded, size: 52, color: Colors.white),
+          child: Icon(Icons.check_rounded, size: 52, color: context.cxInk),
         ),
       ),
       cta: VerifyCta(label: 'Continue to App', onTap: onContinue),
@@ -206,10 +209,10 @@ class VerifyFailedView extends StatelessWidget {
             "We couldn't confidently match your\nverification photos.",
         badge: VerifyGlowBadge(
           size: 104,
-          colors: const [Color(0xFFF0A85A), Color(0xFFE0698F)],
-          glowColor: const Color(0xFFF0A85A),
+          colors: const [Color(0xFFC98A1E), Color(0xFFE0698F)],
+          glowColor: const Color(0xFFC98A1E),
           glowStrength: .42,
-          child: VerifyGlyph(VerifyAsset.alert, size: 46, color: Colors.white),
+          child: VerifyGlyph(VerifyAsset.alert, size: 46, color: context.cxInk),
         ),
       ),
       cta: Column(
@@ -281,19 +284,20 @@ class VerifyTipsView extends StatelessWidget {
       children: [
         VerifyTopBar(onBack: onBack),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Photo tips',
           style: TextStyle(
             fontSize: 24,
-            fontWeight: FontWeight.w800,
+            fontFamily: 'Fraunces',
+            fontWeight: FontWeight.w600,
             letterSpacing: -0.5,
-            color: VerifyColors.text,
+            color: context.cxInk,
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Follow these tips and try again.',
-          style: TextStyle(fontSize: 14, color: VerifyColors.soft),
+          style: TextStyle(fontSize: 14, color: context.cxSoft),
         ),
         const SizedBox(height: 20),
         Expanded(

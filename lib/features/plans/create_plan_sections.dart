@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
+import '../../app/theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -74,10 +76,10 @@ class _CoverSectionState extends State<CoverSection> {
       final user = AuthService.currentUser;
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Please sign in to upload a cover photo.'),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: Color(0xFF1A1F2E),
+            backgroundColor: context.cxSurface,
           ),
         );
         return;
@@ -100,10 +102,10 @@ class _CoverSectionState extends State<CoverSection> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Could not upload photo. Please try again.'),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: Color(0xFF1A1F2E),
+          backgroundColor: context.cxSurface,
         ),
       );
     }
@@ -190,9 +192,9 @@ class MoodSection extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .05),
+          color: context.cxInk.withValues(alpha: .05),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          border: Border.all(color: context.cxInk.withValues(alpha: .08)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,32 +405,32 @@ class _LocationSectionState extends State<LocationSection> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: .06),
+                color: context.cxInk.withValues(alpha: .06),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withValues(alpha: .1)),
+                border: Border.all(color: context.cxInk.withValues(alpha: .1)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_detecting)
-                    const SizedBox(
+                    SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Color(0xFF9DB2E8),
+                        color: context.cxMuted,
                       ),
                     )
                   else
-                    const Icon(Icons.near_me_rounded,
-                        size: 14, color: Color(0xFF9DB2E8)),
+                    Icon(Icons.near_me_rounded,
+                        size: 14, color: context.cxMuted),
                   const SizedBox(width: 6),
-                  const Text(
+                  Text(
                     'Use current location',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: context.cxInk,
                     ),
                   ),
                 ],
@@ -454,16 +456,16 @@ class _LocationSectionState extends State<LocationSection> {
             Row(
               children: [
                 const Icon(Icons.check_circle_rounded,
-                    size: 14, color: Color(0xFF47D7A5)),
+                    size: 14, color: Color(0xFF1F9D6B)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     draft.locationAddress.trim().isNotEmpty
                         ? draft.locationAddress.trim()
                         : 'Location pinned',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF9DB2E8),
+                      color: context.cxMuted,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -495,8 +497,8 @@ class _PlaceSuggestionsPanel extends StatelessWidget {
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: .1)),
-        color: const Color(0xFF141A2E),
+        border: Border.all(color: context.cxInk.withValues(alpha: .1)),
+        color: context.cxSurface,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
@@ -505,10 +507,10 @@ class _PlaceSuggestionsPanel extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: searching ? 1 : suggestions.length,
           separatorBuilder: (_, _) =>
-              Divider(height: 1, color: Colors.white.withValues(alpha: .08)),
+              Divider(height: 1, color: context.cxInk.withValues(alpha: .08)),
           itemBuilder: (context, index) {
             if (searching) {
-              return const SizedBox(
+              return SizedBox(
                 height: 52,
                 child: Center(
                   child: SizedBox(
@@ -516,7 +518,7 @@ class _PlaceSuggestionsPanel extends StatelessWidget {
                     width: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Color(0xFF8B5CF6),
+                      color: context.cxInk,
                     ),
                   ),
                 ),
@@ -530,8 +532,8 @@ class _PlaceSuggestionsPanel extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   children: [
-                    const Icon(Icons.place_outlined,
-                        size: 18, color: Color(0xFFB7A5FF)),
+                    Icon(Icons.place_outlined,
+                        size: 18, color: context.cxInk),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -541,10 +543,10 @@ class _PlaceSuggestionsPanel extends StatelessWidget {
                             s.displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFFEAEEF9),
+                              color: context.cxInk,
                             ),
                           ),
                           if (s.address != null && s.address!.isNotEmpty) ...[
@@ -553,9 +555,9 @@ class _PlaceSuggestionsPanel extends StatelessWidget {
                               s.address!,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF8A96B4),
+                                color: context.cxMuted,
                               ),
                             ),
                           ],
@@ -687,9 +689,9 @@ class _ParticipantsSectionState extends State<ParticipantsSection> {
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .05),
+          color: context.cxInk.withValues(alpha: .05),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          border: Border.all(color: context.cxInk.withValues(alpha: .08)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

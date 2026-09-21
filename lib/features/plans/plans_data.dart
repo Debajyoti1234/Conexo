@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 /// Data layer for the premium Plans discovery experience.
 ///
 /// Everything here is local + demo only. Models are shaped so a future
@@ -175,34 +177,34 @@ class Experience {
 }
 
 // ── Accent palette, reused across the dataset for consistent premium colour.
-const _violet = Color(0xFF8B5CF6);
-const _blue = Color(0xFF6C8EF5);
-const _cyan = Color(0xFF22BFE0);
-const _pink = Color(0xFFE36D9D);
-const _orange = Color(0xFFF09A65);
-const _green = Color(0xFF47D7A5);
+const _violet = Color(0xFF1B1B1F);
+const _blue = Color(0xFF2F5FD0);
+const _cyan = Color(0xFF0E8FA8);
+const _pink = Color(0xFFD9485F);
+const _orange = Color(0xFFD07A3A);
+const _green = Color(0xFF1F9D6B);
 
 /// The 11 browsing categories (last one is Custom for user-created plans).
 const planCategories = <PlanCategory>[
-  PlanCategory('Chill', '☕', Icons.coffee_rounded, _pink),
-  PlanCategory('House', '🏠', Icons.home_rounded, _orange),
-  PlanCategory('Music', '🎵', Icons.music_note_rounded, _cyan),
-  PlanCategory('Nightlife', '🌃', Icons.nightlife_rounded, _violet),
-  PlanCategory('Food', '🍜', Icons.ramen_dining_rounded, _orange),
-  PlanCategory('Outdoors', '🌿', Icons.park_rounded, _green),
-  PlanCategory('Creative', '🎨', Icons.palette_rounded, _pink),
-  PlanCategory('Professional', '💼', Icons.work_rounded, _blue),
-  PlanCategory('Sports', '💪', Icons.sports_basketball_rounded, _green),
-  PlanCategory('Spontaneous', '🌈', Icons.bolt_rounded, _cyan),
-  PlanCategory('Custom', '✨', Icons.auto_awesome_rounded, _violet),
+  PlanCategory('Chill', '☕', Icons.coffee_outlined, _pink),
+  PlanCategory('House', '🏠', Icons.home_outlined, _orange),
+  PlanCategory('Music', '🎵', Icons.music_note_outlined, _cyan),
+  PlanCategory('Nightlife', '🌃', Icons.nightlife_outlined, _violet),
+  PlanCategory('Food', '🍜', Icons.ramen_dining_outlined, _orange),
+  PlanCategory('Outdoors', '🌿', Icons.park_outlined, _green),
+  PlanCategory('Creative', '🎨', Icons.palette_outlined, _pink),
+  PlanCategory('Professional', '💼', Icons.work_outline_outlined, _blue),
+  PlanCategory('Sports', '💪', Icons.sports_basketball_outlined, _green),
+  PlanCategory('Spontaneous', '🌈', Icons.bolt_outlined, _cyan),
+  PlanCategory('Custom', '✨', Icons.auto_awesome_outlined, _violet),
 ];
 
 /// Top-level visibility filter appended after all browsing categories.
-const privateCategory = PlanCategory(
+final privateCategory = PlanCategory(
   'Private',
   '🔒',
   Icons.lock_rounded,
-  Color(0xFF8B5CF6),
+  Color(0xFF1B1B1F),
 );
 
 // ── Mood → canonical Discovery category mapping ──────────────────────────

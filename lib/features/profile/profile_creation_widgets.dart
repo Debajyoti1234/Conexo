@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../app/theme/app_widgets.dart';
 import '../../core/services/location_service.dart';
 import '../../core/services/permission_manager.dart';
@@ -18,10 +20,7 @@ import 'supabase_profile_repository.dart';
 /// to AnimatedContainer / AnimatedSwitcher / AnimatedSize / AnimatedScale /
 /// Fade / Slide with easeOutCubic / easeInOutCubic — no bounce or overshoot.
 
-const _kAccent = Color(0xFF8B5CF6);
-const _kAccent2 = Color(0xFF587BE2);
-const _kSoftText = Color(0xFFB9C3DC);
-const _kFieldFill = Color(0x14FFFFFF);
+const _kFieldFill = Color(0x141B1B1F);
 
 // ── ProfilePhotoViewer ───────────────────────────────────────────────────────
 
@@ -125,10 +124,10 @@ class _RemotePhotoImageState extends State<_RemotePhotoImage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const ColoredBox(color: Color(0xFF1A2138));
+      return ColoredBox(color: context.cxSurface);
     }
     if (_signedUrl == null) {
-      return const ColoredBox(color: Color(0xFF1A2138));
+      return ColoredBox(color: context.cxSurface);
     }
     return Image.network(
       _signedUrl!,
@@ -136,7 +135,7 @@ class _RemotePhotoImageState extends State<_RemotePhotoImage> {
       width: widget.width,
       height: widget.height,
       errorBuilder: (context, error, stackTrace) =>
-          const ColoredBox(color: Color(0xFF1A2138)),
+          ColoredBox(color: context.cxSurface),
     );
   }
 }
@@ -175,7 +174,7 @@ class SectionShell extends StatelessWidget {
                     fontSize: 21,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
-                    color: kIsWeb ? Colors.white : null,
+                    color: kIsWeb ? context.cxInk : null,
                   ),
                 ),
               ),
@@ -197,7 +196,7 @@ class SectionShell extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               subtitle!,
-              style: const TextStyle(fontSize: 13.5, color: _kSoftText),
+              style: TextStyle(fontSize: 13.5, color: context.cxSoft),
             ),
           ],
           const SizedBox(height: 14),
@@ -219,7 +218,7 @@ class _CompletionCheck extends StatelessWidget {
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [Color(0xFF47D7A5), Color(0xFF22BFE0)],
+          colors: [Color(0xFF1F9D6B), Color(0xFF0E8FA8)],
         ),
       ),
       child: const Icon(Icons.check_rounded, size: 15, color: Colors.white),
@@ -476,13 +475,13 @@ class _DraggablePhotoSlot extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isTarget ? _kAccent : Colors.transparent,
+                color: isTarget ? context.cxAccent : Colors.transparent,
                 width: 2,
               ),
               boxShadow: isTarget
                   ? [
                       BoxShadow(
-                        color: _kAccent.withValues(alpha: .55),
+                        color: context.cxAccent.withValues(alpha: .55),
                         blurRadius: 18,
                         spreadRadius: 1,
                       ),
@@ -519,8 +518,8 @@ class _EmptyPhotoSlot extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: kIsWeb
-                ? Colors.white.withValues(alpha: .15)
-                : Colors.white.withValues(alpha: .08),
+                ? context.cxInk.withValues(alpha: .15)
+                : context.cxInk.withValues(alpha: .08),
             width: 1,
           ),
         ),
@@ -528,7 +527,7 @@ class _EmptyPhotoSlot extends StatelessWidget {
           child: Icon(
             Icons.add_rounded,
             size: 28,
-            color: Colors.white.withValues(alpha: .35),
+            color: context.cxInk.withValues(alpha: .35),
           ),
         ),
       ),
@@ -561,12 +560,12 @@ class _FilledPhotoSlot extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: _kAccent,
+            color: context.cxAccent,
             width: 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: _kAccent.withValues(alpha: .4),
+              color: context.cxAccent.withValues(alpha: .4),
               blurRadius: 16,
               spreadRadius: 1,
             ),
@@ -635,19 +634,19 @@ class SelectableChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         decoration: BoxDecoration(
           gradient: selected
-              ? const LinearGradient(colors: [_kAccent, _kAccent2])
+              ? LinearGradient(colors: [context.cxAccent, context.cxAccent])
               : null,
           color: selected ? null : _kFieldFill,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: selected
                 ? Colors.transparent
-                : Colors.white.withValues(alpha: .1),
+                : context.cxInk.withValues(alpha: .1),
           ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: _kAccent.withValues(alpha: .38),
+                    color: context.cxAccent.withValues(alpha: .38),
                     blurRadius: 14,
                     offset: const Offset(0, 5),
                   ),
@@ -661,7 +660,7 @@ class SelectableChip extends StatelessWidget {
               Icon(
                 icon,
                 size: 16,
-                color: selected ? Colors.white : const Color(0xFFB7A5FF),
+                color: selected ? Colors.white : context.cxInk,
               ),
               const SizedBox(width: 6),
             ],
@@ -671,7 +670,7 @@ class SelectableChip extends StatelessWidget {
                 fontSize: 13,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 letterSpacing: -0.1,
-                color: selected ? Colors.white : const Color(0xFFDDE3F4),
+                color: selected ? Colors.white : context.cxInk,
               ),
             ),
           ],
@@ -770,13 +769,13 @@ class GlassTextField extends StatelessWidget {
       ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(
+        hintStyle: TextStyle(
           fontSize: 14.5,
-          color: _kSoftText,
+          color: context.cxSoft,
           fontWeight: FontWeight.w500,
         ),
         prefixIcon: icon != null
-            ? Icon(icon, size: 20, color: const Color(0xFFB7A5FF))
+            ? Icon(icon, size: 20, color: context.cxInk)
             : null,
         suffixIcon: hasSuffix
             ? _GlassFieldSuffix(
@@ -795,21 +794,21 @@ class GlassTextField extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
             color: kIsWeb
-                ? Colors.white.withValues(alpha: .16)
-                : Colors.white.withValues(alpha: .1),
+                ? context.cxInk.withValues(alpha: .16)
+                : context.cxInk.withValues(alpha: .1),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(
             color: kIsWeb
-                ? Colors.white.withValues(alpha: .16)
-                : Colors.white.withValues(alpha: .1),
+                ? context.cxInk.withValues(alpha: .16)
+                : context.cxInk.withValues(alpha: .1),
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: _kAccent, width: 1.6),
+          borderSide: BorderSide(color: context.cxAccent, width: 1.6),
         ),
       ),
     );
@@ -837,15 +836,15 @@ class _GlassFieldSuffix extends StatelessWidget {
       splashRadius: 20,
       visualDensity: VisualDensity.compact,
       icon: busy
-          ? const SizedBox(
+          ? SizedBox(
               height: 18,
               width: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xFFB7A5FF),
+                color: context.cxInk,
               ),
             )
-          : Icon(icon, size: 20, color: const Color(0xFFB7A5FF)),
+          : Icon(icon, size: 20, color: context.cxInk),
     );
   }
 }
@@ -1062,7 +1061,7 @@ class _SuggestionsPanel extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: .1),
+          color: context.cxInk.withValues(alpha: .1),
         ),
         boxShadow: [
           BoxShadow(
@@ -1080,11 +1079,11 @@ class _SuggestionsPanel extends StatelessWidget {
           itemCount: searching ? 1 : suggestions.length,
           separatorBuilder: (_, _) => Divider(
             height: 1,
-            color: Colors.white.withValues(alpha: .08),
+            color: context.cxInk.withValues(alpha: .08),
           ),
           itemBuilder: (context, index) {
             if (searching) {
-              return const SizedBox(
+              return SizedBox(
                 height: 56,
                 child: Center(
                   child: SizedBox(
@@ -1092,7 +1091,7 @@ class _SuggestionsPanel extends StatelessWidget {
                     width: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Color(0xFF8B5CF6),
+                      color: context.cxInk,
                     ),
                   ),
                 ),
@@ -1108,16 +1107,16 @@ class _SuggestionsPanel extends StatelessWidget {
                     Icon(
                       Icons.place_outlined,
                       size: 18,
-                      color: const Color(0xFFB7A5FF),
+                      color: context.cxInk,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         suggestion.displayName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFFEAEEF9),
+                          color: context.cxInk,
                         ),
                       ),
                     ),
@@ -1218,14 +1217,14 @@ class DateOfBirthField extends StatelessWidget {
           decoration: BoxDecoration(
             color: _kFieldFill,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: .1)),
+            border: Border.all(color: context.cxInk.withValues(alpha: .1)),
           ),
           child: Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.cake_outlined,
                 size: 20,
-                color: Color(0xFFB7A5FF),
+                color: context.cxInk,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1236,7 +1235,7 @@ class DateOfBirthField extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
-                    color: hasValue ? Colors.white : _kSoftText,
+                    color: hasValue ? Colors.white : context.cxSoft,
                   ),
                 ),
               ),
@@ -1323,7 +1322,7 @@ class RestoreBanner extends StatelessWidget {
         child: GlassCard(
           child: Row(
             children: [
-              const Icon(Icons.history_rounded, color: Color(0xFFB7A5FF)),
+              Icon(Icons.history_rounded, color: context.cxInk),
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
@@ -1338,7 +1337,7 @@ class RestoreBanner extends StatelessWidget {
               const SizedBox(width: 4),
               FilledButton(
                 onPressed: onRestore,
-                style: FilledButton.styleFrom(backgroundColor: _kAccent),
+                style: FilledButton.styleFrom(backgroundColor: context.cxAccent),
                 child: const Text('Restore'),
               ),
             ],
@@ -1365,17 +1364,17 @@ class CompletionMeter extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Text(
+            Text(
               'Profile completeness',
-              style: TextStyle(fontSize: 13, color: _kSoftText),
+              style: TextStyle(fontSize: 13, color: context.cxSoft),
             ),
             const Spacer(),
             Text(
               '$pct%',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFFB7A5FF),
+                color: context.cxInk,
               ),
             ),
           ],
@@ -1385,7 +1384,7 @@ class CompletionMeter extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           child: Stack(
             children: [
-              Container(height: 8, color: Colors.white.withValues(alpha: .08)),
+              Container(height: 8, color: context.cxInk.withValues(alpha: .08)),
               LayoutBuilder(
                 builder: (context, constraints) {
                   return AnimatedContainer(
@@ -1393,9 +1392,9 @@ class CompletionMeter extends StatelessWidget {
                     curve: Curves.easeOutCubic,
                     height: 8,
                     width: constraints.maxWidth * progress.clamp(0.0, 1.0),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [_kAccent, _kAccent2],
+                        colors: [context.cxAccent, context.cxAccent],
                       ),
                     ),
                   );
@@ -1451,12 +1450,12 @@ class _CompleteProfileButtonState extends State<CompleteProfileButton> {
             height: 56,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [_kAccent, _kAccent2]),
+              gradient: LinearGradient(colors: [context.cxAccent, context.cxAccent]),
               borderRadius: BorderRadius.circular(16),
               boxShadow: active
                   ? [
                       BoxShadow(
-                        color: _kAccent.withValues(alpha: .5),
+                        color: context.cxAccent.withValues(alpha: .5),
                         blurRadius: 24,
                         offset: const Offset(0, 10),
                       ),
@@ -1522,7 +1521,7 @@ class ProfilePreviewCard extends StatelessWidget {
                         fit: BoxFit.cover,
                       )
                     else
-                      const ColoredBox(color: Color(0xFF1A2138)),
+                      ColoredBox(color: context.cxSurface),
                     const DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -1546,16 +1545,16 @@ class ProfilePreviewCard extends StatelessWidget {
                           if (data.location.isNotEmpty)
                             Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.near_me_rounded,
                                   size: 15,
-                                  color: Color(0xFFEAEEF9),
+                                  color: context.cxInk,
                                 ),
                                 const SizedBox(width: 5),
                                 Text(
                                   data.location,
-                                  style: const TextStyle(
-                                    color: Color(0xFFEAEEF9),
+                                  style: TextStyle(
+                                    color: context.cxInk,
                                     fontWeight: FontWeight.w600,
                                     shadows: [
                                       Shadow(
@@ -1571,8 +1570,8 @@ class ProfilePreviewCard extends StatelessWidget {
                             const SizedBox(height: 4),
                             Text(
                               data.gender,
-                              style: const TextStyle(
-                                color: Color(0xFFC7D0E6),
+                              style: TextStyle(
+                                color: context.cxSoft,
                                 fontSize: 13,
                               ),
                             ),
@@ -1591,10 +1590,10 @@ class ProfilePreviewCard extends StatelessWidget {
                     if (data.bio.isNotEmpty)
                       Text(
                         data.bio,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           height: 1.4,
-                          color: Color(0xFFEAEEF9),
+                          color: context.cxInk,
                         ),
                       ),
                     if (data.interests.isNotEmpty) ...[
@@ -1655,11 +1654,11 @@ class _PreviewLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w800,
         letterSpacing: .2,
-        color: Color(0xFFB7A5FF),
+        color: context.cxInk,
       ),
     );
   }
@@ -1681,17 +1680,17 @@ class _PreviewChips extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
             decoration: BoxDecoration(
 
-              color: Colors.white.withValues(alpha: .07),
+              color: context.cxInk.withValues(alpha: .07),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: .1)),
+              border: Border.all(color: context.cxInk.withValues(alpha: .1)),
             ),
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.1,
-                color: Color(0xFFDDE3F4),
+                color: context.cxInk,
               ),
             ),
           ),
@@ -1713,12 +1712,12 @@ class _PreviewDetail extends StatelessWidget {
       padding: const EdgeInsets.only(top: 10),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: const Color(0xFFB7A5FF)),
+          Icon(icon, size: 16, color: context.cxInk),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 13, color: Color(0xFFC7D0E6)),
+              style: TextStyle(fontSize: 13, color: context.cxSoft),
             ),
           ),
         ],

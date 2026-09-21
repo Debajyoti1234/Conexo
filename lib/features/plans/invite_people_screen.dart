@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../../core/supabase/auth_service.dart';
 import '../profile/connections_view_model.dart';
 import '../profile/profile_photo_resolver.dart';
@@ -159,7 +161,7 @@ class _InvitePeopleScreenState extends State<InvitePeopleScreen> {
                 ? 'Invitation sent'
                 : '${_selected.length} invitations sent',
           ),
-          backgroundColor: const Color(0xFF47D7A5),
+          backgroundColor: const Color(0xFF1F9D6B),
         ),
       );
       Navigator.of(context).pop(true);
@@ -168,7 +170,7 @@ class _InvitePeopleScreenState extends State<InvitePeopleScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.message),
-          backgroundColor: const Color(0xFFFF4D8D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
     } catch (_) {
@@ -176,7 +178,7 @@ class _InvitePeopleScreenState extends State<InvitePeopleScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to send invitations. Please try again.'),
-          backgroundColor: Color(0xFFFF4D8D),
+          backgroundColor: Color(0xFFD9485F),
         ),
       );
     } finally {
@@ -187,15 +189,15 @@ class _InvitePeopleScreenState extends State<InvitePeopleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1020),
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Column(
           children: [
             _Header(onClose: () => Navigator.of(context).pop()),
             Expanded(
               child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+                  ? Center(
+                      child: CircularProgressIndicator(color: context.cxInk),
                     )
                   : _error != null
                       ? _ErrorState(message: _error!, onRetry: _load)
@@ -240,17 +242,18 @@ class _Header extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onClose,
-            icon: const Icon(Icons.close_rounded, color: Colors.white),
+            icon: Icon(Icons.close_rounded, color: context.cxInk),
             tooltip: 'Close',
           ),
           const SizedBox(width: 4),
           Expanded(
             child: Text(
               'Invite People',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFFEAEEF9),
+                fontFamily: 'Fraunces',
+                fontWeight: FontWeight.w600,
+                color: context.cxInk,
               ),
             ),
           ),
@@ -288,12 +291,12 @@ class _InviteeList extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF182039).withValues(alpha: .78),
+                color: context.cxSurface.withValues(alpha: .78),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFF8B5CF6).withValues(alpha: .6)
-                      : Colors.white.withValues(alpha: .06),
+                      ? context.cxInk.withValues(alpha: .6)
+                      : context.cxInk.withValues(alpha: .06),
                 ),
               ),
               child: Row(
@@ -312,10 +315,10 @@ class _InviteeList extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 invitee.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFFEAEEF9),
+                                  color: context.cxInk,
                                 ),
                               ),
                             ),
@@ -324,7 +327,7 @@ class _InviteeList extends StatelessWidget {
                               Icon(
                                 Icons.verified_rounded,
                                 size: 16,
-                                color: const Color(0xFF8B5CF6),
+                                color: context.cxInk,
                               ),
                             ],
                           ],
@@ -341,8 +344,8 @@ class _InviteeList extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             color: invitee.isAlreadyMember || invitee.isAlreadyInvited
-                                ? const Color(0xFF8A96B4)
-                                : const Color(0xFFAEB9D6),
+                                ? context.cxMuted
+                                : context.cxSoft,
                           ),
                         ),
                       ],
@@ -354,8 +357,8 @@ class _InviteeList extends StatelessWidget {
                           ? Icons.check_circle_rounded
                           : Icons.circle_outlined,
                       color: isSelected
-                          ? const Color(0xFF8B5CF6)
-                          : const Color(0xFF8A96B4),
+                          ? context.cxInk
+                          : context.cxMuted,
                       size: 24,
                     ),
                 ],
@@ -420,15 +423,15 @@ class _InviteeAvatarState extends State<_InviteeAvatar> {
         height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: const Color(0xFF8B5CF6).withValues(alpha: .2),
+          color: context.cxInk.withValues(alpha: .2),
         ),
         child: Center(
           child: Text(
             widget.name.isNotEmpty ? widget.name[0].toUpperCase() : '?',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF8B5CF6),
+              color: context.cxInk,
             ),
           ),
         ),
@@ -444,10 +447,10 @@ class _InviteeAvatarState extends State<_InviteeAvatar> {
             : Center(
                 child: Text(
                   widget.name[0].toUpperCase(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF8B5CF6),
+                    color: context.cxInk,
                   ),
                 ),
               ),
@@ -464,10 +467,10 @@ class _InviteeAvatarState extends State<_InviteeAvatar> {
           ? Center(
               child: Text(
                 widget.name.isNotEmpty ? widget.name[0].toUpperCase() : '?',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF8B5CF6),
+                  color: context.cxInk,
                 ),
               ),
             )
@@ -494,19 +497,19 @@ class _Footer extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B1020),
+        color: const Color(0xFFFFFFFF),
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: .06)),
+          top: BorderSide(color: context.cxInk.withValues(alpha: .06)),
         ),
       ),
       child: SizedBox(
         width: double.infinity,
-        child: FilledButton(
+child: FilledButton(
           onPressed: enabled ? onSend : null,
           style: FilledButton.styleFrom(
             backgroundColor: enabled
-                ? const Color(0xFF8B5CF6)
-                : const Color(0xFF8B5CF6).withValues(alpha: .25),
+                ? context.cxAccent
+                : context.cxAccent.withValues(alpha: .25),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
@@ -554,18 +557,18 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.wifi_off_rounded,
               size: 48,
-              color: Color(0xFF9DB2E8),
+              color: context.cxMuted,
             ),
             const SizedBox(height: 20),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
             ),
             const SizedBox(height: 16),
@@ -601,39 +604,39 @@ class _EmptyState extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withValues(alpha: .12),
-                    Colors.white.withValues(alpha: .04),
+                    context.cxInk.withValues(alpha: .12),
+                    context.cxInk.withValues(alpha: .04),
                   ],
                 ),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: .16),
+                  color: context.cxInk.withValues(alpha: .16),
                 ),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.people_rounded,
                 size: 42,
-                color: Color(0xFFB7A5FF),
+                color: context.cxInk,
               ),
             ),
             const SizedBox(height: 22),
-            const Text(
+            Text(
               'No connections to invite',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 19,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.2,
-                color: Color(0xFFEAEEF9),
+                color: context.cxInk,
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               'Connect with people first, then invite them to your plans.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
                 height: 1.5,
-                color: Color(0xFFAEB9D6),
+                color: context.cxSoft,
               ),
             ),
           ],

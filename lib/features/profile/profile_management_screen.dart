@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
 import '../home_discovery_animations.dart';
 import 'profile_data.dart';
 import 'profile_management_sections.dart';
@@ -319,7 +321,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
         _handlePop();
       },
       child: Scaffold(
-        backgroundColor: kIsWeb ? Colors.black : Colors.transparent,
+        backgroundColor: context.cxCanvas,
         body: SafeArea(
           child: Stack(
             children: [
@@ -352,8 +354,8 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+      return Center(
+        child: CircularProgressIndicator(color: context.cxInk),
       );
     }
     if (_notFound) {
@@ -420,7 +422,7 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
             tooltip: 'Back',
           ),
           const SizedBox(width: 4),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -428,14 +430,15 @@ class _ProfileManagementScreenState extends State<ProfileManagementScreen> {
                   'Edit your profile',
                   style: TextStyle(
                     fontSize: 26,
-                    fontWeight: FontWeight.w800,
+                    fontFamily: 'Fraunces',
+                    fontWeight: FontWeight.w600,
                     letterSpacing: -0.5,
                   ),
                 ),
                 SizedBox(height: 4),
                 Text(
                   'Update anything, anytime.',
-                  style: TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+                  style: TextStyle(fontSize: 14, color: context.cxSoft),
                 ),
               ],
             ),
@@ -463,10 +466,10 @@ class _EmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.person_off_outlined,
                 size: 56,
-                color: Color(0xFFB9C3DC),
+                color: context.cxSoft,
               ),
               const SizedBox(height: 16),
               const Text(
@@ -474,16 +477,16 @@ class _EmptyState extends StatelessWidget {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Create your profile first, then you can edit it here.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Color(0xFFB9C3DC)),
+                style: TextStyle(fontSize: 14, color: context.cxSoft),
               ),
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: onBack,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF8B5CF6),
+                  backgroundColor: context.cxAccent,
                 ),
                 child: const Text('Go back'),
               ),

@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 /// Returns the responsive logo edge size for the auth hero.
 double _authLogoSize(double width) {
   if (width < 350) return 88;
@@ -44,41 +46,46 @@ class _AuthPageFrameState extends State<AuthPageFrame>
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: Stack(
-      children: [
-        // Background hero — animated, isolated in its own RepaintBoundary so
-        // typing in the form never repaints the artwork.
-        RepaintBoundary(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) => Transform.scale(
-              scale: 1.0 + (_controller.value * 0.015),
-              child: Opacity(
-                opacity: 1.0 - (_controller.value * 0.04),
-                child: child,
+  Widget build(BuildContext context) {
+    final light = context.isLightTheme;
+    return Scaffold(
+      backgroundColor: light ? const Color(0xFFFFFFFF) : DarkPalette.scaffold,
+      body: Stack(
+        children: [
+          if (light)
+            const SizedBox.expand()
+          else ...[
+            // Restored Conexo dark artwork + readability overlay.
+            RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) => Transform.scale(
+                  scale: 1.0 + (_controller.value * 0.015),
+                  child: Opacity(
+                    opacity: 1.0 - (_controller.value * 0.04),
+                    child: child,
+                  ),
+                ),
+                child: Image.asset(
+                  widget.backgroundImage,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
               ),
             ),
-            child: Image.asset(
-              widget.backgroundImage,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x730B1020), Color(0xD90B1020)],
+                ),
+              ),
+              child: SizedBox.expand(),
             ),
-          ),
-        ),
-        // Premium dark overlay for readability while keeping artwork visible.
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0x730B1020), Color(0xD90B1020)],
-            ),
-          ),
-          child: SizedBox.expand(),
-        ),
-        SafeArea(
+          ],
+          SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) => SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
@@ -118,6 +125,7 @@ class _AuthPageFrameState extends State<AuthPageFrame>
       ],
     ),
   );
+  }
 }
 
 class _AuthBackButton extends StatelessWidget {
@@ -134,14 +142,16 @@ class _AuthBackButton extends StatelessWidget {
         width: 42,
         height: 42,
         decoration: BoxDecoration(
-          color: const Color(0xFF151B2E).withValues(alpha: 0.45),
+          color: context.cxSurface.withValues(alpha: 0.45),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          border: Border.all(
+            color: context.cxInk.withValues(alpha: 0.1),
+          ),
         ),
-        child: const Icon(
+        child: Icon(
           Icons.arrow_back_rounded,
           size: 20,
-          color: Color(0xFFDDE3F4),
+          color: context.cxInk,
         ),
       ),
     ),
@@ -161,6 +171,9 @@ class AuthHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lineColor = context.cxInk.withValues(alpha: 0.5);
+    final labelColor = context.cxInk;
+    final subtitleColor = context.cxSoft;
     final logoSize = _authLogoSize(MediaQuery.sizeOf(context).width);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -181,7 +194,7 @@ class AuthHeader extends StatelessWidget {
             width: logoSize,
             height: logoSize,
             child: Image.asset(
-              'assets/logo/conexo_logo.png.png',
+              'assets/logo/conexo_logo2.png',
               fit: BoxFit.contain,
             ),
           ),
@@ -192,15 +205,15 @@ class AuthHeader extends StatelessWidget {
               Container(
                 width: 22,
                 height: 1,
-                color: const Color(0xFF9D82FF).withValues(alpha: 0.5),
+                color: lineColor,
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
                   label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFFB7A5FF),
+                  style: TextStyle(
+                    color: labelColor,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.4,
@@ -210,7 +223,7 @@ class AuthHeader extends StatelessWidget {
               Container(
                 width: 22,
                 height: 1,
-                color: const Color(0xFF9D82FF).withValues(alpha: 0.5),
+                color: lineColor,
               ),
             ],
           ),
@@ -223,6 +236,7 @@ class AuthHeader extends StatelessWidget {
                   title,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: labelColor,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.5,
                     height: 1.15,
@@ -234,8 +248,8 @@ class AuthHeader extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFC7CFE4),
+                  style: TextStyle(
+                    color: subtitleColor,
                     fontSize: 13.5,
                     height: 1.5,
                   ),
@@ -268,18 +282,18 @@ class AuthGlassCard extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF151B2E).withValues(alpha: 0.57),
+            color: context.cxSurface.withValues(alpha: 0.57),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.11),
+              color: context.cxInk.withValues(alpha: 0.11),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 24,
-                spreadRadius: -4,
-                offset: const Offset(0, 14),
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 22,
+                spreadRadius: -6,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
@@ -303,40 +317,46 @@ class SocialLoginButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 54,
-    child: OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFFDDE3F4),
-        backgroundColor: const Color(0xFF151B2E).withValues(alpha: 0.45),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        padding: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      ).copyWith(
-        overlayColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.pressed)
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.white.withValues(alpha: 0.04),
+  Widget build(BuildContext context) {
+    final fg = context.cxInk;
+    final labelColor = context.cxSoft;
+    return SizedBox(
+      height: 54,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: fg,
+          backgroundColor: context.cxSurface.withValues(alpha: 0.45),
+          side: BorderSide(
+            color: context.cxInk.withValues(alpha: 0.08),
+          ),
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ).copyWith(
+          overlayColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.pressed)
+                ? context.cxInk.withValues(alpha: 0.08)
+                : context.cxInk.withValues(alpha: 0.04),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: fg),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: labelColor,
+              ),
+            ),
+          ],
         ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 22, color: const Color(0xFFDDE3F4)),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-              color: Color(0xFFC7CFE4),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
+    );
+  }
 }
 
 class SocialButtonsRow extends StatelessWidget {
@@ -366,49 +386,56 @@ class RememberForgotRow extends StatelessWidget {
   final VoidCallback onForgot;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      InkWell(
-        onTap: () => onRememberChanged(!remember),
-        borderRadius: BorderRadius.circular(8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 22,
-              height: 22,
-              child: Checkbox(
-                value: remember,
-                onChanged: (value) => onRememberChanged(value ?? false),
-                activeColor: const Color(0xFF7659DF),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
+  Widget build(BuildContext context) {
+    final soft = context.cxSoft;
+    final accent = context.cxInk;
+    final checkboxActive = context.cxAccent;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        InkWell(
+          onTap: () => onRememberChanged(!remember),
+          borderRadius: BorderRadius.circular(8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: Checkbox(
+                  value: remember,
+                  onChanged: (value) => onRememberChanged(value ?? false),
+                  activeColor: checkboxActive,
+                  side: BorderSide(
+                    color: context.cxInk.withValues(alpha: 0.3),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Remember me',
-              style: TextStyle(color: Color(0xFFC7CFE4), fontSize: 14),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Text(
+                'Remember me',
+                style: TextStyle(color: soft, fontSize: 14),
+              ),
+            ],
+          ),
         ),
-      ),
-      TextButton(
-        onPressed: onForgot,
-        style: TextButton.styleFrom(
-          foregroundColor: const Color(0xFFB7A5FF),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+        TextButton(
+          onPressed: onForgot,
+          style: TextButton.styleFrom(
+            foregroundColor: accent,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+          ),
+          child: const Text(
+            'Forgot password?',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          ),
         ),
-        child: const Text(
-          'Forgot password?',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class PremiumTextField extends StatefulWidget {
@@ -439,79 +466,83 @@ class _PremiumTextFieldState extends State<PremiumTextField> {
   bool _focused = false;
 
   @override
-  Widget build(BuildContext context) => Focus(
-    onFocusChange: (value) => setState(() => _focused = value),
-    // Only opacity of the glow animates; geometry stays fixed so typing is
-    // perfectly stable (no size/padding/scale/position changes).
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(
-              0xFF7C3AED,
-            ).withValues(alpha: _focused ? 0.15 : 0.0),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextFormField(
-        controller: widget.controller,
-        validator: widget.validator,
-        keyboardType: widget.keyboardType,
-        textInputAction: widget.textInputAction,
-        obscureText: widget.obscureText && _obscured,
-        autocorrect: !widget.obscureText,
-        enableSuggestions: !widget.obscureText,
-        style: const TextStyle(fontSize: 15),
-        decoration: InputDecoration(
-          labelText: widget.label,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 20,
-          ),
-          prefixIcon: Icon(
-            widget.icon,
-            color: const Color(0xFF8995B5),
-            size: 21,
-          ),
-          suffixIcon: widget.obscureText
-              ? IconButton(
-                  onPressed: () => setState(() => _obscured = !_obscured),
-                  icon: Icon(
-                    _obscured
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    color: const Color(0xFF8995B5),
-                  ),
-                )
-              : null,
-          filled: true,
-          fillColor: const Color(0xFF151B2E).withValues(alpha: 0.5),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
+  Widget build(BuildContext context) {
+    final textColor = context.cxInk;
+    final labelColor = context.cxSoft;
+    final hintColor = context.cxMuted;
+    final iconColor = context.cxMuted;
+    final glowColor = context.cxAccent;
+    final glowAlpha = 0.12;
+    final fillColor = context.cxSurface.withValues(alpha: 0.5);
+    final borderColor = context.cxInk.withValues(alpha: 0.08);
+    final focusBorder = context.cxAccentSoft.withValues(alpha: 0.6);
+    return Focus(
+      onFocusChange: (value) => setState(() => _focused = value),
+      // Only opacity of the glow animates; geometry stays fixed so typing is
+      // perfectly stable (no size/padding/scale/position changes).
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: glowColor.withValues(alpha: _focused ? glowAlpha : 0.0),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
             ),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.08),
+          ],
+        ),
+        child: TextFormField(
+          controller: widget.controller,
+          validator: widget.validator,
+          keyboardType: widget.keyboardType,
+          textInputAction: widget.textInputAction,
+          obscureText: widget.obscureText && _obscured,
+          autocorrect: !widget.obscureText,
+          enableSuggestions: !widget.obscureText,
+          style: TextStyle(fontSize: 15, color: textColor),
+          decoration: InputDecoration(
+            labelText: widget.label,
+            labelStyle: TextStyle(color: labelColor, fontSize: 14),
+            floatingLabelStyle: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w600,
             ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(
-              color: const Color(0xFF9D82FF).withValues(alpha: 0.6),
-              width: 1.5,
+            hintStyle: TextStyle(color: hintColor, fontSize: 15),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 20,
+            ),
+            prefixIcon: Icon(widget.icon, color: iconColor, size: 21),
+            suffixIcon: widget.obscureText
+                ? IconButton(
+                    onPressed: () => setState(() => _obscured = !_obscured),
+                    icon: Icon(
+                      _obscured
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: iconColor,
+                    ),
+                  )
+                : null,
+            filled: true,
+            fillColor: fillColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(color: borderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(color: borderColor),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(18),
+              borderSide: BorderSide(color: focusBorder, width: 1.5),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class PrimaryButton extends StatefulWidget {
@@ -531,81 +562,93 @@ class _PrimaryButtonState extends State<PrimaryButton> {
   bool _pressed = false;
 
   @override
-  Widget build(BuildContext context) => AnimatedScale(
-    scale: _pressed ? 0.985 : 1.0,
-    duration: const Duration(milliseconds: 100),
-    curve: Curves.easeOut,
-    child: SizedBox(
-      height: 58,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF7C3AED), Color(0xFF2563EB), Color(0xFF22D3EE)],
+  Widget build(BuildContext context) {
+    final light = context.isLightTheme;
+    return AnimatedScale(
+      scale: _pressed ? 0.985 : 1.0,
+      duration: const Duration(milliseconds: 100),
+      curve: Curves.easeOut,
+      child: SizedBox(
+        height: 58,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: light ? context.cxInk : null,
+            gradient: light
+                ? null
+                : LinearGradient(
+                    colors: [
+                      context.cxAccent,
+                      context.cxAccent,
+                      context.cxAccentSoft,
+                    ],
+                  ),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: (light
+                        ? context.cxInk
+                        : context.cxAccent)
+                    .withValues(alpha: 0.35),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: widget.onPressed,
-            onHighlightChanged: (value) => setState(() => _pressed = value),
-            child: Center(
-              child: Text(
-                widget.label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                  letterSpacing: 0.3,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: widget.onPressed,
+              onHighlightChanged: (value) => setState(() => _pressed = value),
+              child: Center(
+                child: Text(
+                  widget.label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    letterSpacing: 0.1,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class AuthDivider extends StatelessWidget {
   const AuthDivider({super.key});
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: Divider(
-          color: Colors.white.withValues(alpha: 0.06),
-          thickness: 0.5,
+  Widget build(BuildContext context) {
+    final lineColor = context.cxInk.withValues(alpha: 0.06);
+    final labelColor = context.cxMuted;
+    return Row(
+      children: [
+        Expanded(
+          child: Divider(color: lineColor, thickness: 0.5),
         ),
-      ),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Text(
-          'or continue with',
-          style: TextStyle(
-            color: const Color(0xFF8995B5).withValues(alpha: 0.7),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            'or continue with',
+            style: TextStyle(
+              color: labelColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
           ),
         ),
-      ),
-      Expanded(
-        child: Divider(
-          color: Colors.white.withValues(alpha: 0.06),
-          thickness: 0.5,
+        Expanded(
+          child: Divider(color: lineColor, thickness: 0.5),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class AuthFooter extends StatelessWidget {
@@ -620,40 +663,41 @@ class AuthFooter extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      Text(
-        prompt,
-        style: TextStyle(
-          color: const Color(0xFFB9C3DC).withValues(alpha: 0.7),
-          fontSize: 14,
+  Widget build(BuildContext context) {
+    final promptColor = context.cxSoft;
+    final actionColor = context.cxInk;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          prompt,
+          style: TextStyle(color: promptColor, fontSize: 14),
         ),
-      ),
-      const SizedBox(width: 6),
-      TextButton(
-        onPressed: onTap,
-        style: TextButton.styleFrom(
-          foregroundColor: const Color(0xFFDDE3F4),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              action,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+        const SizedBox(width: 6),
+        TextButton(
+          onPressed: onTap,
+          style: TextButton.styleFrom(
+            foregroundColor: actionColor,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                action,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.arrow_forward, size: 16),
-          ],
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_forward, size: 16),
+            ],
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class AuthInterest {
@@ -685,42 +729,58 @@ class InterestChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => ChoiceChip(
-    label: Text(interest.label),
-    avatar: Icon(
-      interest.icon,
-      size: 17,
-      color: selected ? Colors.white : const Color(0xFFB7A5FF),
-    ),
-    selected: selected,
-    onSelected: (_) => onTap(),
-    selectedColor: const Color(0xFF7659DF),
-    backgroundColor: const Color(0xFF171F35),
-    side: BorderSide(
-      color: selected ? Colors.transparent : const Color(0xFF2C3650),
-    ),
-    labelStyle: TextStyle(
-      color: selected ? Colors.white : const Color(0xFFDDE3F4),
-      fontWeight: FontWeight.w600,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final unselectedIcon = context.cxInk;
+    final selectedColor = context.cxAccent;
+    final backgroundColor = context.cxSurface;
+    final borderColor = context.cxLine;
+    final labelColor = context.cxInk;
+    return ChoiceChip(
+      label: Text(interest.label),
+      avatar: Icon(
+        interest.icon,
+        size: 17,
+        color: selected ? Colors.white : unselectedIcon,
+      ),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      selectedColor: selectedColor,
+      backgroundColor: backgroundColor,
+      side: BorderSide(
+        color: selected ? Colors.transparent : borderColor,
+      ),
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : labelColor,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
 }
 
 class VerificationNote extends StatelessWidget {
   const VerificationNote({super.key});
   @override
-  Widget build(BuildContext context) => const Row(
-    children: [
-      Icon(Icons.verified_user_outlined, size: 17, color: Color(0xFF77DFF1)),
-      SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          'Phone verification keeps Conexo safer for everyone.',
-          style: TextStyle(color: Color(0xFFB9C3DC), fontSize: 12),
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          Icons.verified_user_outlined,
+          size: 17,
+          color: context.cxSuccess,
         ),
-      ),
-    ],
-  );
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            'Phone verification keeps Conexo safer for everyone.',
+            style: TextStyle(
+              color: context.cxSoft,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 abstract final class AuthTextStyles {
@@ -728,5 +788,5 @@ abstract final class AuthTextStyles {
     fontSize: 17,
     fontWeight: FontWeight.w800,
   );
-  static const helper = TextStyle(color: Color(0xFFB9C3DC), fontSize: 13);
+  static const helper = TextStyle(color: AppPalette.inkSoft, fontSize: 13);
 }

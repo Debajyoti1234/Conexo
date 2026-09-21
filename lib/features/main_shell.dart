@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../app/theme/app_theme.dart';
+
 import 'home_screen.dart';
 import 'notifications/notification_controller.dart';
 import 'secondary_screens.dart';
@@ -91,6 +93,7 @@ class MainShellState extends State<MainShell> {
             child: FloatingNavDock(
               selectedIndex: _selectedIndex,
               onSelected: switchToTab,
+              light: Theme.of(context).brightness == Brightness.light,
             ),
           ),
         ],
@@ -138,18 +141,21 @@ class FloatingNavDock extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelected,
     this.profileImage,
+    this.light = false,
     super.key,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
+  /// Presentation only: when true the dock renders in a light, ink-on-white
+  /// style for screens with a white canvas (Plans). Layout is unchanged.
+  final bool light;
+
   /// Future-ready swap point: when a user avatar exists, pass it here and the
   /// Profile tab shows a circular avatar; otherwise it falls back gracefully
   /// to [Icons.person_rounded]. No refactoring needed when this is wired up.
   final ImageProvider? profileImage;
-
-  static const _accent = Color(0xFF8B5CF6);
 
   // Optical values are intentionally small (±4% scale, ≤0.5px nudge) so all
   // five glyphs read at the same visual weight without changing the layout.
@@ -178,6 +184,9 @@ class FloatingNavDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = light
+        ? context.cxInk
+        : Theme.of(context).colorScheme.primary;
     return SafeArea(
       top: false,
       child: Padding(
@@ -191,24 +200,36 @@ class FloatingNavDock extends StatelessWidget {
                 height: 68,
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF141B2E).withValues(alpha: .35),
+                  color: light
+                      ? Colors.white.withValues(alpha: .86)
+                      : const Color(0xFF141B2E).withValues(alpha: .35),
                   borderRadius: BorderRadius.circular(30),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: .1),
+                    color: light
+                        ? context.cxLine
+                        : Colors.white.withValues(alpha: .1),
                     width: 1.2,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .28),
-                      blurRadius: 34,
-                      offset: const Offset(0, 16),
-                    ),
-                    BoxShadow(
-                      color: _accent.withValues(alpha: .1),
-                      blurRadius: 28,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+                  boxShadow: light
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .12),
+                            blurRadius: 30,
+                            offset: const Offset(0, 14),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .28),
+                            blurRadius: 34,
+                            offset: const Offset(0, 16),
+                          ),
+                          BoxShadow(
+                            color: accent.withValues(alpha: .1),
+                            blurRadius: 28,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -218,7 +239,8 @@ class FloatingNavDock extends StatelessWidget {
                         key: ValueKey(_items[i].label),
                         item: _items[i],
                         selected: i == selectedIndex,
-                        accent: _accent,
+                        accent: accent,
+                        light: light,
                         avatar: i == _items.length - 1 ? profileImage : null,
                         onTap: () => onSelected(i),
                       ),
@@ -243,6 +265,7 @@ class _NavButton extends StatelessWidget {
     required this.accent,
     required this.onTap,
     this.avatar,
+    this.light = false,
     super.key,
   });
 
@@ -251,6 +274,9 @@ class _NavButton extends StatelessWidget {
   final Color accent;
   final VoidCallback onTap;
 
+  /// Ink-on-white rendering for light canvases. Presentation only.
+  final bool light;
+
   /// When non-null (Profile tab only), a circular avatar replaces the glyph.
   final ImageProvider? avatar;
 
@@ -258,8 +284,10 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor =
-        selected ? Colors.white : Colors.white.withValues(alpha: .5);
+    const ink = Color(0xFF1B1B1F);
+    final iconColor = light
+        ? (selected ? Colors.white : ink.withValues(alpha: .55))
+        : (selected ? Colors.white : Colors.white.withValues(alpha: .5));
 
     // Icon ↔ avatar swap fades gracefully (allowed FadeTransition) so the
     // Profile fallback is seamless.
@@ -308,7 +336,8 @@ class _NavButton extends StatelessWidget {
               transformAlignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: selected
+                color: light && selected ? ink : null,
+                gradient: selected && !light
                     ? LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -318,13 +347,15 @@ class _NavButton extends StatelessWidget {
                         ],
                       )
                     : null,
-                border: selected
+                border: selected && !light
                     ? Border.all(color: accent.withValues(alpha: .55))
                     : null,
                 boxShadow: selected
                     ? [
                         BoxShadow(
-                          color: accent.withValues(alpha: .45),
+                          color: light
+                              ? Colors.black.withValues(alpha: .18)
+                              : accent.withValues(alpha: .45),
                           blurRadius: 18,
                           offset: const Offset(0, 6),
                         ),

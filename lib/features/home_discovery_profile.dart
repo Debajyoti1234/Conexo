@@ -3,7 +3,8 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import '../app/theme/app_theme.dart';
 
 import '../../core/supabase/auth_service.dart';
 import 'home_discovery_animations.dart';
@@ -12,8 +13,6 @@ import 'profile/discovery_data.dart';
 import 'profile/profile_data.dart';
 import 'profile/profile_photo_resolver.dart';
 
-const _kAccent = Color(0xFF8B5CF6);
-const _kAccent2 = Color(0xFF587BE2);
 
 class ImmersiveProfileView extends StatefulWidget {
   const ImmersiveProfileView({
@@ -54,8 +53,8 @@ class _ImmersiveProfileViewState extends State<ImmersiveProfileView> {
       onRefresh: widget.onRefresh,
       // Push the indicator below the floating greeting/filter pill.
       displacement: 96,
-      color: const Color(0xFFB7A5FF),
-      backgroundColor: const Color(0xFF141C31),
+      color: context.cxInk,
+      backgroundColor: context.cxSurface,
       child: CustomScrollView(
         controller: _scrollController,
         physics: const BouncingScrollPhysics(
@@ -76,6 +75,21 @@ class _ImmersiveProfileViewState extends State<ImmersiveProfileView> {
           // premium glass surfaces rather than one continuous card.
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
           SliverToBoxAdapter(child: _DetailsSection(profile: widget.profile)),
+          // Hinge-style: the rest of the photos stack vertically below the
+          // details so the whole profile reads top to bottom.
+          for (final photo in widget.profile.photos.skip(1))
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 16, 14, 0),
+                child: _StackedPhotoCard(
+                  key: ValueKey(
+                    'stack_${widget.profile.name}_${photo.remoteUrl ?? photo.assetPath}',
+                  ),
+                  photo: photo,
+                  profile: widget.profile,
+                ),
+              ),
+            ),
           const SliverToBoxAdapter(child: SizedBox(height: 200)),
         ],
       ),
@@ -105,11 +119,11 @@ class _HeroSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final heroHeight = media.size.height - media.padding.top;
-    final screenHeight = media.size.height;
-    final identityTop = screenHeight * 0.70;
+    // A shorter, editorial first photo (roughly 62% of the screen) so the
+    // details start above the fold and the page scrolls like Hinge.
+    final heroHeight = (media.size.height * 0.62).clamp(420.0, 640.0);
     return SizedBox(
-      height: heroHeight.clamp(480.0, 1000.0),
+      height: heroHeight,
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(34)),
         child: Stack(
@@ -121,10 +135,30 @@ class _HeroSection extends StatelessWidget {
               onProfilePrevious: onProfilePrevious,
               onProfileNext: onProfileNext,
             ),
+            // Soft editorial scrim: keeps the lower third calm so the glass
+            // identity card and the round controls read cleanly on any photo.
+            const Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x00000000),
+                        Color(0x00000000),
+                        Color(0x66000000),
+                      ],
+                      stops: [0.0, 0.55, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+            ),
             Positioned(
               left: 22,
               right: 22,
-              top: identityTop,
+              bottom: 20,
               child: IgnorePointer(
                 child: _IdentityBlock(
                   profile: profile,
@@ -158,9 +192,6 @@ class _PhotoGallery extends StatefulWidget {
 }
 
 class _PhotoGalleryState extends State<_PhotoGallery> {
-  late final PageController _controller;
-  int _photoIndex = 0;
-
   double _dragStartX = 0;
   double _dragLastX = 0;
 
@@ -187,58 +218,17 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
     }
   }
 
-  List<ProfilePhoto> get _photos {
-    final photos = widget.profile.photos;
-    if (photos.isEmpty) return const [];
-    if (photos.length > 1) return photos;
-    return [photos.first, photos.first, photos.first];
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = PageController();
-  }
-
-  @override
-  void didUpdateWidget(_PhotoGallery oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.profile.name != widget.profile.name && _photoIndex != 0) {
-      _photoIndex = 0;
-      if (_controller.hasClients) {
-        _controller.jumpToPage(0);
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _goToPhoto(int target) {
-    final count = _photos.length;
-    if (count <= 1) return;
-    final clamped = target.clamp(0, count - 1);
-    if (clamped == _photoIndex) return;
-    HapticFeedback.lightImpact();
-    _controller.animateToPage(
-      clamped,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final photos = _photos;
-    final count = photos.length;
-
-    if (count == 0) {
+    final photos = widget.profile.photos;
+    if (photos.isEmpty) {
       return _FallbackPortrait(profile: widget.profile);
     }
 
+    // Only the first photo lives in the hero. The remaining photos are laid
+    // out vertically below the details (see ImmersiveProfileView), so the
+    // profile reads as one top-to-bottom scroll instead of a slide gallery.
+    // The horizontal swipe still moves between people.
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onHorizontalDragStart: (details) {
@@ -249,55 +239,35 @@ class _PhotoGalleryState extends State<_PhotoGallery> {
         _dragLastX = details.globalPosition.dx;
       },
       onHorizontalDragEnd: _handleProfileSwipe,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          PageView.builder(
-            controller: _controller,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: count,
-            onPageChanged: (i) => setState(() => _photoIndex = i),
-            itemBuilder: (context, i) => _HeroPhoto(
-              key: ValueKey('photo_${widget.profile.name}_$i'),
-              photo: photos[i],
-              profile: widget.profile,
-            ),
-          ),
-          if (count > 1)
-            Positioned.fill(
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 40,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTap: () => _goToPhoto(_photoIndex - 1),
-                      child: Container(color: Colors.transparent),
-                    ),
-                  ),
-                  const Spacer(flex: 20),
-                  Expanded(
-                    flex: 40,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTap: () => _goToPhoto(_photoIndex + 1),
-                      child: Container(color: Colors.transparent),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (count > 1)
-            Positioned(
-              top: MediaQuery.of(context).padding.top + 66,
-              left: 20,
-              right: 20,
-              child: _FloatingProgressBars(
-                count: count,
-                activeIndex: _photoIndex,
-              ),
-            ),
-        ],
+      child: _HeroPhoto(
+        key: ValueKey('photo_${widget.profile.name}_0'),
+        photo: photos.first,
+        profile: widget.profile,
+      ),
+    );
+  }
+}
+
+/// A rounded, fixed-height photo card used for the vertically stacked photos
+/// below the hero. Reuses [_HeroPhoto] so loading and fallbacks are identical.
+class _StackedPhotoCard extends StatelessWidget {
+  const _StackedPhotoCard({
+    required this.photo,
+    required this.profile,
+    super.key,
+  });
+
+  final ProfilePhoto photo;
+  final DiscoveryProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: SizedBox(
+        height: 440,
+        width: double.infinity,
+        child: _HeroPhoto(photo: photo, profile: profile),
       ),
     );
   }
@@ -489,12 +459,12 @@ class _HeroPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_kAccent, _kAccent2],
+          colors: [context.cxAccent, context.cxAccent],
         ),
       ),
       child: Center(
@@ -504,64 +474,6 @@ class _HeroPlaceholder extends StatelessWidget {
   }
 }
 
-class _FloatingProgressBars extends StatelessWidget {
-  const _FloatingProgressBars({required this.count, required this.activeIndex});
-
-  final int count;
-  final int activeIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var i = 0; i < count; i++)
-          Expanded(
-            child: Padding(
-              key: ValueKey('progress_bar_$i'),
-              padding: EdgeInsets.only(right: i == count - 1 ? 0 : 4),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(2),
-                child: Stack(
-                  children: [
-                    Container(
-                      height: 2,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: .35),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    AnimatedFractionallySizedBox(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOutCubic,
-
-                      widthFactor: i < activeIndex
-                          ? 1.0
-                          : (i == activeIndex ? 1.0 : 0.0),
-                      child: Container(
-                        height: 2,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(2),
-                          color: Colors.white.withValues(alpha: .85),
-                          boxShadow: i == activeIndex
-                              ? [
-                                  BoxShadow(
-                                    color: Colors.white.withValues(alpha: .3),
-                                    blurRadius: 4,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
 
 class _FallbackPortrait extends StatelessWidget {
   const _FallbackPortrait({required this.profile});
@@ -570,12 +482,12 @@ class _FallbackPortrait extends StatelessWidget {
 
   Color get _baseColor {
     final colors = [
-      Color(0xFFE36D9D),
-      Color(0xFF22BFE0),
-      Color(0xFFF09A65),
-      Color(0xFF6C8EF5),
-      Color(0xFFB78AF6),
-      Color(0xFF47D7A5),
+      Color(0xFFD9485F),
+      Color(0xFF0E8FA8),
+      Color(0xFFD07A3A),
+      Color(0xFF2F5FD0),
+      Color(0xFF1B1B1F),
+      Color(0xFF1F9D6B),
     ];
     return colors[profile.name.hashCode.abs() % colors.length];
   }
@@ -594,7 +506,7 @@ class _FallbackPortrait extends StatelessWidget {
               colors: [
                 Color.lerp(base, Colors.white, 0.38) ?? base,
                 base,
-                Color.lerp(base, const Color(0xFF0A0F1F), 0.55) ?? base,
+                Color.lerp(base, const Color(0xFFFFFFFF), 0.55) ?? base,
               ],
               stops: const [0.0, 0.5, 1.0],
             ),
@@ -605,7 +517,7 @@ class _FallbackPortrait extends StatelessWidget {
             gradient: RadialGradient(
               center: const Alignment(-0.4, -0.55),
               radius: 1.1,
-              colors: [Colors.white.withValues(alpha: .28), Colors.transparent],
+              colors: [context.cxInk.withValues(alpha: .28), Colors.transparent],
               stops: const [0.0, 0.7],
             ),
           ),
@@ -615,8 +527,9 @@ class _FallbackPortrait extends StatelessWidget {
             profile.name.isEmpty ? '?' : profile.name.characters.first,
             style: TextStyle(
               fontSize: 128,
-              fontWeight: FontWeight.w800,
-              color: Colors.white.withValues(alpha: .34),
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w600,
+              color: context.cxInk.withValues(alpha: .34),
               letterSpacing: -2,
             ),
           ),
@@ -666,7 +579,8 @@ class _IdentityBlock extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 34,
-                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Fraunces',
+                  fontWeight: FontWeight.w600,
                   letterSpacing: -0.8,
                   color: Colors.white,
                   shadows: [Shadow(color: Color(0x99000000), blurRadius: 18)],
@@ -694,7 +608,7 @@ class _IdentityBlock extends StatelessWidget {
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 letterSpacing: .1,
-                color: Color(0xFFEAEEF9),
+                color: Colors.white,
                 shadows: [Shadow(color: Color(0x99000000), blurRadius: 12)],
               ),
             ),
@@ -705,7 +619,7 @@ class _IdentityBlock extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFEAEEF9).withValues(alpha: .7),
+                  color: Colors.white.withValues(alpha: .7),
                   letterSpacing: .1,
                   shadows: [Shadow(color: Color(0x99000000), blurRadius: 12)],
                 ),
@@ -714,7 +628,7 @@ class _IdentityBlock extends StatelessWidget {
               Text(
                 distance,
                 style: const TextStyle(
-                  color: Color(0xFFEAEEF9),
+                  color: Colors.white,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   letterSpacing: .1,
@@ -731,7 +645,7 @@ class _IdentityBlock extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFFEAEEF9),
+              color: Colors.white,
               fontSize: 13,
               fontWeight: FontWeight.w500,
               letterSpacing: .2,
@@ -747,25 +661,32 @@ class _IdentityBlock extends StatelessWidget {
       ],
     );
 
+    // Same frosted glass as the connect button: faint white gradient over the
+    // blurred photo with a thin luminous rim, so card and button read as one.
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF141C31).withValues(alpha: .78),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: .34),
+                Colors.white.withValues(alpha: .10),
+              ],
+            ),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: .12)),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: .45),
+              width: 1.2,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: .30),
-                blurRadius: 28,
-                offset: const Offset(0, 10),
-              ),
-              BoxShadow(
-                color: const Color(0xFF7C3AED).withValues(alpha: .12),
+                color: Colors.black.withValues(alpha: .18),
                 blurRadius: 20,
-                offset: const Offset(0, 4),
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -786,9 +707,9 @@ class _ActiveNowBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .38),
+        color: Colors.black.withValues(alpha: .28),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: .14)),
+        border: Border.all(color: Colors.white.withValues(alpha: .30)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -798,8 +719,8 @@ class _ActiveNowBadge extends StatelessWidget {
             height: 8,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF47D7A5),
-              boxShadow: [BoxShadow(color: Color(0xFF47D7A5), blurRadius: 6)],
+              color: Color(0xFF1F9D6B),
+              boxShadow: [BoxShadow(color: Color(0xFF1F9D6B), blurRadius: 6)],
             ),
           ),
           const SizedBox(width: 7),
@@ -831,19 +752,19 @@ class _ConnectStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = switch (connection?.status) {
-      ConnectionStatus.accepted => ('Connected', const Color(0xFF47D7A5)),
+      ConnectionStatus.accepted => ('Connected', const Color(0xFF1F9D6B)),
       ConnectionStatus.pending when connection != null => (
         connection!.requesterId == AuthService.currentUser?.id
             ? 'Pending'
             : 'Incoming request',
-        const Color(0xFF22D3EE),
+        const Color(0xFF0E8FA8),
       ),
-      null when connecting => ('Sending request...', const Color(0xFFFFC24D)),
+      null when connecting => ('Sending request...', const Color(0xFFC98A1E)),
       ConnectionStatus.removed => null,
       null => null,
-      ConnectionStatus.pending => ('Pending', const Color(0xFF22D3EE)),
-      ConnectionStatus.rejected => ('Declined', const Color(0xFFFF8BAE)),
-      ConnectionStatus.cancelled => ('Cancelled', const Color(0xFF9DB2E8)),
+      ConnectionStatus.pending => ('Pending', const Color(0xFF0E8FA8)),
+      ConnectionStatus.rejected => ('Declined', const Color(0xFFD9485F)),
+      ConnectionStatus.cancelled => ('Cancelled', context.cxMuted),
     };
 
     return AnimatedSwitcher(
@@ -884,9 +805,9 @@ class _DetailsSection extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF141C31).withValues(alpha: .82),
+              color: context.cxSurface.withValues(alpha: .82),
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.white.withValues(alpha: .10)),
+              border: Border.all(color: context.cxInk.withValues(alpha: .10)),
             ),
             padding: const EdgeInsets.fromLTRB(22, 14, 22, 30),
             child: Column(
@@ -906,7 +827,7 @@ class _DetailsSection extends StatelessWidget {
           width: 44,
           height: 4,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .22),
+            color: Color(0xFF1B1B1F).withValues(alpha: .22),
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -944,12 +865,12 @@ class _DetailsSection extends StatelessWidget {
     // Never leave the information card empty — keep it premium and intentional.
     if (sections.length == 1) {
       sections.add(
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: 22),
           child: Text(
             'No additional details shared yet.',
             style: TextStyle(
-              color: Color(0xFFAEB9D6),
+              color: Color(0xFF5C5C66),
               fontSize: 14,
               height: 1.5,
             ),
@@ -972,15 +893,15 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 19, color: const Color(0xFFB7A5FF)),
+        Icon(icon, size: 19, color: context.cxInk),
         const SizedBox(width: 9),
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w800,
             letterSpacing: .2,
-            color: Color(0xFFEAEEF9),
+            color: context.cxInk,
           ),
         ),
       ],
@@ -1008,8 +929,8 @@ class _TextSection extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           value,
-          style: const TextStyle(
-            color: Color(0xFFC7D0E6),
+          style: TextStyle(
+            color: context.cxSoft,
             height: 1.55,
             fontSize: 14.5,
           ),
@@ -1055,16 +976,16 @@ class _DetailChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .07),
+        color: context.cxInk.withValues(alpha: .07),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: .12)),
+        border: Border.all(color: context.cxInk.withValues(alpha: .12)),
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12.5,
           fontWeight: FontWeight.w600,
-          color: Color(0xFFDDE3F4),
+          color: context.cxInk,
         ),
       ),
     );
@@ -1096,20 +1017,31 @@ class DiscoveryControls extends StatelessWidget {
     required this.connection,
     required this.connecting,
     super.key,
+    this.onSkip,
   });
 
   final VoidCallback onConnect;
   final Connection? connection;
   final bool connecting;
 
+  /// Skips to the next person. Same action as swiping the photo; exposed as a
+  /// button so users don't have to discover the gesture.
+  final VoidCallback? onSkip;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: 28),
+      padding: const EdgeInsets.symmetric(horizontal: 28),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: onSkip == null
+                ? const SizedBox(width: 60)
+                : _SkipControl(onTap: onSkip!),
+          ),
           Padding(
             padding: const EdgeInsets.only(top: 7),
             child: _ConnectControl(
@@ -1119,6 +1051,78 @@ class DiscoveryControls extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Round frosted-glass "skip" button (cross). Presentation mirrors
+/// [_ConnectControl]; tapping it forwards to [onTap] only.
+class _SkipControl extends StatefulWidget {
+  const _SkipControl({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  State<_SkipControl> createState() => _SkipControlState();
+}
+
+class _SkipControlState extends State<_SkipControl> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Skip',
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.92 : 1.0,
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          child: ClipOval(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                height: 60,
+                width: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: .34),
+                      Colors.white.withValues(alpha: .10),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .45),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .18),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: widget.onTap,
+                    child: const Icon(Icons.close_rounded, color: Colors.white, size: 26),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1183,30 +1187,32 @@ class _ConnectControlState extends State<_ConnectControl> {
           curve: Curves.easeOutCubic,
           child: ClipOval(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 320),
                 curve: Curves.easeOutCubic,
                 height: 60,
                 width: 60,
+                // Frosted glass: a faint white-to-clear gradient over the
+                // blurred photo with a thin luminous rim.
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: .10),
-                  border: Border.all(color: Colors.white.withValues(alpha: .18)),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: .34),
+                      Colors.white.withValues(alpha: .10),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: .45),
+                    width: 1.2,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: .25),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                    BoxShadow(
-                      color: const Color(0xFF7C3AED).withValues(alpha: .08),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: const Color(0xFF7C3AED).withValues(alpha: .04),
-                      blurRadius: 28,
+                      color: Colors.black.withValues(alpha: .18),
+                      blurRadius: 20,
                       offset: const Offset(0, 8),
                     ),
                   ],

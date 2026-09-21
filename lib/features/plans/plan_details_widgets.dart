@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+
+import 'plans_theme.dart';
 import 'plans_widgets.dart';
 
 
@@ -26,14 +29,14 @@ class GlassPanel extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .05),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: .10)),
+        color: context.cxCanvas,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: context.cxLine),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .28),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: Colors.black.withValues(alpha: .05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -55,17 +58,21 @@ class SectionTitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 21,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.3,
+          style: plansDisplay(
+            fontSize: 24,
+            fontWeight: FontWeight.w500,
+            letterSpacing: -0.4,
           ),
         ),
         if (subtitle != null) ...[
           const SizedBox(height: 4),
           Text(
             subtitle!,
-            style: const TextStyle(fontSize: 13, color: Color(0xFFB9C3DC)),
+            style: plansBody(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: context.cxSoft,
+            ),
           ),
         ],
       ],
@@ -92,37 +99,39 @@ class DetailChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: .10)),
+        color: context.cxSurface,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF9DB2E8)),
+          Icon(icon, size: 18, color: context.cxInk),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF9DB2E8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: plansBody(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w500,
+                    color: context.cxMuted,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFFE7ECF9),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: plansBody(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: context.cxInk,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -166,11 +175,11 @@ class _CircleGlassButtonState extends State<CircleGlassButton> {
           height: 42,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.black.withValues(alpha: .34),
-            border: Border.all(color: Colors.white.withValues(alpha: .18)),
+            color: context.cxGlass,
+            border: Border.all(color: context.cxLine),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: .3),
+                color: Colors.black.withValues(alpha: .18),
                 blurRadius: 14,
                 offset: const Offset(0, 6),
               ),
@@ -179,7 +188,7 @@ class _CircleGlassButtonState extends State<CircleGlassButton> {
           child: Icon(
             widget.icon,
             size: 20,
-            color: Colors.white,
+            color: context.cxInk,
             semanticLabel: widget.semanticLabel,
           ),
         ),
@@ -201,16 +210,16 @@ class HostStat extends StatelessWidget {
       children: [
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-          ),
+          style: plansDisplay(fontSize: 21, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF9DB2E8)),
+          style: plansBody(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: context.cxMuted,
+          ),
         ),
       ],
     );
@@ -274,12 +283,12 @@ class _ParticipantAvatarState extends State<ParticipantAvatar> {
                         shape: BoxShape.circle,
                         color: widget.accent,
                         border: Border.all(
-                          color: const Color(0xFF0B1020),
+                          color: context.cxCanvas,
                           width: 1.5,
                         ),
                       ),
                       child: const Icon(
-                        Icons.star_rounded,
+                        Icons.star_outline_rounded,
                         size: 11,
                         color: Colors.white,
                       ),
@@ -296,10 +305,10 @@ class _ParticipantAvatarState extends State<ParticipantAvatar> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: plansBody(
                     fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFCBD4EC),
+                    fontWeight: FontWeight.w500,
+                    color: context.cxSoft,
                   ),
                 ),
               ),
@@ -326,29 +335,29 @@ class ParticipantOverflow extends StatelessWidget {
           height: 54,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: const Color(0xFF232C47),
-            border: Border.all(color: Colors.white.withValues(alpha: .22)),
+            color: context.cxSurface,
+            border: Border.all(color: context.cxLine),
           ),
           alignment: Alignment.center,
           child: Text(
             '+$count',
-            style: const TextStyle(
+            style: plansBody(
               fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              color: context.cxInk,
             ),
           ),
         ),
         const SizedBox(height: 6),
-        const SizedBox(
+        SizedBox(
           width: 58,
           child: Text(
             'more',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: plansBody(
               fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF9DB2E8),
+              fontWeight: FontWeight.w500,
+              color: context.cxMuted,
             ),
           ),
         ),
@@ -376,20 +385,24 @@ class WhyJoinRow extends StatelessWidget {
             height: 22,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: accent.withValues(alpha: .2),
-              border: Border.all(color: accent.withValues(alpha: .5)),
+              color: context.cxSurface,
+              border: Border.all(color: context.cxLine),
             ),
-            child: Icon(Icons.check_rounded, size: 13, color: accent),
+            child: Icon(
+              Icons.check,
+              size: 13,
+              color: context.cxInk,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style: plansBody(
                 fontSize: 13.5,
-                height: 1.35,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFFDDE3F4),
+                height: 1.4,
+                fontWeight: FontWeight.w400,
+                color: context.cxInk,
               ),
             ),
           ),
@@ -430,9 +443,8 @@ class StaticMapPreview extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF1A2340),
-                    Color.lerp(accent, const Color(0xFF10152A), .7) ??
-                        const Color(0xFF10152A),
+                    context.cxSurface,
+                    Color.lerp(accent, Colors.white, .86) ?? context.cxSurface,
                   ],
                 ),
               ),
@@ -444,14 +456,18 @@ class StaticMapPreview extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.location_on_rounded, size: 34, color: accent),
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 34,
+                    color: context.cxInk,
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     city,
-                    style: const TextStyle(
+                    style: plansBody(
                       fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      color: context.cxInk,
                     ),
                   ),
                 ],
@@ -461,7 +477,11 @@ class StaticMapPreview extends StatelessWidget {
             Positioned(
               left: 12,
               bottom: 12,
-              child: InfoChip(emoji: '📍', label: distance),
+              child: InfoChip(
+                icon: Icons.place_outlined,
+                label: distance,
+                onLight: true,
+              ),
             ),
             // Coming soon note.
             Positioned(
@@ -473,16 +493,16 @@ class StaticMapPreview extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: .4),
+                  color: Colors.white.withValues(alpha: .92),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.white.withValues(alpha: .14)),
+                  border: Border.all(color: context.cxLine),
                 ),
-                child: const Text(
+                child: Text(
                   'Interactive maps coming soon',
-                  style: TextStyle(
+                  style: plansBody(
                     fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFDDE3F4),
+                    fontWeight: FontWeight.w500,
+                    color: context.cxSoft,
                   ),
                 ),
               ),
@@ -509,7 +529,7 @@ class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: .05)
+      ..color = Color(0xFF1B1B1F).withValues(alpha: .06)
       ..strokeWidth = 1;
     const step = 28.0;
     for (var x = 0.0; x < size.width; x += step) {
@@ -550,15 +570,15 @@ class SafetyRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 11),
         child: Row(
           children: [
-            Icon(icon, size: 19, color: const Color(0xFF9DB2E8)),
+            Icon(icon, size: 19, color: context.cxInk),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: plansBody(
                   fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFFDDE3F4),
+                  fontWeight: FontWeight.w500,
+                  color: context.cxInk,
                 ),
               ),
             ),
@@ -569,32 +589,32 @@ class SafetyRow extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .08),
+                  color: context.cxSurface,
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: const Text(
-                  'Coming Soon',
-                  style: TextStyle(
+                child: Text(
+                  'Coming soon',
+                  style: plansBody(
                     fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF9DB2E8),
+                    fontWeight: FontWeight.w500,
+                    color: context.cxMuted,
                   ),
                 ),
               )
             else if (trailingText != null)
               Text(
                 trailingText!,
-                style: const TextStyle(
+                style: plansBody(
                   fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFFB9C3DC),
+                  fontWeight: FontWeight.w500,
+                  color: context.cxSoft,
                 ),
               )
             else
-              const Icon(
-                Icons.chevron_right_rounded,
+              Icon(
+                Icons.chevron_right,
                 size: 20,
-                color: Color(0xFF6B779A),
+                color: context.cxMuted,
               ),
           ],
         ),
@@ -612,7 +632,7 @@ class PanelDivider extends StatelessWidget {
     return Divider(
       height: 1,
       thickness: 1,
-      color: Colors.white.withValues(alpha: .07),
+      color: context.cxLine,
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
+import '../../app/theme/app_theme.dart';
 import 'privacy_verification_widgets.dart' show SaveSuccessOverlay;
 import 'profile_data.dart';
 import 'profile_repository.dart';
@@ -103,7 +104,7 @@ class _DiscoveryPreferencesScreenState extends State<DiscoveryPreferencesScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to save preferences: $e'),
-          backgroundColor: const Color(0xFFE36D9D),
+          backgroundColor: const Color(0xFFD9485F),
         ),
       );
     }
@@ -131,8 +132,11 @@ class _DiscoveryPreferencesScreenState extends State<DiscoveryPreferencesScreen>
 
   @override
   Widget build(BuildContext context) {
+    final light = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
-      backgroundColor: kIsWeb ? Colors.black : Colors.transparent,
+      backgroundColor: kIsWeb
+          ? (light ? AppPalette.canvas : Colors.black)
+          : Colors.transparent,
       body: SafeArea(
         child: Stack(
           children: [
@@ -164,8 +168,8 @@ class _DiscoveryPreferencesScreenState extends State<DiscoveryPreferencesScreen>
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF8B5CF6)),
+      return Center(
+        child: CircularProgressIndicator(color: context.cxInk),
       );
     }
 
@@ -194,11 +198,11 @@ class _DiscoveryPreferencesScreenState extends State<DiscoveryPreferencesScreen>
           ],
         ),
         const SizedBox(height: 8),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 4),
           child: Text(
             'Fine-tune who you discover. More preferences are coming soon.',
-            style: TextStyle(color: Color(0xFFB9C3DC)),
+            style: TextStyle(color: context.cxSoft),
           ),
         ),
         const SizedBox(height: 22),
@@ -265,7 +269,7 @@ class _DiscoveryPreferencesScreenState extends State<DiscoveryPreferencesScreen>
 const _valueStyle = TextStyle(
   fontSize: 13.5,
   fontWeight: FontWeight.w700,
-  color: Color(0xFFB7A5FF),
+  color: Color(0xFF1B1B1F),
 );
 
 class _PrefCard extends StatelessWidget {
@@ -283,27 +287,34 @@ class _PrefCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final light = context.isLightTheme;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .04),
+        color: light
+            ? context.cxInk.withValues(alpha: .04)
+            : DarkPalette.surfaceElevated,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        border: Border.all(
+          color: light
+              ? context.cxInk.withValues(alpha: .08)
+              : DarkPalette.border,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: const Color(0xFFB7A5FF)),
+              Icon(icon, size: 20, color: context.cxInk),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFFEAEEF9),
+                    color: context.cxInk,
                   ),
                 ),
               ),
@@ -341,7 +352,7 @@ class _DistanceControls extends StatelessWidget {
               '5 km',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.white.withValues(alpha: .5),
+                color: context.cxInk.withValues(alpha: .5),
               ),
             ),
             const Spacer(),
@@ -349,7 +360,7 @@ class _DistanceControls extends StatelessWidget {
               '100 km',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.white.withValues(alpha: .5),
+                color: context.cxInk.withValues(alpha: .5),
               ),
             ),
           ],
@@ -360,8 +371,8 @@ class _DistanceControls extends StatelessWidget {
           min: 5,
           max: 100,
           divisions: 19,
-          activeColor: const Color(0xFF8B5CF6),
-          inactiveColor: Colors.white.withValues(alpha: .10),
+          activeColor: context.cxAccent,
+          inactiveColor: context.cxInk.withValues(alpha: .10),
           onChanged: (v) {
             onDistanceChanged(v.round());
           },
@@ -387,9 +398,9 @@ class _DistanceControls extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           'Current value: ${distance == null ? "Any" : "$distance km"}',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: Color(0xFFB9C3DC),
+            color: context.cxSoft,
           ),
         ),
       ],
@@ -419,13 +430,13 @@ class _DistancePresetChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFF8B5CF6).withValues(alpha: .22)
-              : Colors.white.withValues(alpha: .05),
+              ? context.cxInk.withValues(alpha: .22)
+              : context.cxInk.withValues(alpha: .05),
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
             color: selected
-                ? const Color(0xFF8B5CF6).withValues(alpha: .55)
-                : Colors.white.withValues(alpha: .10),
+                ? context.cxInk.withValues(alpha: .55)
+                : context.cxInk.withValues(alpha: .10),
           ),
         ),
         child: Text(
@@ -434,8 +445,8 @@ class _DistancePresetChip extends StatelessWidget {
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: selected
-                ? const Color(0xFFEAEEF9)
-                : const Color(0xFFB9C3DC),
+                ? context.cxInk
+                : context.cxSoft,
           ),
         ),
       ),
@@ -483,8 +494,8 @@ class _AgeRangeControls extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 16),
-            const Icon(Icons.arrow_forward_rounded,
-                color: Color(0xFFB9C3DC)),
+            Icon(Icons.arrow_forward_rounded,
+                color: context.cxSoft),
             const SizedBox(width: 16),
             Expanded(
               child: _AgeDropdown(
@@ -507,7 +518,7 @@ class _AgeRangeControls extends StatelessWidget {
               'Minimum age cannot exceed maximum age.',
               style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFFE36D9D),
+                color: Color(0xFFD9485F),
               ),
             ),
           ),
@@ -538,34 +549,34 @@ class _AgeDropdown extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: Color(0xFFB9C3DC),
+            color: context.cxSoft,
           ),
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: .05),
+            color: context.cxInk.withValues(alpha: .05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: enabled
-                  ? Colors.white.withValues(alpha: .08)
-                  : const Color(0xFFE36D9D).withValues(alpha: .5),
+                  ? context.cxInk.withValues(alpha: .08)
+                  : const Color(0xFFD9485F).withValues(alpha: .5),
             ),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: value,
               isExpanded: true,
-              dropdownColor: const Color(0xFF141B2E),
+              dropdownColor: context.cxSurface,
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: enabled
-                    ? const Color(0xFFEAEEF9)
-                    : const Color(0xFFE36D9D),
+                    ? context.cxInk
+                    : const Color(0xFFD9485F),
               ),
               items: [
                 for (final age in items)
@@ -603,13 +614,13 @@ class _InertChips extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: i == selectedIndex
-                  ? const Color(0xFF8B5CF6).withValues(alpha: .22)
-                  : Colors.white.withValues(alpha: .05),
+                  ? context.cxInk.withValues(alpha: .22)
+                  : context.cxInk.withValues(alpha: .05),
               borderRadius: BorderRadius.circular(30),
               border: Border.all(
                 color: i == selectedIndex
-                    ? const Color(0xFF8B5CF6).withValues(alpha: .55)
-                    : Colors.white.withValues(alpha: .10),
+                    ? context.cxInk.withValues(alpha: .55)
+                    : context.cxInk.withValues(alpha: .10),
               ),
             ),
             child: Text(
@@ -618,8 +629,8 @@ class _InertChips extends StatelessWidget {
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: i == selectedIndex
-                    ? const Color(0xFFEAEEF9)
-                    : const Color(0xFFB9C3DC),
+                    ? context.cxInk
+                    : context.cxSoft,
               ),
             ),
           ),
@@ -650,6 +661,11 @@ class _SaveButtonState extends State<_SaveButton> {
   @override
   Widget build(BuildContext context) {
     final active = widget.enabled && !widget.loading;
+    final light = context.isLightTheme;
+    final ctaColors = light
+        ? const [Color(0xFF1B1B1F), Color(0xFF1B1B1F)]
+        : const [Color(0xFF8B5CF6), Color(0xFF7659DF)];
+    final glow = light ? context.cxInk : const Color(0xFF8B5CF6);
     return GestureDetector(
       onTapDown: active ? (_) => setState(() => _pressed = true) : null,
       onTapUp: active ? (_) => setState(() => _pressed = false) : null,
@@ -666,14 +682,12 @@ class _SaveButtonState extends State<_SaveButton> {
             height: 56,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF8B5CF6), Color(0xFF587BE2)],
-              ),
+              gradient: LinearGradient(colors: ctaColors),
               borderRadius: BorderRadius.circular(16),
               boxShadow: active
                   ? [
                       BoxShadow(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: .5),
+                        color: glow.withValues(alpha: .5),
                         blurRadius: 24,
                         offset: const Offset(0, 10),
                       ),
