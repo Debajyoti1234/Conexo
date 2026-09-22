@@ -194,10 +194,12 @@ class VerifyFailedView extends StatelessWidget {
     required this.onReviewTips,
     super.key,
     this.subtitle,
+    this.onManualVerify,
   });
 
   final VoidCallback onRetry;
   final VoidCallback onReviewTips;
+  final VoidCallback? onManualVerify;
   final String? subtitle;
 
   @override
@@ -218,6 +220,12 @@ class VerifyFailedView extends StatelessWidget {
       cta: Column(
         children: [
           VerifyCta(label: 'Try Again', onTap: onRetry),
+          const SizedBox(height: 6),
+          if (onManualVerify != null)
+            VerifyTextLink(
+              label: 'Manual Verification',
+              onTap: onManualVerify!,
+            ),
           const SizedBox(height: 6),
           VerifyTextLink(label: 'Review photo tips', onTap: onReviewTips),
         ],

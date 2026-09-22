@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/services/image_normalizer.dart';
 import '../../../core/supabase/auth_service.dart';
 import '../face_verification_client.dart';
+import 'manual_verification_screen.dart';
 import 'verification_components.dart';
 import 'verification_status_view.dart';
 import 'verification_theme.dart';
@@ -155,6 +156,12 @@ class _ThreeAngleCaptureScreenState extends State<ThreeAngleCaptureScreen> {
     });
   }
 
+  Future<void> _onManualVerify() async {
+    await Navigator.of(context).push(
+      manualVerificationRoute(const ManualVerificationScreen()),
+    );
+  }
+
   String _mapReason(String reason, String? angle) {
     final where = switch (angle) {
       'front' => ' on the front view',
@@ -234,6 +241,7 @@ return Scaffold(
             subtitle: _failSubtitle,
             onRetry: _retryAll,
             onReviewTips: () => setState(() => _phase = _Phase.tips),
+            onManualVerify: _onManualVerify,
           ),
         );
       case _Phase.tips:

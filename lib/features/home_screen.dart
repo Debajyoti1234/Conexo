@@ -11,6 +11,7 @@ import '../../core/services/push_notification_service.dart';
 import '../../core/supabase/auth_service.dart';
 import 'home_discovery_animations.dart';
 import 'home_discovery_connect.dart';
+import 'home_discovery_loading.dart';
 import 'home_discovery_profile.dart';
 import 'home_discovery_skeleton.dart';
 import 'profile/connection_data.dart';
@@ -19,123 +20,6 @@ import 'profile/discovery_data.dart';
 import 'profile/discovery_repository.dart';
 import 'profile/profile_photo_resolver.dart';
 import 'profile/session_aware_profile_repository.dart';
-
-class _DiscoveryPreparationState extends StatefulWidget {
-  const _DiscoveryPreparationState({super.key});
-
-  @override
-  State<_DiscoveryPreparationState> createState() =>
-      _DiscoveryPreparationStateState();
-}
-
-class _DiscoveryPreparationStateState extends State<_DiscoveryPreparationState>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final List<Animation<double>> _animations;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1800),
-      vsync: this,
-    );
-    _animations = List.generate(4, (i) {
-      final start = 0.08 + i * 0.22;
-      final end = (start + 0.18).clamp(0.0, 1.0);
-      return CurvedAnimation(
-        parent: _controller,
-        curve: Interval(start, end, curve: Curves.easeOutCubic),
-      );
-    });
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: EntranceFade(
-        offset: const Offset(0, 0.04),
-        scaleFrom: 0.99,
-        duration: const Duration(milliseconds: 600),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 36),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Conexo',
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontFamily: 'Fraunces',
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.6,
-                    color: context.cxInk.withValues(alpha: .92),
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withValues(alpha: .55),
-                        blurRadius: 22,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 52),
-                _PrepLine(text: 'Gathering people', animation: _animations[0]),
-                const SizedBox(height: 10),
-                _PrepLine(text: 'near you...', animation: _animations[1]),
-                const SizedBox(height: 52),
-                _PrepLine(text: 'Preparing your', animation: _animations[2]),
-                const SizedBox(height: 10),
-                _PrepLine(text: 'discovery feed', animation: _animations[3]),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PrepLine extends StatelessWidget {
-  const _PrepLine({required this.text, required this.animation});
-
-  final String text;
-  final Animation<double> animation;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        return Opacity(
-          opacity: animation.value,
-          child: Transform.translate(
-            offset: Offset(0, 14 * (1 - animation.value)),
-            child: child,
-          ),
-        );
-      },
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.15,
-          color: context.cxInk.withValues(alpha: .68),
-          height: 1.45,
-        ),
-      ),
-    );
-  }
-}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -437,8 +321,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               );
             },
-            child: _preparing
-                ? const _DiscoveryPreparationState(
+             child: _preparing
+                ? const DiscoveryPreparationState(
                     key: ValueKey<String>('preparation'),
                   )
                 : _loading

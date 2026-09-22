@@ -74,27 +74,37 @@ class VerifiedBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 8 : 10,
         vertical: compact ? 4 : 5,
       ),
       decoration: BoxDecoration(
-        color: _kVerified.withValues(alpha: .16),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: _kVerified.withValues(alpha: .55)),
+        color: _kVerified.withValues(alpha: .14),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _kVerified.withValues(alpha: .5)),
+        boxShadow: [
+          BoxShadow(
+            color: _kVerified.withValues(alpha: .12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.verified_rounded, size: compact ? 13 : 15, color: _kVerified),
+          Icon(Icons.verified_rounded, size: compact ? 12 : 14, color: _kVerified),
           SizedBox(width: compact ? 4 : 5),
           Text(
             'Verified',
             style: TextStyle(
-              fontSize: compact ? 11.5 : 12.5,
+              fontSize: compact ? 11 : 12,
               fontWeight: FontWeight.w700,
               color: _kVerified,
+              letterSpacing: 0.2,
             ),
           ),
         ],
@@ -104,15 +114,15 @@ class VerifiedBadge extends StatelessWidget {
 }
 
 // ── Owner header badges (privacy + verification) ────────────────────────────
-
+ 
 /// Compact privacy indicator for the owner header only: globe for public, lock
 /// for private. Tappable shortcut into Privacy & Verification.
-class _OwnerPrivacyBadge extends StatelessWidget {
-  const _OwnerPrivacyBadge({required this.visibility, this.onTap});
-
+class OwnerPrivacyBadge extends StatelessWidget {
+  const OwnerPrivacyBadge({required this.visibility, this.onTap});
+ 
   final ProfileVisibility visibility;
   final VoidCallback? onTap;
-
+ 
   @override
   Widget build(BuildContext context) {
     final isPublic = visibility == ProfileVisibility.public;
@@ -127,30 +137,37 @@ class _OwnerPrivacyBadge extends StatelessWidget {
           button: onTap != null,
           label: label,
           child: Container(
-            padding: const EdgeInsets.all(7),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: .3),
+              color: Colors.black.withValues(alpha: .35),
               shape: BoxShape.circle,
-              border: Border.all(color: context.cxInk.withValues(alpha: .28)),
+              border: Border.all(color: Colors.white.withValues(alpha: .2)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .25),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Icon(icon, size: 15, color: Colors.white),
+            child: Icon(icon, size: 16, color: Colors.white),
           ),
         ),
       ),
     );
   }
 }
-
+ 
 /// Compact verification status pill for the owner header only: Verified /
 /// Pending / Verify. Reuses the established badge visual language (translucent
 /// color fill + border + icon + label). Tappable shortcut into Privacy &
 /// Verification.
-class _OwnerVerificationBadge extends StatelessWidget {
-  const _OwnerVerificationBadge({required this.status, this.onTap});
-
+class OwnerVerificationBadge extends StatelessWidget {
+  const OwnerVerificationBadge({required this.status, this.onTap});
+ 
   final VerificationStatus status;
   final VoidCallback? onTap;
-
+ 
   @override
   Widget build(BuildContext context) {
     final (color, icon, label) = switch (status) {
@@ -176,24 +193,34 @@ class _OwnerVerificationBadge extends StatelessWidget {
       child: Semantics(
         button: onTap != null,
         label: label,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: .18),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: color.withValues(alpha: .6)),
+            color: color.withValues(alpha: .15),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: color.withValues(alpha: .5)),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: .15),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: color),
+              Icon(icon, size: 13, color: color),
               const SizedBox(width: 5),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w700,
                   color: color,
+                  letterSpacing: 0.2,
                 ),
               ),
             ],
@@ -403,12 +430,12 @@ class _ProfileHeroState extends State<ProfileHero> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          _OwnerPrivacyBadge(
+                          OwnerPrivacyBadge(
                             visibility: profile.profileVisibility,
                             onTap: widget.onOpenPrivacyVerification,
                           ),
                           const SizedBox(width: 8),
-                          _OwnerVerificationBadge(
+                          OwnerVerificationBadge(
                             status: profile.verificationStatus,
                             onTap: widget.onOpenPrivacyVerification,
                           ),

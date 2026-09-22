@@ -56,6 +56,8 @@ class ChatAttachmentService {
 
   AudioRecorder? _recorder;
   DateTime? _recordingStartedAt;
+  String? _recordingExtension;
+  String? _recordingContentType;
 
   ImageProvider? getProvider(String storagePath) {
     final entry = _cache[storagePath];
@@ -259,8 +261,25 @@ class ChatAttachmentService {
         return const ChatAttachmentResult.failure('Microphone permission denied');
       }
 
-      final tempDir = Directory.systemTemp;
-      final tempPath = '${tempDir.path}/conexo_voice_${_generateUniqueId()}.m4a';
+      final encoder = kIsWeb
+          ? (await _recorder!.isEncoderSupported(AudioEncoder.opus)
+              ? AudioEncoder.opus
+              : AudioEncoder.wav)
+          : AudioEncoder.aacLc;
+      final extension = encoder == AudioEncoder.opus
+          ? 'webm'
+          : encoder == AudioEncoder.wav
+              ? 'wav'
+              : 'm4a';
+      final contentType = encoder == AudioEncoder.opus
+          ? 'audio/webm'
+          : encoder == AudioEncoder.wav
+              ? 'audio/wav'
+              : 'audio/mp4';
+      final recorderId = _generateUniqueId();
+      final tempPath = kIsWeb
+          ? 'conexo_voice_$recorderId.$extension'
+          : '${Directory.systemTemp.path}/conexo_voice_$recorderId.$extension';
 
       if (kDebugMode) {
         debugPrint('startVoiceRecording: permission granted, starting at $tempPath');
@@ -268,7 +287,7 @@ class ChatAttachmentService {
 
       await _recorder!.start(
         RecordConfig(
-          encoder: AudioEncoder.aacLc,
+          encoder: encoder,
           sampleRate: 22050,
           bitRate: 32000,
           numChannels: 1,
@@ -277,6 +296,8 @@ class ChatAttachmentService {
       );
 
       _recordingStartedAt = DateTime.now();
+      _recordingExtension = extension;
+      _recordingContentType = contentType;
 
       return const ChatAttachmentResult.success(null);
     } on AuthException catch (e) {
@@ -297,19 +318,38 @@ class ChatAttachmentService {
         return const ChatAttachmentResult.failure('Not recording');
       }
 
-      final tempPath = await _recorder!.stop();
+      final recordedPath = await _recorder!.stop();
       _recordingStartedAt = null;
+      final extension = _recordingExtension ?? (kIsWeb ? 'webm' : 'm4a');
+      final contentType = _recordingContentType ??
+          (kIsWeb ? 'audio/webm' : 'audio/mp4');
+      _recordingExtension = null;
+      _recordingContentType = null;
 
-      if (tempPath == null || tempPath.isEmpty) {
+      if (recordedPath == null || recordedPath.isEmpty) {
         return const ChatAttachmentResult.failure('Recording empty');
       }
 
-      final file = File(tempPath);
-      if (!await file.exists()) {
-        return const ChatAttachmentResult.failure('Recording file missing');
-      }
+      final Uint8List rawBytes;
+      if (kIsWeb) {
+        if (!recordedPath.startsWith('blob:')) {
+          return const ChatAttachmentResult.failure('Recording URL is invalid');
+        }
+        final response = await http.get(Uri.parse(recordedPath));
+        if (response.statusCode != 200) {
+          return ChatAttachmentResult.failure(
+            'Failed to read recording (HTTP ${response.statusCode})',
+          );
+        }
+        rawBytes = response.bodyBytes;
+      } else {
+        final file = File(recordedPath);
+        if (!await file.exists()) {
+          return const ChatAttachmentResult.failure('Recording file missing');
+        }
 
-      final rawBytes = await file.readAsBytes();
+        rawBytes = await file.readAsBytes();
+      }
       if (rawBytes.isEmpty) {
         return const ChatAttachmentResult.failure('Recording is empty');
       }
@@ -321,7 +361,7 @@ class ChatAttachmentService {
 
       final messageId = _generateUniqueId();
       final safeConversationId = conversationId ?? 'unknown';
-      final storagePath = '$_bucket/$safeConversationId/$messageId.m4a';
+      final storagePath = '$_bucket/$safeConversationId/$messageId.$extension';
 
       if (kDebugMode) {
         debugPrint('stopVoiceRecording: uploading to $storagePath (bytes=${rawBytes.length})');
@@ -332,8 +372,8 @@ class ChatAttachmentService {
           .uploadBinary(
             storagePath,
             rawBytes,
-            fileOptions: const FileOptions(
-              contentType: 'audio/mp4',
+            fileOptions: FileOptions(
+              contentType: contentType,
               upsert: false,
             ),
           );

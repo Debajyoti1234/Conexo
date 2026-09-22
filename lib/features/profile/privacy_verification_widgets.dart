@@ -423,9 +423,8 @@ class VerificationStatusCard extends StatelessWidget {
       VerificationStatus.pending => (
           _kPending,
           Icons.hourglass_top_rounded,
-          'Verification pending',
-          'Your verification is being reviewed. This usually takes a little '
-              'while.',
+          'Under Review',
+          'We are reviewing your verification.\nIt will take 24–72 hours.',
         ),
       VerificationStatus.notVerified => (
           context.cxAccent,

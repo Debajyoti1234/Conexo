@@ -44,6 +44,7 @@ class AdminUserDetail {
     this.messagesSentCount = 0,
     this.safetyReportCount = 0,
     this.blockCount = 0,
+    this.profileUpdatedAt,
   });
 
   factory AdminUserDetail.fromMap(Map<String, dynamic> row) {
@@ -126,6 +127,7 @@ class AdminUserDetail {
       messagesSentCount: toInt(row['messages_sent_count']),
       safetyReportCount: toInt(row['safety_report_count']),
       blockCount: toInt(row['block_count']),
+      profileUpdatedAt: toDate(row['profile_updated_at']),
     );
   }
 
@@ -173,4 +175,5 @@ class AdminUserDetail {
   final int messagesSentCount;
   final int safetyReportCount;
   final int blockCount;
+  final DateTime? profileUpdatedAt;
 }

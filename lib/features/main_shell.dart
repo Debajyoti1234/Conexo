@@ -3,7 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../app/theme/app_theme.dart';
-
+import '../features/profile/profile_photo_resolver.dart';
+import '../features/profile/session_aware_profile_repository.dart';
 import 'home_screen.dart';
 import 'notifications/notification_controller.dart';
 import 'secondary_screens.dart';
@@ -52,11 +53,36 @@ class MainShellState extends State<MainShell> {
   /// Tracks the last handled pulse so a rebuild does not re-show the toast.
   int _lastHandledPulse = 0;
 
+  /// The resolved profile photo for the Profile tab avatar.
+  String? _profileAvatarUrl;
+
   @override
   void initState() {
     super.initState();
     _notifications.pulseTrigger.addListener(_onPulse);
     _notifications.start();
+    _loadProfileAvatar();
+  }
+
+  Future<void> _loadProfileAvatar() async {
+    try {
+      final repository = const SessionAwareProfileRepository();
+      final profile = await repository.loadProfile();
+      if (profile != null && mounted) {
+        final primaryPhoto = profile.primaryPhoto;
+        if (primaryPhoto != null && primaryPhoto.remoteUrl != null) {
+          final resolver = ProfilePhotoResolver.instance;
+          final resolved = await resolver.resolvePhoto(primaryPhoto.remoteUrl!);
+          if (mounted) {
+            setState(() {
+              _profileAvatarUrl = resolved.signedUrl;
+            });
+          }
+        }
+      }
+    } catch (_) {
+      // Silently fail - avatar is optional
+    }
   }
 
   @override
@@ -94,6 +120,9 @@ class MainShellState extends State<MainShell> {
               selectedIndex: _selectedIndex,
               onSelected: switchToTab,
               light: Theme.of(context).brightness == Brightness.light,
+              profileImage: _selectedIndex == 4 && _profileAvatarUrl != null
+                  ? NetworkImage(_profileAvatarUrl!)
+                  : null,
             ),
           ),
         ],
@@ -190,43 +219,48 @@ class FloatingNavDock extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: RepaintBoundary(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(28),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: Container(
-                height: 68,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+                height: 64,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
                   color: light
-                      ? Colors.white.withValues(alpha: .86)
-                      : const Color(0xFF141B2E).withValues(alpha: .35),
-                  borderRadius: BorderRadius.circular(30),
+                      ? Colors.white.withValues(alpha: .9)
+                      : const Color(0xFF141B2E).withValues(alpha: .5),
+                  borderRadius: BorderRadius.circular(28),
                   border: Border.all(
                     color: light
                         ? context.cxLine
-                        : Colors.white.withValues(alpha: .1),
-                    width: 1.2,
+                        : Colors.white.withValues(alpha: .08),
+                    width: 1,
                   ),
                   boxShadow: light
                       ? [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: .12),
-                            blurRadius: 30,
-                            offset: const Offset(0, 14),
+                            color: Colors.black.withValues(alpha: .08),
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
                           ),
                         ]
                       : [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: .28),
-                            blurRadius: 34,
+                            color: Colors.black.withValues(alpha: .3),
+                            blurRadius: 32,
                             offset: const Offset(0, 16),
                           ),
                           BoxShadow(
-                            color: accent.withValues(alpha: .1),
-                            blurRadius: 28,
+                            color: accent.withValues(alpha: .08),
+                            blurRadius: 24,
                             offset: const Offset(0, 8),
                           ),
                         ],
@@ -286,13 +320,13 @@ class _NavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     const ink = Color(0xFF1B1B1F);
     final iconColor = light
-        ? (selected ? Colors.white : ink.withValues(alpha: .55))
-        : (selected ? Colors.white : Colors.white.withValues(alpha: .5));
+        ? (selected ? Colors.white : ink.withValues(alpha: .5))
+        : (selected ? Colors.white : Colors.white.withValues(alpha: .45));
 
     // Icon ↔ avatar swap fades gracefully (allowed FadeTransition) so the
     // Profile fallback is seamless.
     final Widget content = AnimatedSwitcher(
-      duration: const Duration(milliseconds: 260),
+      duration: const Duration(milliseconds: 240),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInOutCubic,
       transitionBuilder: (child, animation) =>
@@ -322,17 +356,17 @@ class _NavButton extends StatelessWidget {
         // Guarantees a 48×48 minimum touch target regardless of glyph tweaks.
         child: Center(
           child: AnimatedScale(
-            scale: selected ? 1.0 : 0.94,
-            duration: const Duration(milliseconds: 260),
+            scale: selected ? 1.0 : 0.92,
+            duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
+              duration: const Duration(milliseconds: 280),
               curve: Curves.easeInOutCubic,
-              width: 48,
-              height: 48,
+              width: 46,
+              height: 46,
               alignment: Alignment.center,
               // A gentle lift for the selected icon.
-              transform: Matrix4.translationValues(0, selected ? -4 : 0, 0),
+              transform: Matrix4.translationValues(0, selected ? -3 : 0, 0),
               transformAlignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -342,22 +376,22 @@ class _NavButton extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          accent.withValues(alpha: .32),
-                          accent.withValues(alpha: .16),
+                          accent.withValues(alpha: .28),
+                          accent.withValues(alpha: .12),
                         ],
                       )
                     : null,
                 border: selected && !light
-                    ? Border.all(color: accent.withValues(alpha: .55))
+                    ? Border.all(color: accent.withValues(alpha: .5))
                     : null,
                 boxShadow: selected
                     ? [
                         BoxShadow(
                           color: light
-                              ? Colors.black.withValues(alpha: .18)
-                              : accent.withValues(alpha: .45),
-                          blurRadius: 18,
-                          offset: const Offset(0, 6),
+                              ? Colors.black.withValues(alpha: .15)
+                              : accent.withValues(alpha: .4),
+                          blurRadius: 16,
+                          offset: const Offset(0, 5),
                         ),
                       ]
                     : null,
@@ -389,17 +423,26 @@ class _AvatarBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 28,
-      height: 28,
+      width: 26,
+      height: 26,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         image: DecorationImage(image: image, fit: BoxFit.cover),
         border: Border.all(
           color: selected
-              ? accent.withValues(alpha: .75)
-              : Colors.white.withValues(alpha: .22),
-          width: 1.4,
+              ? accent.withValues(alpha: .8)
+              : Colors.white.withValues(alpha: .18),
+          width: 1.5,
         ),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: accent.withValues(alpha: .3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
       ),
     );
   }

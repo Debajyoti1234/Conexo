@@ -3,37 +3,37 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'admin_data_service.dart';
+import 'admin_report_detail_screen.dart';
 import 'models/admin_overview_data.dart';
-import 'models/admin_user.dart';
+import 'models/admin_report.dart';
 import '../../app/router/app_router.dart';
-import '../../app/theme/app_theme.dart';
-import 'admin_user_detail_screen.dart';
 
-class AdminUsersScreen extends StatefulWidget {
-  const AdminUsersScreen({super.key});
+class AdminReportsScreen extends StatefulWidget {
+  const AdminReportsScreen({super.key});
 
   @override
-  State<AdminUsersScreen> createState() => _AdminUsersScreenState();
+  State<AdminReportsScreen> createState() => _AdminReportsScreenState();
 }
 
-class _AdminUsersScreenState extends State<AdminUsersScreen> {
+class _AdminReportsScreenState extends State<AdminReportsScreen> {
   final AdminDataService _dataService = const AdminDataService();
   final TextEditingController _searchCtrl = TextEditingController();
 
   String _search = '';
-  String _verification = '';
-  String _visibility = '';
+  String _statusFilter = '';
   String _sort = 'newest';
   int _limit = 25;
   int _offset = 0;
   int? _total;
 
   Timer? _debounce;
-  Future<AdminUserListPage>? _pageFuture;
+  late Future<AdminReportPage> _pageFuture;
+  late Future<AdminReportSummary> _summaryFuture;
 
   @override
   void initState() {
     super.initState();
+    _loadSummary();
     _pageFuture = _fetchPage().then((page) {
       _total = page.total;
       return page;
@@ -47,21 +47,24 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     super.dispose();
   }
 
-  Future<AdminUserListPage> _fetchPage() async {
+  void _loadSummary() {
+    _summaryFuture = _dataService.fetchReportSummary();
+  }
+
+  Future<AdminReportPage> _fetchPage() async {
     try {
-      return await _dataService.fetchUsers(
+      return await _dataService.fetchReports(
         limit: _limit,
         offset: _offset,
         search: _search,
-        verificationStatus: _verification,
-        profileVisibility: _visibility,
+        status: _statusFilter,
         sort: _sort,
       );
     } on AdminDataException {
       rethrow;
     } catch (_) {
       throw const AdminDataException(
-        'Unable to load users. Please try again.',
+        'Unable to load reports. Please try again.',
       );
     }
   }
@@ -82,13 +85,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     _debounce = Timer(const Duration(milliseconds: 350), _applyQuery);
   }
 
-  void _onVerificationChanged(String? value) {
-    _verification = value ?? '';
-    _applyQuery();
-  }
-
-  void _onVisibilityChanged(String? value) {
-    _visibility = value ?? '';
+  void _onStatusFilterChanged(String? value) {
+    _statusFilter = value ?? '';
     _applyQuery();
   }
 
@@ -122,44 +120,53 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     });
   }
 
-  void _retry() => _applyQuery();
+  void _retry() {
+    setState(() {
+      _loadSummary();
+      _pageFuture = _fetchPage().then((page) {
+        _total = page.total;
+        return page;
+      });
+    });
+  }
 
   void _clearAll() {
     _searchCtrl.clear();
     _search = '';
-    _verification = '';
-    _visibility = '';
+    _statusFilter = '';
     _sort = 'newest';
     _applyQuery();
   }
 
-  Future<void> _onRowTap(AdminUser user) async {
+  Future<void> _onView(AdminReport report) async {
     final changed = await Navigator.of(context).push<bool>(
-      AppRouter.slideRoute(AdminUserDetailScreen(userId: user.userId)),
+      AppRouter.slideRoute(
+        AdminReportDetailScreen(reportId: report.reportId),
+      ),
     );
     if (changed == true && mounted) {
-      _retry();
+      _loadSummary();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppTheme.darkTheme.scaffoldBackgroundColor,
+      color: const Color(0xFF0B1020),
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PageHeader(total: _total),
-          const SizedBox(height: 16),
-          _UsersToolbar(
+          const SizedBox(height: 20),
+          _buildSummaryCards(),
+          const SizedBox(height: 20),
+          _ReportsToolbar(
             searchCtrl: _searchCtrl,
             searchValue: _search,
             onSearchChanged: _onSearchChanged,
-            verificationValue: _verification,
-            onVerificationChanged: _onVerificationChanged,
-            visibilityValue: _visibility,
-            onVisibilityChanged: _onVisibilityChanged,
+            statusFilterValue: _statusFilter,
+            onStatusFilterChanged: _onStatusFilterChanged,
             sortValue: _sort,
             onSortChanged: _onSortChanged,
             onRefresh: _retry,
@@ -167,33 +174,33 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: FutureBuilder<AdminUserListPage>(
+            child: FutureBuilder<AdminReportPage>(
               future: _pageFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const _UsersLoadingState();
+                  return const _LoadingState();
                 }
                 if (snapshot.hasError) {
                   return _ErrorState(onRetry: _retry);
                 }
-                final users = snapshot.data?.users ?? const <AdminUser>[];
-                if (users.isEmpty) {
+                final reports = snapshot.data?.reports ?? const <AdminReport>[];
+                if (reports.isEmpty) {
                   return const _EmptyState();
                 }
                 final page = snapshot.data!;
                 return Column(
                   children: [
                     Expanded(
-                      child: _UsersTable(
-                        users: users,
-                        onRowTap: _onRowTap,
+                      child: _ReportsTable(
+                        reports: reports,
+                        onView: _onView,
                       ),
                     ),
                     _PaginationFooter(
                       offset: _offset,
                       limit: _limit,
                       total: page.total,
-                      visibleCount: users.length,
+                      visibleCount: reports.length,
                       onPrevious: _previousPage,
                       onNext: _nextPage,
                       onLimitChanged: _onLimitChanged,
@@ -205,6 +212,106 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSummaryCards() {
+    return FutureBuilder<AdminReportSummary>(
+      future: _summaryFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _skeletonCards();
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _summaryCards(
+            0, 0, 0, 0, 0,
+          );
+        }
+        final summary = snapshot.data!;
+        return _summaryCards(
+          summary.pending,
+          summary.reviewing,
+          summary.resolved,
+          summary.dismissed,
+          summary.actionTaken,
+        );
+      },
+    );
+  }
+
+  Widget _skeletonCards() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = (constraints.maxWidth / 180).floor().clamp(1, 5);
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: List.generate(
+            crossAxisCount,
+            (index) => SizedBox(
+              width: (constraints.maxWidth - (crossAxisCount - 1) * 16) / crossAxisCount,
+              child: const _SkeletonCard(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _summaryCards(
+    int pending,
+    int reviewing,
+    int resolved,
+    int dismissed,
+    int actionTaken,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const count = 5;
+        final crossAxisCount = (constraints.maxWidth / 180).floor().clamp(1, count);
+        final cardWidth = (constraints.maxWidth - (crossAxisCount - 1) * 16) / crossAxisCount;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [
+            _SummaryCard(
+              width: cardWidth,
+              icon: Icons.pending_actions_outlined,
+              iconColor: const Color(0xFFF59E0B),
+              label: 'Pending',
+              value: '$pending',
+            ),
+            _SummaryCard(
+              width: cardWidth,
+              icon: Icons.visibility_outlined,
+              iconColor: const Color(0xFF3B82F6),
+              label: 'Reviewing',
+              value: '$reviewing',
+            ),
+            _SummaryCard(
+              width: cardWidth,
+              icon: Icons.check_circle_outline,
+              iconColor: const Color(0xFF22C58E),
+              label: 'Resolved',
+              value: '$resolved',
+            ),
+            _SummaryCard(
+              width: cardWidth,
+              icon: Icons.dismiss_small_rounded,
+              iconColor: const Color(0xFF6B7280),
+              label: 'Dismissed',
+              value: '$dismissed',
+            ),
+            _SummaryCard(
+              width: cardWidth,
+              icon: Icons.gavel_rounded,
+              iconColor: const Color(0xFF8B5CF6),
+              label: 'Action Taken',
+              value: '$actionTaken',
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -223,7 +330,7 @@ class _PageHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: const [
             Text(
-              'Users',
+              'Reports',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -233,7 +340,7 @@ class _PageHeader extends StatelessWidget {
             ),
             SizedBox(height: 2),
             Text(
-              'Manage and inspect Conexo user accounts',
+              'Review user-submitted safety reports and moderation status.',
               style: TextStyle(
                 fontSize: 13,
                 color: Color(0xFF7E88A8),
@@ -244,8 +351,8 @@ class _PageHeader extends StatelessWidget {
         const Spacer(),
         Text(
           total == null
-              ? '— users'
-              : '$total ${total == 1 ? 'user' : 'users'}',
+              ? '— entries'
+              : '$total ${total == 1 ? 'entry' : 'entries'}',
           style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -257,15 +364,139 @@ class _PageHeader extends StatelessWidget {
   }
 }
 
-class _UsersToolbar extends StatelessWidget {
-  const _UsersToolbar({
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.width,
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+  });
+
+  final double width;
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 120),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF151B2E),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF29324A)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.16),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: iconColor.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Icon(
+                icon,
+                size: 21,
+                color: iconColor,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.7,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF8E98B8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151B2E),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF29324A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const Spacer(),
+          Container(
+            width: 40,
+            height: 28,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: 100,
+            height: 14,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportsToolbar extends StatelessWidget {
+  const _ReportsToolbar({
     required this.searchCtrl,
     required this.searchValue,
     required this.onSearchChanged,
-    required this.verificationValue,
-    required this.onVerificationChanged,
-    required this.visibilityValue,
-    required this.onVisibilityChanged,
+    required this.statusFilterValue,
+    required this.onStatusFilterChanged,
     required this.sortValue,
     required this.onSortChanged,
     required this.onRefresh,
@@ -275,33 +506,27 @@ class _UsersToolbar extends StatelessWidget {
   final TextEditingController searchCtrl;
   final String searchValue;
   final ValueChanged<String> onSearchChanged;
-  final String verificationValue;
-  final ValueChanged<String?> onVerificationChanged;
-  final String visibilityValue;
-  final ValueChanged<String?> onVisibilityChanged;
+  final String statusFilterValue;
+  final ValueChanged<String?> onStatusFilterChanged;
   final String sortValue;
   final ValueChanged<String?> onSortChanged;
   final VoidCallback onRefresh;
   final VoidCallback onClear;
 
-  static const _verificationOptions = <DropdownMenuItem<String>>[
-    DropdownMenuItem(value: '', child: Text('All')),
-    DropdownMenuItem(value: 'verified', child: Text('Verified')),
+  static const _statusFilterOptions = <DropdownMenuItem<String>>[
+    DropdownMenuItem(value: '', child: Text('All Statuses')),
     DropdownMenuItem(value: 'pending', child: Text('Pending')),
-    DropdownMenuItem(value: 'notVerified', child: Text('Not Verified')),
-  ];
-
-  static const _visibilityOptions = <DropdownMenuItem<String>>[
-    DropdownMenuItem(value: '', child: Text('All')),
-    DropdownMenuItem(value: 'public', child: Text('Public')),
-    DropdownMenuItem(value: 'private', child: Text('Private')),
+    DropdownMenuItem(value: 'reviewing', child: Text('Reviewing')),
+    DropdownMenuItem(value: 'resolved', child: Text('Resolved')),
+    DropdownMenuItem(value: 'dismissed', child: Text('Dismissed')),
+    DropdownMenuItem(value: 'action_taken', child: Text('Action Taken')),
   ];
 
   static const _sortOptions = <DropdownMenuItem<String>>[
     DropdownMenuItem(value: 'newest', child: Text('Newest')),
     DropdownMenuItem(value: 'oldest', child: Text('Oldest')),
-    DropdownMenuItem(value: 'name_asc', child: Text('Name A–Z')),
-    DropdownMenuItem(value: 'name_desc', child: Text('Name Z–A')),
+    DropdownMenuItem(value: 'updated_newest', child: Text('Recently Updated')),
+    DropdownMenuItem(value: 'updated_oldest', child: Text('Oldest Updated')),
   ];
 
   @override
@@ -318,7 +543,7 @@ class _UsersToolbar extends StatelessWidget {
             onChanged: onSearchChanged,
             style: const TextStyle(color: Colors.white, fontSize: 13),
             decoration: InputDecoration(
-              hintText: 'Search by name, email, or ID',
+              hintText: 'Search by reporter, reported, type, or ID',
               hintStyle: const TextStyle(color: Color(0xFF7E88A8)),
               prefixIcon: const Icon(
                 Icons.search_rounded,
@@ -330,30 +555,24 @@ class _UsersToolbar extends StatelessWidget {
           ),
         ),
         _StyledDropdown<String>(
-          width: 160,
-          value: verificationValue,
-          items: _verificationOptions,
-          onChanged: onVerificationChanged,
-        ),
-        _StyledDropdown<String>(
-          width: 140,
-          value: visibilityValue,
-          items: _visibilityOptions,
-          onChanged: onVisibilityChanged,
-        ),
-        _StyledDropdown<String>(
           width: 170,
+          value: statusFilterValue,
+          items: _statusFilterOptions,
+          onChanged: onStatusFilterChanged,
+        ),
+        _StyledDropdown<String>(
+          width: 180,
           value: sortValue,
           items: _sortOptions,
           onChanged: onSortChanged,
         ),
         const SizedBox(width: 4),
-        _IconButton(
+        _TextIconButton(
           icon: Icons.refresh_rounded,
           label: 'Refresh',
           onPressed: onRefresh,
         ),
-        _IconButton(
+        _TextIconButton(
           icon: Icons.filter_alt_off_rounded,
           label: 'Clear',
           onPressed: onClear,
@@ -403,8 +622,8 @@ class _StyledDropdown<T> extends StatelessWidget {
   }
 }
 
-class _IconButton extends StatelessWidget {
-  const _IconButton({
+class _TextIconButton extends StatelessWidget {
+  const _TextIconButton({
     required this.icon,
     required this.label,
     required this.onPressed,
@@ -433,14 +652,14 @@ class _IconButton extends StatelessWidget {
   }
 }
 
-class _UsersTable extends StatelessWidget {
-  const _UsersTable({
-    required this.users,
-    required this.onRowTap,
+class _ReportsTable extends StatelessWidget {
+  const _ReportsTable({
+    required this.reports,
+    required this.onView,
   });
 
-  final List<AdminUser> users;
-  final ValueChanged<AdminUser> onRowTap;
+  final List<AdminReport> reports;
+  final ValueChanged<AdminReport> onView;
 
   @override
   Widget build(BuildContext context) {
@@ -451,12 +670,13 @@ class _UsersTable extends StatelessWidget {
         border: Border.all(color: const Color(0xFF29324A)),
       ),
       child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
         child: DataTable(
           columnSpacing: 20,
           horizontalMargin: 16,
           headingRowHeight: 44,
           dataRowMinHeight: 44,
-          dataRowMaxHeight: 52,
+          dataRowMaxHeight: 56,
           showBottomBorder: true,
           headingTextStyle:
               const TextStyle(color: Color(0xFF8E98B8), fontSize: 12),
@@ -470,45 +690,45 @@ class _UsersTable extends StatelessWidget {
             return null;
           }),
           columns: const <DataColumn>[
-            DataColumn(label: Text('User')),
-            DataColumn(label: Text('Email')),
-            DataColumn(label: Text('Verification')),
-            DataColumn(label: Text('Visibility')),
-            DataColumn(label: Text('Completion')),
-            DataColumn(label: Text('Activity')),
-            DataColumn(label: Text('Location')),
-            DataColumn(label: Text('Connections')),
-            DataColumn(label: Text('Reports')),
-            DataColumn(label: Text('Registered')),
+            DataColumn(label: Text('Report')),
+            DataColumn(label: Text('Reporter')),
+            DataColumn(label: Text('Reported User')),
+            DataColumn(label: Text('Reason')),
+            DataColumn(label: Text('Status')),
+            DataColumn(label: Text('Created')),
+            DataColumn(label: Text('Updated')),
+            DataColumn(label: Text('Actions')),
           ],
           rows: [
-            for (final user in users)
+            for (final report in reports)
               DataRow(
-                onSelectChanged: (_) => onRowTap(user),
                 cells: <DataCell>[
-                  DataCell(_UserCell(user: user)),
-                  DataCell(_cell(user.email)),
+                  DataCell(_idCell(report.reportId)),
+                  DataCell(_cell(report.reporterNameSnapshot ?? '—')),
+                  DataCell(_cell(report.reportedNameSnapshot ?? '—')),
+                  DataCell(_cell(report.reportType)),
                   DataCell(_StatusCell(
-                    label: _verificationLabel(user),
-                    dotColor: _verificationDotColor(user),
+                    label: _reportStatusLabel(report.status),
+                    dotColor: _reportStatusColor(report.status),
                   )),
-                  DataCell(_StatusCell(
-                    label: _visibilityLabel(user),
-                    dotColor: _visibilityDotColor(user),
-                  )),
-                  DataCell(_StatusCell(
-                    label: user.profileCompleted
-                        ? 'Completed'
-                        : 'Incomplete',
-                    dotColor: user.profileCompleted
-                        ? const Color(0xFF22C58E)
-                        : const Color(0xFF4B5563),
-                  )),
-                  DataCell(_cell(_timeAgo(user.lastActiveAt))),
-                  DataCell(_cell(_locationStatusText(user))),
-                  DataCell(_cell('${user.connectionCount}')),
-                  DataCell(_cell('${user.reportCount}')),
-                  DataCell(_cell(_formatDate(user.registrationDate))),
+                  DataCell(_cell(_formatDate(report.createdAt))),
+                  DataCell(_cell(_timeAgo(report.updatedAt))),
+                  DataCell(
+                    TextButton(
+                      onPressed: () => onView(report),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      child: const Text(
+                        'View',
+                        style: TextStyle(
+                          color: Color(0xFF9D82FF),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
           ],
@@ -520,52 +740,18 @@ class _UsersTable extends StatelessWidget {
   static Widget _cell(String? value) => Text(
         value ?? '—',
         style: const TextStyle(color: Color(0xFFD0D7F4)),
+        overflow: TextOverflow.ellipsis,
       );
-}
 
-class _UserCell extends StatelessWidget {
-  const _UserCell({required this.user});
-
-  final AdminUser user;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = user.displayName;
-    final display = (name == null || name.isEmpty) ? 'Unnamed user' : name;
-    final idFragment = user.userId.isNotEmpty
-        ? user.userId.substring(0, user.userId.length >= 8 ? 8 : user.userId.length)
-        : '';
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final canShowId = constraints.maxWidth > 120;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              display,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              canShowId ? '· $idFragment' : '· ····',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF8E98B8),
-                fontSize: 11,
-              ),
-            ),
-          ],
-        );
-      },
+  static Widget _idCell(String id) {
+    final display = id.length >= 8 ? id.substring(0, 8) : id;
+    return Text(
+      display,
+      style: const TextStyle(
+        color: Color(0xFFD0D7F4),
+        fontFamily: 'RobotoMono',
+        fontSize: 13,
+      ),
     );
   }
 }
@@ -608,8 +794,8 @@ class _StatusCell extends StatelessWidget {
   }
 }
 
-class _UsersLoadingState extends StatelessWidget {
-  const _UsersLoadingState();
+class _LoadingState extends StatelessWidget {
+  const _LoadingState();
 
   @override
   Widget build(BuildContext context) {
@@ -634,13 +820,22 @@ class _UsersLoadingState extends StatelessWidget {
           ...List.generate(
             7,
             (index) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Wrap(
                 spacing: 20,
                 children: [
-                  for (int i = 0; i < 10; i++)
+                  for (int i = 0; i < 8; i++)
                     Container(
-                      width: i == 0 ? 180 : i == 1 ? 200 : 90,
+                      width: i == 0
+                          ? 80
+                          : i == 1
+                              ? 140
+                              : i == 2
+                                  ? 140
+                                  : i == 3
+                                      ? 120
+                                      : 100,
                       height: 13,
                       decoration: BoxDecoration(
                         color: shimmer,
@@ -673,7 +868,7 @@ class _EmptyState extends StatelessWidget {
           ),
           SizedBox(height: 16),
           Text(
-            'No users found',
+            'No reports found',
             style: TextStyle(
               fontSize: 16,
               color: Color(0xFF9AA3C2),
@@ -726,7 +921,7 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Unable to load users',
+              'Unable to load reports',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -754,10 +949,8 @@ class _ErrorState extends StatelessWidget {
                 backgroundColor: const Color(0xFF8B5CF6),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 14,
-                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -802,13 +995,17 @@ class _PaginationFooter extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF151B2E),
         border: Border(top: BorderSide(color: const Color(0xFF29324A))),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+        borderRadius:
+            BorderRadius.vertical(bottom: Radius.circular(16)),
       ),
       child: Row(
         children: [
           Text(
             '$start–$end of $totalStr',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF9AA3C2)),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF9AA3C2),
+            ),
           ),
           const Spacer(),
           _StyledDropdown<int>(
@@ -861,9 +1058,7 @@ class _IconToggle extends StatelessWidget {
       icon: Icon(
         icon,
         size: 16,
-        color: enabled
-            ? const Color(0xFFD0D7F4)
-            : const Color(0xFF4B5563),
+        color: enabled ? const Color(0xFFD0D7F4) : const Color(0xFF4B5563),
       ),
       label: Text(
         label,
@@ -904,60 +1099,35 @@ String _timeAgo(DateTime? date) {
   return _formatDate(date);
 }
 
-String _locationStatusText(AdminUser user) {
-  final status = user.locationStatus;
-  final updatedAt = user.locationUpdatedAt;
+String _reportStatusLabel(String status) {
   switch (status) {
-    case 'live':
-      return 'Live · ${_timeAgo(updatedAt)}';
-    case 'stale':
-      return 'Stale · ${_timeAgo(updatedAt)}';
-    default:
-      return '—';
-  }
-}
-
-String _verificationLabel(AdminUser user) {
-  switch (user.verificationStatus) {
-    case 'verified':
-      return 'Verified';
     case 'pending':
       return 'Pending';
-    case 'notVerified':
-      return 'Not Verified';
+    case 'reviewing':
+      return 'Reviewing';
+    case 'resolved':
+      return 'Resolved';
+    case 'dismissed':
+      return 'Dismissed';
+    case 'action_taken':
+      return 'Action Taken';
     default:
       return '—';
   }
 }
 
-Color? _verificationDotColor(AdminUser user) {
-  switch (user.verificationStatus) {
-    case 'verified':
-      return const Color(0xFF22C58E);
+Color? _reportStatusColor(String status) {
+  switch (status) {
     case 'pending':
       return const Color(0xFFF59E0B);
-    default:
-      return null;
-  }
-}
-
-String _visibilityLabel(AdminUser user) {
-  switch (user.profileVisibility) {
-    case 'public':
-      return 'Public';
-    case 'private':
-      return 'Private';
-    default:
-      return '—';
-  }
-}
-
-Color? _visibilityDotColor(AdminUser user) {
-  switch (user.profileVisibility) {
-    case 'public':
+    case 'reviewing':
       return const Color(0xFF3B82F6);
-    case 'private':
+    case 'resolved':
+      return const Color(0xFF22C58E);
+    case 'dismissed':
       return const Color(0xFF6B7280);
+    case 'action_taken':
+      return const Color(0xFF8B5CF6);
     default:
       return null;
   }

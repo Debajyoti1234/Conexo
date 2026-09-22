@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'admin_data_service.dart';
-import 'models/admin_user_detail.dart';
 import 'models/admin_overview_data.dart';
+import 'models/admin_user_detail.dart';
 import 'widgets/admin_location_map.dart';
 import '../profile/profile_photo_resolver.dart';
 import '../../app/theme/app_theme.dart';
@@ -23,6 +23,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   final AdminDataService _dataService = const AdminDataService();
 
   Future<AdminUserDetail?>? _detailFuture;
+  bool _verificationChanged = false;
 
   @override
   void initState() {
@@ -50,9 +51,14 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
 
   void _retry() => _load();
 
+  void _onVerificationAction() {
+    setState(() => _verificationChanged = true);
+    _load();
+  }
+
   void _back() {
     if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(_verificationChanged);
     }
   }
 
@@ -84,7 +90,10 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                 if (detail == null) {
                   return const _NotFoundState();
                 }
-                return _DetailBody(user: detail);
+                return _DetailBody(
+                  user: detail,
+                  onVerificationAction: _onVerificationAction,
+                );
               },
             ),
           ),
@@ -151,9 +160,13 @@ class _DetailTopBar extends StatelessWidget {
 }
 
 class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.user});
+  const _DetailBody({
+    required this.user,
+    required this.onVerificationAction,
+  });
 
   final AdminUserDetail user;
+  final VoidCallback onVerificationAction;
 
   @override
   Widget build(BuildContext context) {
@@ -199,7 +212,10 @@ class _DetailBody extends StatelessWidget {
         const SizedBox(height: 16),
         _PhotosCard(user: user),
         const SizedBox(height: 16),
-        _VerificationCard(user: user),
+        _VerificationCard(
+          user: user,
+          onActionComplete: onVerificationAction,
+        ),
       ];
 
   List<Widget> _rightColumnChildren() => [
@@ -457,43 +473,322 @@ class _PhotosCardState extends State<_PhotosCard> {
   }
 }
 
-class _VerificationCard extends StatelessWidget {
-  const _VerificationCard({required this.user});
+class _VerificationCard extends StatefulWidget {
+  const _VerificationCard({
+    required this.user,
+    required this.onActionComplete,
+  });
 
   final AdminUserDetail user;
+  final VoidCallback onActionComplete;
+
+  @override
+  State<_VerificationCard> createState() => _VerificationCardState();
+}
+
+class _VerificationCardState extends State<_VerificationCard> {
+  bool _approving = false;
+
+  Future<void> _approve() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ApproveVerificationDialog(user: widget.user),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _approving = true);
+    try {
+      final result = await const AdminDataService().approveVerification(
+        targetUserId: widget.user.userId,
+        expectedStatus: widget.user.verificationStatus ?? '',
+      );
+      if (!mounted) return;
+      setState(() => _approving = false);
+
+      if (result.success) {
+        widget.onActionComplete();
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: const [
+                    Icon(Icons.check_circle_rounded,
+                        color: Color(0xFF22C58E), size: 18),
+                    SizedBox(width: 8),
+                    Text('Verification approved'),
+                  ],
+                ),
+                backgroundColor: const Color(0xFF151B2E),
+                behavior: SnackBarBehavior.floating,
+                width: 320,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(result.message),
+                backgroundColor: const Color(0xFF4B5463),
+                behavior: SnackBarBehavior.floating,
+                width: 320,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+        }
+      }
+    } on AdminDataException catch (e) {
+      if (!mounted) return;
+      setState(() => _approving = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: const Color(0xFF4B5463),
+            behavior: SnackBarBehavior.floating,
+            width: 320,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _approving = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Unable to update verification. Please try again.'),
+            backgroundColor: const Color(0xFF4B5463),
+            behavior: SnackBarBehavior.floating,
+            width: 320,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final status = _verificationLabel(user);
-    final dotColor = _verificationDot(user);
+    final status = _verificationLabel(widget.user);
+    final dotColor = _verificationDot(widget.user);
+    final isPending = widget.user.verificationStatus == 'pending';
 
     return _DetailCard(
       title: 'Verification',
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (dotColor != null) ...[
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: dotColor,
-                shape: BoxShape.circle,
+          Row(
+            children: [
+              if (dotColor != null) ...[
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: dotColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
+              Text(
+                status,
+                style: const TextStyle(
+                  color: Color(0xFFD0D7F4),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _InfoRow(
+            label: 'Last updated',
+            value: _formatDateTime(widget.user.profileUpdatedAt),
+          ),
+          const SizedBox(height: 8),
+          if (isPending) ...[
+            const SizedBox(height: 8),
+            _ApproveButton(
+              onPressed: _approving ? null : _approve,
+              loading: _approving,
+            ),
+          ],
+          if (!isPending)
+            Text(
+              'Face verification is managed through the consumer app.\n'
+              'Not Verified is the default state (not an explicit rejection).',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF7E88A8),
+                height: 1.4,
               ),
             ),
-            const SizedBox(width: 10),
-          ],
-          Text(
-            status,
-            style: const TextStyle(
-              color: Color(0xFFD0D7F4),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
         ],
       ),
     );
   }
+}
+
+class _ApproveButton extends StatelessWidget {
+  const _ApproveButton({
+    required this.onPressed,
+    required this.loading,
+  });
+
+  final VoidCallback? onPressed;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: loading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.verified_rounded, size: 18),
+        label: Text(
+          loading ? 'Approving...' : 'Approve Verification',
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF8B5CF6),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ApproveVerificationDialog extends StatelessWidget {
+  const _ApproveVerificationDialog({required this.user});
+
+  final AdminUserDetail user;
+
+  String get _name {
+    final name = user.displayName;
+    return (name == null || name.isEmpty) ? 'Unnamed user' : name;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF151B2E),
+      surfaceTintColor: const Color(0xFF151B2E),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+      contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      actionsPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      title: const Text(
+        'Approve Verification',
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _name,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFD0D7F4),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _dialogRow('Current status', 'Pending'),
+          _dialogRow('New status', 'Verified'),
+          const SizedBox(height: 8),
+          const Text(
+            'This will mark the user as verified. The user will '
+            'appear as verified in discovery and their profile.\n\n'
+            'This action is auditable and cannot be undone from '
+            'the Admin console.',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: Color(0xFF7E88A8),
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: Color(0xFF9AA3C2)),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF8B5CF6),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: const Text('Approve'),
+        ),
+      ],
+    );
+  }
+
+  Widget _dialogRow(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Text(
+              '$label:',
+              style: const TextStyle(color: Color(0xFF7E88A8), fontSize: 13),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              value,
+              style: const TextStyle(
+                color: Color(0xFFD0D7F4),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _AccountCard extends StatelessWidget {

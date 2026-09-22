@@ -11,6 +11,7 @@ import 'create_plan_data.dart';
 import 'create_plan_preview.dart';
 import 'create_plan_sections.dart';
 import 'create_plan_widgets.dart';
+import 'plan_details_widgets.dart';
 import 'supabase_plan_repository.dart';
 
 /// The premium Create Plan flow.
@@ -567,24 +568,37 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     final isEditing = widget.existingPlan != null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 18),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            isEditing ? 'Edit Plan' : 'Create Plan',
-            style: const TextStyle(
-              fontSize: 30,
-              fontFamily: 'Fraunces',
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.6,
-            ),
+          CircleGlassButton(
+            icon: Icons.arrow_back_rounded,
+            onTap: () => _handleBack(),
+            semanticLabel: 'Back',
           ),
-          const SizedBox(height: 4),
-          Text(
-            isEditing
-                ? 'Update your plan details.'
-                : 'Create a plan. Meet nearby people. Make memories.',
-            style: TextStyle(fontSize: 14, color: context.cxSoft),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isEditing ? 'Edit Plan' : 'Create Plan',
+                  style: const TextStyle(
+                    fontSize: 30,
+                    fontFamily: 'Fraunces',
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.6,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isEditing
+                      ? 'Update your plan details.'
+                      : 'Create a plan. Meet nearby people. Make memories.',
+                  style: TextStyle(fontSize: 14, color: context.cxSoft),
+                ),
+              ],
+            ),
           ),
         ],
       ),

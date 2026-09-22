@@ -16,7 +16,7 @@ import '../../core/supabase/supabase_client.dart';
 import '../admin/admin_access_denied_screen.dart';
 import '../admin/admin_login_screen.dart';
 import '../admin/admin_placeholder_screen.dart';
-import '../onboarding_screen.dart';
+import '../entry_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -137,7 +137,7 @@ class _SplashScreenState extends State<SplashScreen>
       if (!hasSession) {
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
-          AppRouter.slideRoute(const OnboardingScreen()),
+          AppRouter.slideRoute(const EntryScreen()),
           (route) => false,
         );
         return;

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../app/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/auth_service.dart';
@@ -421,7 +423,7 @@ class ConnectionsViewModel {
   }
 
   Color _colorForName(String name) {
-    if (name.isEmpty) return const Color(0xFF8B5CF6);
+    if (name.isEmpty) return Color(0xFF1B1B1F);
     var hash = 0;
     for (var i = 0; i < name.length; i++) {
       hash = name.codeUnitAt(i) + ((hash << 5) - hash);

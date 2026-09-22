@@ -43,6 +43,32 @@ Route<T> verifyFadeSlideRoute<T>(Widget page) {
   );
 }
 
+/// Route to the manual verification submission screen.
+Route<T> manualVerificationRoute<T>(Widget page) {
+  return PageRouteBuilder<T>(
+    transitionDuration: const Duration(milliseconds: 420),
+    reverseTransitionDuration: const Duration(milliseconds: 320),
+    pageBuilder: (_, _, _) => page,
+    transitionsBuilder: (context, animation, secondary, child) {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInOutCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(curved),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 /// Local SVG asset paths (bundled under assets/verification/).
 class VerifyAsset {
   const VerifyAsset._();
@@ -71,8 +97,8 @@ class VerifyGlyph extends StatelessWidget {
     this.asset, {
     super.key,
     this.size = 24,
-    Color? color,
-  }) : color = color;
+    this.color,
+  });
 
   final String asset;
   final double size;

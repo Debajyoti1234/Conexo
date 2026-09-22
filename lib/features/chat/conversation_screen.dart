@@ -1707,7 +1707,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           onSend: _sendMessage,
           conversationId: widget.conversation.id,
           onImageSelected: widget.conversation.isGroup ? () => _handleImagePick() : null,
-          onVoiceSelected: widget.conversation.isGroup ? (storagePath) => _sendVoiceMessage(storagePath) : null,
+          onVoiceSelected: (storagePath) => _sendVoiceMessage(storagePath),
           onGifSelected: () => _handleGifSelected(),
           sendingGif: _sendingGif,
           sendingGifUrl: _sendingGifUrl,
@@ -1990,7 +1990,7 @@ class _MessageList extends StatelessWidget {
           resolveImage: resolveImage,
           onImageTap: () => onImageTap?.call(msg),
         );
-      case MessageType.gif:
+case MessageType.gif:
         return _SwipeableMessageBubble(
           message: msg,
           showSenderName: showSenderNames && msg.author == MessageAuthor.them,
@@ -2004,6 +2004,7 @@ class _MessageList extends StatelessWidget {
           totalLikes: 0,
           likers: const [],
           resolveImage: resolveImage,
+          onImageTap: () => onImageTap?.call(msg),
           isGif: true,
         );
       case MessageType.voice:

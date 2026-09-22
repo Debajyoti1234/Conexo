@@ -252,102 +252,106 @@ class _MessageBubbleState extends State<MessageBubble> {
     final hasCaption = widget.message.text.isNotEmpty;
 
     Widget imageWidget;
-    if (_imageLoading) {
-      imageWidget = Container(
-        height: 180,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: context.cxInk.withValues(alpha: .06),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(context.cxMuted),
+if (_imageLoading) {
+      imageWidget = ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 260, maxHeight: 300),
+        child: Container(
+          height: 180,
+          decoration: BoxDecoration(
+            color: context.cxInk.withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(context.cxMuted),
+              ),
             ),
           ),
         ),
       );
     } else if (_imageError || _imageProvider == null) {
-      imageWidget = Container(
-        height: 120,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: context.cxInk.withValues(alpha: .06),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.broken_image_rounded,
-                size: 28,
-                color: context.cxMuted.withValues(alpha: .6),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Failed to load image',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: context.cxMuted.withValues(alpha: .7),
+      imageWidget = ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 260, maxHeight: 300),
+        child: Container(
+          height: 120,
+          decoration: BoxDecoration(
+            color: context.cxInk.withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.broken_image_rounded,
+                  size: 28,
+                  color: context.cxMuted.withValues(alpha: .6),
                 ),
-              ),
-            ],
+                const SizedBox(height: 6),
+                Text(
+                  'Failed to load image',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.cxMuted.withValues(alpha: .7),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
     } else {
-      imageWidget = GestureDetector(
+      imageWidget =GestureDetector(
         onTap: widget.onImageTap,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image(
-            image: _imageProvider!,
-            width: double.infinity,
-            gaplessPlayback: widget.isGif,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return Container(
-                height: 180,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: context.cxInk.withValues(alpha: .06),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(context.cxMuted),
+          borderRadius: BorderRadius.circular(16),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260, maxHeight: 300),
+            child: Image(
+              image: _imageProvider!,
+              fit: BoxFit.contain,
+              gaplessPlayback: widget.isGif,
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  height: 180,
+                  decoration: BoxDecoration(
+                    color: context.cxInk.withValues(alpha: .06),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(context.cxMuted),
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                height: 120,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: context.cxInk.withValues(alpha: .06),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.broken_image_rounded,
-                    size: 28,
-                    color: context.cxMuted.withValues(alpha: .6),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: context.cxInk.withValues(alpha: .06),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ),
-              );
-            },
+                  child: Center(
+                    child: Icon(
+                      Icons.broken_image_rounded,
+                      size: 28,
+                      color: context.cxMuted.withValues(alpha: .6),
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
         ),
       );

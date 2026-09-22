@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import '../../app/theme/app_theme.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -295,7 +297,7 @@ abstract final class PushNotificationService {
       importance: Importance.high,
       priority: Priority.high,
       icon: 'ic_notification',
-      color: const Color(0xFF7C3AED),
+      color: Color(0xFF1B1B1F),
       category: AndroidNotificationCategory.message,
       styleInformation: BigTextStyleInformation(body),
     );
@@ -332,7 +334,7 @@ abstract final class PushNotificationService {
       importance: Importance.high,
       priority: Priority.high,
       icon: 'ic_notification',
-      color: const Color(0xFF7C3AED),
+      color: Color(0xFF1B1B1F),
       category: AndroidNotificationCategory.message,
       styleInformation: BigTextStyleInformation(body),
     );

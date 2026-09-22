@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
@@ -132,11 +131,8 @@ class _DiscoveryPreferencesScreenState extends State<DiscoveryPreferencesScreen>
 
   @override
   Widget build(BuildContext context) {
-    final light = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
-      backgroundColor: kIsWeb
-          ? (light ? AppPalette.canvas : Colors.black)
-          : Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Stack(
           children: [

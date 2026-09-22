@@ -5,6 +5,8 @@ import 'admin_overview_screen.dart';
 import 'admin_sidebar.dart';
 import 'admin_top_header.dart';
 import 'admin_users_screen.dart';
+import 'admin_verification_screen.dart';
+import 'admin_manual_verification_screen.dart';
 import '../../app/theme/app_theme.dart';
 
 /// Admin Dashboard Shell — web-only private administration area.
@@ -29,6 +31,7 @@ class _AdminShellState extends State<AdminShell> {
     'Dashboard',
     'Users',
     'Verification',
+    'Manual Verification',
     'Reports',
     'Connections',
     'Rooms',
@@ -41,6 +44,7 @@ class _AdminShellState extends State<AdminShell> {
     Icons.dashboard_outlined,
     Icons.people_outlined,
     Icons.verified_user_outlined,
+    Icons.assignment_turned_in,
     Icons.report_outlined,
     Icons.hub_outlined,
     Icons.meeting_room_outlined,
@@ -71,6 +75,10 @@ class _AdminShellState extends State<AdminShell> {
         return const AdminOverviewScreen();
       case 1:
         return const AdminUsersScreen();
+      case 2:
+        return const AdminVerificationScreen();
+      case 3:
+        return const AdminManualVerificationScreen();
       default:
         return _PlaceholderSection(title: _sectionTitles[index]);
     }

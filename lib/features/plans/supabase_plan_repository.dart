@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
+import '../../app/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/supabase/auth_service.dart';
@@ -1031,7 +1033,7 @@ class SupabasePlanRepository implements PlanRepository {
       Set<String> friendsJoinedPlanIds = const <String>{}}) {
     final now = DateTime.now();
     final mood = moodByLabel(plan.mood);
-    final accent = mood?.accent ?? const Color(0xFF8B5CF6);
+    final accent = mood?.accent ?? Color(0xFF1B1B1F);
     final effectiveMood = plan.mood.isEmpty ? 'Plan' : plan.mood;
     final moodEmoji = mood?.emoji ?? '✨';
 

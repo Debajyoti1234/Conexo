@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -84,8 +83,7 @@ class _CoverSectionState extends State<CoverSection> {
         );
         return;
       }
-
-      final rawBytes = await File(picked.path).readAsBytes();
+      final rawBytes = await picked.readAsBytes();
       final normalized = await ConexoImageNormalizer.normalize(rawBytes);
       final draftId = widget.draft.draftId;
       final storagePath = 'plans/${user.id}/$draftId/cover.${normalized.extension}';

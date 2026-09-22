@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../home_discovery_animations.dart';
@@ -14,6 +13,7 @@ import 'session_aware_profile_repository.dart';
 import 'verification_dialogs.dart';
 import 'verification/verification_guidance_screen.dart';
 import 'verification/verification_theme.dart';
+import 'verification/manual_verification_service.dart';
 
 /// The premium Privacy & Verification module (Phase 4.3).
 ///
@@ -86,6 +86,14 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
       _verificationStatus = profile.verificationStatus;
       _loading = false;
     });
+
+    final pending = await ManualVerificationService().checkExistingPending();
+    if (!mounted) return;
+    if (pending != null) {
+      setState(() {
+        _verificationStatus = VerificationStatus.pending;
+      });
+    }
   }
 
   /// True when the editable visibility differs from what was loaded.
@@ -279,11 +287,8 @@ class _PrivacyVerificationScreenState extends State<PrivacyVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final light = Theme.of(context).brightness == Brightness.light;
     return Scaffold(
-      backgroundColor: kIsWeb
-          ? (light ? AppPalette.canvas : Colors.black)
-          : Colors.transparent,
+      backgroundColor: context.cxCanvas,
       body: SafeArea(
         child: Stack(
           children: [
